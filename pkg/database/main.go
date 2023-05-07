@@ -15,7 +15,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -44,20 +43,6 @@ func Connect(o Options) error {
 		URI = o.URI
 	}
 
-	conn, err := pgx.Connect(context.Background(), URI)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
-		os.Exit(1)
-	}
-	defer conn.Close(context.Background())
-
-	err = RunMigrationUp(URI)
-	if err != nil {
-		return err
-	}
-
-	logrus.Infoln("database connected")
-
 	poolConfig, err := pgxpool.ParseConfig(URI)
 	if err != nil {
 		log.Fatalln("Unable to parse DATABASE_URL:", err)
@@ -68,10 +53,12 @@ func Connect(o Options) error {
 		log.Fatalln("Unable to create connection pool:", err)
 	}
 
+	logrus.Infoln("database connected")
+
 	return nil
 }
 
-func RunMigrationUp(URI string) error {
+func RunMigrationUp() error {
 	logrus.Debugln("Running Database migration")
 	db, err := sql.Open("postgres", URI)
 	if err != nil {

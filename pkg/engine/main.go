@@ -28,6 +28,11 @@ func (e *Engine) Start() {
 		os.Exit(1)
 	}
 
+	if err := database.RunMigrationUp(); err != nil {
+		logrus.Errorln(err)
+		os.Exit(1)
+	}
+
 	s := server.Server{
 		Options: e.Options.Server,
 	}
