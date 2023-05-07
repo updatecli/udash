@@ -64,3 +64,5 @@ lint: ## Execute the Golang's linters on updatecli's source code
 test: ## Execute the Golang's tests for updatecli
 	go test ./... -race -coverprofile=coverage.txt -covermode=atomic
 
+post:
+	curl -H "Content-Type: application/json" --data @data.json http://localhost:8080/api/pipelines
