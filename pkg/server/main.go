@@ -5,10 +5,8 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/olblak/udash/pkg/database"
 	"github.com/olblak/udash/pkg/version"
@@ -22,16 +20,10 @@ type Server struct {
 	Options Options
 }
 
-// Pipeline represent an updatecli pipeline report
-type Pipeline struct {
-	Name   string
-	Sourcs map[string]string
-}
-
 func Create(c *gin.Context) {
 
 	var err error
-	var p Pipeline
+	var p PipelineReport
 
 	if err := c.BindJSON(&p); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err})
@@ -39,13 +31,9 @@ func Create(c *gin.Context) {
 		return
 	}
 
-	query := "INSERT INTO pipelines (id, data,created_at, updated_at) VALUES ($1, $2, $3, $4)"
+	query := "INSERT INTO pipelines (data) VALUES ($1)"
 
-	id := uuid.NewString()
-	created_at := time.Now()
-	updated_at := time.Now()
-
-	_, err = database.DB.Exec(context.Background(), query, id, p, created_at, updated_at)
+	_, err = database.DB.Exec(context.Background(), query, p)
 	if err != nil {
 		logrus.Errorf("query failed: %w", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err})
@@ -88,54 +76,34 @@ func FindAll(c *gin.Context) {
 		return
 	}
 
-	type data struct {
-		id         uuid.UUID
-		pipeline   Pipeline
-		created_at time.Time
-		updated_at time.Time
-	}
-
-	dataset := []data{}
+	dataset := []PipelineRow{}
 
 	for rows.Next() {
-		var created_at time.Time
-		var updated_at time.Time
-		var pipeline Pipeline
-		var id uuid.UUID
+		data := PipelineRow{}
 
-		err = rows.Scan(&id, &pipeline, &created_at, &updated_at)
+		err = rows.Scan(&data.ID, &data.Pipeline, &data.Created_at, &data.Updated_at)
 		if err != nil {
 			logrus.Errorf("parsing result: %w", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"message": err})
 			return
 		}
 
-		dataset = append(
-			dataset,
-			data{
-				id:         id,
-				pipeline:   pipeline,
-				created_at: created_at,
-				updated_at: updated_at,
-			},
-		)
+		dataset = append(dataset, data)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": dataset})
 }
 
 func FindByID(c *gin.Context) {
-	var created_at time.Time
-	var updated_at time.Time
-	var pipeline Pipeline
-
 	id := c.Param("id")
 
+	data := PipelineRow{}
+
 	err := database.DB.QueryRow(context.Background(), "select * from pipelines where id=$1", id).Scan(
-		&id,
-		&pipeline,
-		&created_at,
-		&updated_at,
+		&data.ID,
+		&data.Pipeline,
+		&data.Created_at,
+		&data.Updated_at,
 	)
 
 	if err != nil {
@@ -144,23 +112,12 @@ func FindByID(c *gin.Context) {
 		return
 	}
 
-	type data struct {
-		id         string
-		pipeline   Pipeline
-		created_at time.Time
-		updated_at time.Time
-	}
-
 	switch err {
 	case nil:
 		c.JSON(http.StatusCreated, gin.H{
 			"message": "success!",
-			"data": data{
-				id:         id,
-				pipeline:   pipeline,
-				created_at: created_at,
-				updated_at: updated_at,
-			}})
+			"data":    data,
+		})
 	case pgx.ErrNoRows:
 		c.JSON(http.StatusNotFound, gin.H{})
 	default:
@@ -196,7 +153,7 @@ func About(c *gin.Context) {
 
 func Update(c *gin.Context) {
 
-	// ID := c.Param("id")
+	//ID := c.Param("id")
 	// c.JSON(http.StatusCreated, gin.H{"message": "data updated successfully!", "data": res})
 }
 
@@ -206,7 +163,7 @@ func (s *Server) Run() {
 	r.GET("/api/ping", Ping)
 	r.GET("/api/about", About)
 	r.GET("/api/pipelines", FindAll)
-	r.GET("/api/pipeliness/:id", FindByID)
+	r.GET("/api/pipelines/:id", FindByID)
 
 	r.POST("/api/pipelines", Create)
 	r.PUT("/api/pipelines/:id", Update)
