@@ -67,6 +67,14 @@ func Delete(c *gin.Context) {
 
 func FindAll(c *gin.Context) {
 
+	type data struct {
+		ID        string
+		Name      string
+		Result    string
+		CreatedAt string
+		UpdatedAt string
+	}
+
 	query := "SELECT * FROM pipelines ORDER BY updated_at DESC FETCH FIRST 50 ROWS ONLY"
 
 	rows, err := database.DB.Query(context.Background(), query)
@@ -76,16 +84,24 @@ func FindAll(c *gin.Context) {
 		return
 	}
 
-	dataset := []PipelineRow{}
+	dataset := []data{}
 
 	for rows.Next() {
-		data := PipelineRow{}
+		p := PipelineRow{}
 
-		err = rows.Scan(&data.ID, &data.Pipeline, &data.Created_at, &data.Updated_at)
+		err = rows.Scan(&p.ID, &p.Pipeline, &p.Created_at, &p.Updated_at)
 		if err != nil {
 			logrus.Errorf("parsing result: %w", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"message": err})
 			return
+		}
+
+		data := data{
+			ID:        p.ID.String(),
+			Name:      p.Pipeline.Name,
+			Result:    p.Pipeline.Result,
+			CreatedAt: p.Created_at.String(),
+			UpdatedAt: p.Created_at.String(),
 		}
 
 		dataset = append(dataset, data)
