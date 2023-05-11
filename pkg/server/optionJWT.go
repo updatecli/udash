@@ -15,14 +15,8 @@ type JWTOptions struct {
 	// The audience of our token.
 	Audience []string
 
-	// The signing key for the token.
-	SigningKey []string
-
 	// Mode enable auth0 authentication
 	Mode string
-
-	// The Token signature algorithm, default to RS256
-	tokenSigningAlg string
 }
 
 func (j *JWTOptions) Init() {
@@ -33,14 +27,6 @@ func (j *JWTOptions) Init() {
 
 	if len(j.Audience) == 0 {
 		j.Audience = []string{os.Getenv("UDASH_JWT_AUDIENCE")}
-	}
-
-	if len(j.SigningKey) == 0 {
-		j.SigningKey = []string{os.Getenv("UDASH_JWT_SECRET")}
-	}
-
-	if j.tokenSigningAlg == "" {
-		j.tokenSigningAlg = "RS256"
 	}
 
 	jwtOption = *j

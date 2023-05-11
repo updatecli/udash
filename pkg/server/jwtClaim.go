@@ -7,10 +7,9 @@ import (
 
 // CustomClaims contains custom data we want from the jwt token.
 type CustomClaims struct {
-	Name         string   `json:"name"`
-	Username     string   `json:"username"`
-	ShouldReject bool     `json:"shouldReject,omitempty"`
-	Groups       []string `json:"groups"`
+	Name         string `json:"name"`
+	Username     string `json:"username"`
+	ShouldReject bool   `json:"shouldReject,omitempty"`
 }
 
 // Validate errors out if `ShouldReject` is true.
