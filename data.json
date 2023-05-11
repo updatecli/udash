@@ -1,5 +1,6 @@
 {
   "name": "Pipeline Example",
+  "result": "✔",
   "sources": {
       "updatecli": {
           "name": "Get latest Updatecli version",
