@@ -4,9 +4,6 @@ export GOVERSION
 DOCKER_BUILDKIT=1
 export DOCKER_BUILDKIT
 
-UDASH_DB_URI=postgres://udash:password@localhost:5432/udash?sslmode=disable
-export UDASH_DB_URI
-
 local_bin=./dist/updatecli_$(shell go env GOHOSTOS)_$(shell go env GOHOSTARCH)/updatecli
 
 .PHONY: app.build
