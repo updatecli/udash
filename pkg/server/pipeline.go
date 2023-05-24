@@ -66,7 +66,7 @@ func FindAllPipelines(c *gin.Context) {
 		UpdatedAt string
 	}
 
-	query := "SELECT * FROM pipelines ORDER BY updated_at DESC FETCH FIRST 50 ROWS ONLY"
+	query := "SELECT * FROM pipelines ORDER BY updated_at DESC FETCH FIRST 1000 ROWS ONLY"
 
 	rows, err := database.DB.Query(context.Background(), query)
 	if err != nil {
