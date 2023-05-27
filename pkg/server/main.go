@@ -49,20 +49,18 @@ func (s *Server) Run() {
 
 	switch s.Options.Auth.Mode {
 	case "jwt":
-		r.GET("/api/pipelines", checkJWT(), FindAllPipelines)
-		r.GET("/api/pipelines/:id", checkJWT(), FindPipelineByID)
-
-		r.POST("/api/pipelines", checkJWT(), CreatePipeline)
-		r.PUT("/api/pipelines/:id", checkJWT(), UpdatePipeline)
-		r.DELETE("/api/pipelines/:id", checkJWT(), DeletePipeline)
+		r.GET("/api/pipeline/reports", checkJWT(), FindAllPipelineReports)
+		r.GET("/api/pipeline/reports/:id", checkJWT(), FindPipelineReportByID)
+		r.POST("/api/pipeline/reports", checkJWT(), CreatePipelineReport)
+		r.PUT("/api/pipeline/reports/:id", checkJWT(), UpdatePipelineReport)
+		r.DELETE("/api/pipeline/reports/:id", checkJWT(), DeletePipelineReport)
 
 	case "", "none":
-		r.GET("/api/pipelines", FindAllPipelines)
-		r.GET("/api/pipelines/:id", FindPipelineByID)
-
-		r.POST("/api/pipelines", CreatePipeline)
-		r.PUT("/api/pipelines/:id", UpdatePipeline)
-		r.DELETE("/api/pipelines/:id", DeletePipeline)
+		r.GET("/api/pipeline/reports", FindAllPipelineReports)
+		r.GET("/api/pipeline/reports/:id", FindPipelineReportByID)
+		r.POST("/api/pipeline/reports", CreatePipelineReport)
+		r.PUT("/api/pipeline/reports/:id", UpdatePipelineReport)
+		r.DELETE("/api/pipeline/reports/:id", DeletePipelineReport)
 
 	default:
 		logrus.Errorf("Authentication mode %q not supported", s.Options.Auth.Mode)

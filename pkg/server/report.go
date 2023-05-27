@@ -1,6 +1,6 @@
 package server
 
-type PipelineSource struct {
+type PipelineReportSource struct {
 	// Name holds the source name
 	Name string
 	/*
@@ -17,8 +17,8 @@ type PipelineSource struct {
 	Description string
 }
 
-// PipelineCondition holds condition execution result
-type PipelineCondition struct {
+// PipelineReportCondition holds condition execution result
+type PipelineReportCondition struct {
 	//Name holds the condition name
 	Name string
 	/*
@@ -35,8 +35,8 @@ type PipelineCondition struct {
 	Description string
 }
 
-// PipelineTarget holds target execution result
-type PipelineTarget struct {
+// PipelineReportTarget holds target execution result
+type PipelineReportTarget struct {
 	// Name holds the target name
 	Name string
 	/*
@@ -62,7 +62,7 @@ type PipelineReport struct {
 	Name       string
 	Err        string
 	Result     string
-	Sources    map[string]PipelineSource
-	Conditions map[string]PipelineCondition
-	Targets    map[string]PipelineTarget
+	Sources    map[string]PipelineReportSource
+	Conditions map[string]PipelineReportCondition
+	Targets    map[string]PipelineReportTarget
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func CreatePipeline(c *gin.Context) {
+func CreatePipelineReport(c *gin.Context) {
 
 	var err error
 	var p PipelineReport
@@ -22,7 +22,7 @@ func CreatePipeline(c *gin.Context) {
 		return
 	}
 
-	query := "INSERT INTO pipelines (data) VALUES ($1)"
+	query := "INSERT INTO pipelineReports (data) VALUES ($1)"
 
 	_, err = database.DB.Exec(context.Background(), query, p)
 	if err != nil {
@@ -34,12 +34,12 @@ func CreatePipeline(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Posted successfully"})
 }
 
-func DeletePipeline(c *gin.Context) {
+func DeletePipelineReport(c *gin.Context) {
 	var err error
 
 	id := c.Param("id")
 
-	query := "DELETE FROM pipelines WHERE id=$1"
+	query := "DELETE FROM pipelineReports WHERE id=$1"
 
 	_, err = database.DB.Exec(context.Background(), query, id)
 	if err != nil {
@@ -53,10 +53,10 @@ func DeletePipeline(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Pipeline deleted successfully"})
+	c.JSON(http.StatusCreated, gin.H{"message": "Pipeline report deleted successfully"})
 }
 
-func FindAllPipelines(c *gin.Context) {
+func FindAllPipelineReports(c *gin.Context) {
 
 	type data struct {
 		ID        string
@@ -66,7 +66,7 @@ func FindAllPipelines(c *gin.Context) {
 		UpdatedAt string
 	}
 
-	query := "SELECT * FROM pipelines ORDER BY updated_at DESC FETCH FIRST 1000 ROWS ONLY"
+	query := "SELECT * FROM pipelineReports ORDER BY updated_at DESC FETCH FIRST 1000 ROWS ONLY"
 
 	rows, err := database.DB.Query(context.Background(), query)
 	if err != nil {
@@ -101,12 +101,12 @@ func FindAllPipelines(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": dataset})
 }
 
-func FindPipelineByID(c *gin.Context) {
+func FindPipelineReportByID(c *gin.Context) {
 	id := c.Param("id")
 
 	data := PipelineRow{}
 
-	err := database.DB.QueryRow(context.Background(), "select * from pipelines where id=$1", id).Scan(
+	err := database.DB.QueryRow(context.Background(), "select * from pipelineReports where id=$1", id).Scan(
 		&data.ID,
 		&data.Pipeline,
 		&data.Created_at,
@@ -133,7 +133,6 @@ func FindPipelineByID(c *gin.Context) {
 	}
 }
 
-func UpdatePipeline(c *gin.Context) {
-
+func UpdatePipelineReport(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "pipeline update is not supported yet!"})
 }
