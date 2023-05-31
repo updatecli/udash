@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// CreatePipelineReport insert a new report into the database
 func CreatePipelineReport(c *gin.Context) {
 
 	var err error
@@ -22,33 +23,21 @@ func CreatePipelineReport(c *gin.Context) {
 		return
 	}
 
-	query := "INSERT INTO pipelineReports (data) VALUES ($1)"
-
-	_, err = database.DB.Exec(context.Background(), query, p)
-	if err != nil {
-		logrus.Errorf("query failed: %w", err)
+	if err = dbInsertReport(p); err != nil {
+		logrus.Errorf("query failed: %s", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Posted successfully"})
+	c.JSON(http.StatusCreated, gin.H{"message": "report successfully published"})
 }
 
+// DeletePipelineReport removes a pipeline report from the database
 func DeletePipelineReport(c *gin.Context) {
-	var err error
-
 	id := c.Param("id")
 
-	query := "DELETE FROM pipelineReports WHERE id=$1"
-
-	_, err = database.DB.Exec(context.Background(), query, id)
-	if err != nil {
-		logrus.Errorf("query failed: %w", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err})
-		return
-	}
-
-	if err != nil {
+	if err := dbDeleteReport(id); err != nil {
+		logrus.Errorf("query failed: %s", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err})
 		return
 	}
@@ -56,6 +45,7 @@ func DeletePipelineReport(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Pipeline report deleted successfully"})
 }
 
+// FindAllPipelineReports returns all pipeline reports from the database
 func FindAllPipelineReports(c *gin.Context) {
 
 	type data struct {
@@ -70,7 +60,7 @@ func FindAllPipelineReports(c *gin.Context) {
 
 	rows, err := database.DB.Query(context.Background(), query)
 	if err != nil {
-		logrus.Errorf("query failed: %w", err)
+		logrus.Errorf("query failed: %s", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err})
 		return
 	}
@@ -82,7 +72,7 @@ func FindAllPipelineReports(c *gin.Context) {
 
 		err = rows.Scan(&p.ID, &p.Pipeline, &p.Created_at, &p.Updated_at)
 		if err != nil {
-			logrus.Errorf("parsing result: %w", err)
+			logrus.Errorf("parsing result: %s", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"message": err})
 			return
 		}
@@ -101,29 +91,34 @@ func FindAllPipelineReports(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": dataset})
 }
 
+// FindPipelineReportByID returns the latest pipeline report for a specific ID
 func FindPipelineReportByID(c *gin.Context) {
 	id := c.Param("id")
 
-	data := PipelineRow{}
-
-	err := database.DB.QueryRow(context.Background(), "select * from pipelineReports where id=$1", id).Scan(
-		&data.ID,
-		&data.Pipeline,
-		&data.Created_at,
-		&data.Updated_at,
-	)
-
+	data, err := dbSearchReport(id)
 	if err != nil {
-		logrus.Errorf("parsing result: %w", err)
+		logrus.Errorf("parsing result: %s", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err})
 		return
+	}
+
+	nbReportsByName, err := dbSearchNumberOfReportsByName(data.Pipeline.Name)
+	if err != nil {
+		logrus.Errorf("getting number of reports by name: %s", err)
+	}
+
+	latestReportByName, err := dbSearchLatestReportByName(data.Pipeline.Name)
+	if err != nil {
+		logrus.Errorf("getting latest report by name: %s", err)
 	}
 
 	switch err {
 	case nil:
 		c.JSON(http.StatusCreated, gin.H{
-			"message": "success!",
-			"data":    data,
+			"message":            "success!",
+			"data":               *data,
+			"nbReportsByName":    nbReportsByName,
+			"latestReportByName": latestReportByName,
 		})
 	case pgx.ErrNoRows:
 		c.JSON(http.StatusNotFound, gin.H{})
