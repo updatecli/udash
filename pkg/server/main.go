@@ -2,6 +2,7 @@ package server
 
 import (
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/olblak/udash/pkg/version"
@@ -47,8 +48,8 @@ func (s *Server) Run() {
 	r.GET("/api/ping", Ping)
 	r.GET("/api/about", About)
 
-	switch s.Options.Auth.Mode {
-	case "jwt":
+	switch strings.ToLower(s.Options.Auth.Mode) {
+	case "oauth":
 		r.GET("/api/pipeline/reports", checkJWT(), FindAllPipelineReports)
 		r.GET("/api/pipeline/reports/:id", checkJWT(), FindPipelineReportByID)
 		r.POST("/api/pipeline/reports", checkJWT(), CreatePipelineReport)

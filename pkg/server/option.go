@@ -2,7 +2,7 @@ package server
 
 // Options holds the server options
 type Options struct {
-	Auth JWTOptions
+	Auth AuthOptions
 }
 
 func (o *Options) Init() {

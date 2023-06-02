@@ -8,7 +8,7 @@ import (
 	Code heavily inspired by https://github.com/auth0/go-jwt-middleware/tree/v2.1.0/examples/gin-example
 */
 
-type JWTOptions struct {
+type AuthOptions struct {
 	// The issuer of our token.
 	Issuer string
 
@@ -19,15 +19,19 @@ type JWTOptions struct {
 	Mode string
 }
 
-func (j *JWTOptions) Init() {
+func (a *AuthOptions) Init() {
 
-	if j.Issuer == "" {
-		j.Issuer = os.Getenv("UDASH_JWT_ISSUER")
+	if a.Mode == "" {
+		a.Issuer = os.Getenv("UDASH_OAUTH_MODE")
 	}
 
-	if len(j.Audience) == 0 {
-		j.Audience = []string{os.Getenv("UDASH_JWT_AUDIENCE")}
+	if a.Issuer == "" {
+		a.Issuer = os.Getenv("UDASH_OAUTH_ISSUER")
 	}
 
-	jwtOption = *j
+	if len(a.Audience) == 0 {
+		a.Audience = []string{os.Getenv("UDASH_OAUTH_AUDIENCE")}
+	}
+
+	authOption = *a
 }
