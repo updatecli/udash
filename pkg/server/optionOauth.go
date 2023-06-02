@@ -22,7 +22,7 @@ type AuthOptions struct {
 func (a *AuthOptions) Init() {
 
 	if a.Mode == "" {
-		a.Issuer = os.Getenv("UDASH_OAUTH_MODE")
+		a.Mode = os.Getenv("UDASH_OAUTH_MODE")
 	}
 
 	if a.Issuer == "" {
