@@ -1,2 +1,0 @@
-# udash
-Another Updatecli Dashboard

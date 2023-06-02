@@ -1,0 +1,32 @@
+= Udash
+Another Updatecli Dashboard
+
+== Requirements
+
+* Postgresql Database
+* OAuth provider
+
+== Options 
+
+Udash can be configured either via a configuration or environment variable
+
+=== Environment
+
+* **UDASH_AUTH_MODE**: Enable authentication Accept value ["","none","oauth"]
+* **UDASH_AUTH_ISSUER**: Define oauth domain url require `UDASH_AUTH_MODE` set to "oauth"
+* **UDASH_AUTH_AUDIENCE**: Define oauth audience require `UDASH_AUTH_MODE` set to "oauth"
+* **UDASH_DB_URI**: Define the postgresql URI
+
+=== Config File
+
+```
+    server:
+      auth:
+        #  If mode is unset then authentication is disabled
+        mode: "oauth"
+        issuer: "auth0 auth URL"
+        audience: "udash URL"
+    database:
+      # uri defines the postgresql URI used to connect with its database
+      uri: "postgresql URI"
+```
