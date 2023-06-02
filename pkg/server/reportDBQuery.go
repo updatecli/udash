@@ -47,10 +47,10 @@ func dbSearchReport(id string) (*PipelineRow, error) {
 	return &report, nil
 }
 
-func dbSearchNumberOfReportsByName(occurence string) (int, error) {
+func dbSearchNumberOfReportsByName(occurrence string) (int, error) {
 	var result int
 
-	err := database.DB.QueryRow(context.Background(), "SELECT COUNT(data) FROM pipelineReports WHERE data ->> 'Name' = $1", occurence).Scan(
+	err := database.DB.QueryRow(context.Background(), "SELECT COUNT(data) FROM pipelineReports WHERE data ->> 'Name' = $1", occurrence).Scan(
 		&result,
 	)
 
