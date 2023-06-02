@@ -7,11 +7,11 @@ export DOCKER_BUILDKIT
 local_bin=./dist/updatecli_$(shell go env GOHOSTOS)_$(shell go env GOHOSTARCH)/updatecli
 
 .PHONY: app.build
-app.build: ## Build application localy
+app.build: ## Build application locally
 	go build -o bin/udash \
 		-ldflags='-w -s -X "github.com/updatecli/udash/pkg/version.BuildTime=$(shell date)" -X "github.com/updatecli/udash/pkg/version.GoVersion=$(shell go version)" -X "github.com/updatecli/udash/pkg/version.Version=42"'
 
-server.start: app.build ## Start application localy
+server.start: app.build ## Start application locally
 	./bin/udash server start --debug
 
 .PHONY: build
