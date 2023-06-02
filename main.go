@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/olblak/udash/cmd"
+	"github.com/updatecli/udash/cmd"
 )
 
 func main() {

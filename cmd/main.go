@@ -4,10 +4,10 @@ import (
 	"os"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/olblak/udash/pkg/engine"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/updatecli/udash/pkg/engine"
 )
 
 var (

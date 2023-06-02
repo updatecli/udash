@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/olblak/udash/pkg/version"
 	"github.com/sirupsen/logrus"
+	"github.com/updatecli/udash/pkg/version"
 )
 
 type Server struct {

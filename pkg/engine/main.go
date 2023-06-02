@@ -4,9 +4,9 @@ import (
 	"errors"
 	"os"
 
-	"github.com/olblak/udash/pkg/database"
-	"github.com/olblak/udash/pkg/server"
 	"github.com/sirupsen/logrus"
+	"github.com/updatecli/udash/pkg/database"
+	"github.com/updatecli/udash/pkg/server"
 )
 
 var (

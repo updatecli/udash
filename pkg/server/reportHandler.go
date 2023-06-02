@@ -7,8 +7,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
-	"github.com/olblak/udash/pkg/database"
 	"github.com/sirupsen/logrus"
+	"github.com/updatecli/udash/pkg/database"
 )
 
 // CreatePipelineReport insert a new report into the database

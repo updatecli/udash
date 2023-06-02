@@ -3,8 +3,8 @@ package server
 import (
 	"context"
 
-	"github.com/olblak/udash/pkg/database"
 	"github.com/sirupsen/logrus"
+	"github.com/updatecli/udash/pkg/database"
 )
 
 func dbInsertReport(p PipelineReport) error {

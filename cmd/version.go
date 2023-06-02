@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/olblak/udash/pkg/version"
+	"github.com/updatecli/udash/pkg/version"
 )
 
 var (

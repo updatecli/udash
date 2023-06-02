@@ -1,4 +1,4 @@
-module github.com/olblak/udash
+module github.com/updatecli/udash
 
 go 1.20
 
