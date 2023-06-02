@@ -1,0 +1,116 @@
+---
+archives:
+  - name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
+    replacements:
+      darwin: Darwin
+      linux: Linux
+      windows: Windows
+      amd64: x86_64
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod download
+
+builds:
+  - id: udash
+    main: ./main.go
+    binary: udash
+    ldflags:
+      - -w -s
+      - -X "github.com/updatecli/udash/pkg/version.BuildTime={{.Date}}"
+      - -X "github.com/updatecli/udash/pkg/version.GoVersion={{.Env.GOVERSION}}"
+      - -X "github.com/updatecli/udash/pkg/version.Version={{ .Version }}"
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+      - arm
+
+changelog:
+  ## Delegate Changelog to release-drafter
+  skip: true
+
+dockers:
+  - image_templates:
+      - 'updatecli/udash:{{ .Tag }}-amd64'
+      - 'ghcr.io/updatecli/udash:{{ .Tag }}-amd64'
+    dockerfile: Dockerfile
+    use: buildx
+    build_flag_templates:
+      - "--pull"
+      - "--no-cache"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--platform=linux/amd64"
+    goos: linux
+    goarch: amd64
+    extra_files:
+      - Makefile
+  - image_templates:
+      - 'updatecli/udash:{{ .Tag }}-arm64'
+      - 'ghcr.io/updatecli/udash:{{ .Tag }}-arm64'
+    dockerfile: Dockerfile
+    use: buildx
+    build_flag_templates:
+      - "--pull"
+      - "--no-cache"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--platform=linux/arm64"
+    goos: linux
+    goarch: arm64
+    extra_files:
+      - Makefile
+
+docker_manifests:
+  - name_template: 'updatecli/udash:{{ .Tag }}'
+    image_templates:
+      - 'updatecli/udash:{{ .Tag }}-amd64'
+      - 'updatecli/udash:{{ .Tag }}-arm64'
+  - name_template: 'ghcr.io/updatecli/udash:{{ .Tag }}'
+    image_templates:
+      - 'ghcr.io/updatecli/udash:{{ .Tag }}-amd64'
+      - 'ghcr.io/updatecli/udash:{{ .Tag }}-arm64'
+  - name_template: 'updatecli/udash:latest'
+    image_templates:
+      - 'updatecli/udash:{{ .Tag }}-amd64'
+      - 'updatecli/udash:{{ .Tag }}-arm64'
+  - name_template: 'ghcr.io/updatecli/udash:latest'
+    image_templates:
+      - 'ghcr.io/updatecli/udash:{{ .Tag }}-amd64'
+      - 'ghcr.io/updatecli/udash:{{ .Tag }}-arm64'
+
+env:
+  - GO111MODULE=on
+  - CGO_ENABLED=0
+
+nfpms:
+  - file_name_template: '{{ .ProjectName }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
+    homepage: 'https://www.updatecli.io'
+    description: 'Udash is another Update dashboard platform'
+    maintainer: 'Olivier Vernin <olivier@vernin.me>'
+    vendor: Updatecli
+    formats:
+      - deb
+      - rpm
+    dependencies:
+      - ca-certificates
+
+snapshot:
+  name_template: "{{ .Tag }}-next"
