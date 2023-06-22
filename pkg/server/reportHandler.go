@@ -9,13 +9,14 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
 	"github.com/updatecli/udash/pkg/database"
+	"github.com/updatecli/updatecli/pkg/core/reports"
 )
 
 // CreatePipelineReport insert a new report into the database
 func CreatePipelineReport(c *gin.Context) {
 
 	var err error
-	var p PipelineReport
+	var p reports.Report
 
 	if err := c.BindJSON(&p); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err})

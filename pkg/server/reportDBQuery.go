@@ -5,9 +5,10 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/updatecli/udash/pkg/database"
+	"github.com/updatecli/updatecli/pkg/core/reports"
 )
 
-func dbInsertReport(p PipelineReport) error {
+func dbInsertReport(p reports.Report) error {
 	query := "INSERT INTO pipelineReports (data) VALUES ($1)"
 
 	_, err := database.DB.Exec(context.Background(), query, p)
