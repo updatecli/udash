@@ -3,21 +3,29 @@ package server
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/updatecli/udash/pkg/database"
 	"github.com/updatecli/updatecli/pkg/core/reports"
 )
 
-func dbInsertReport(p reports.Report) error {
-	query := "INSERT INTO pipelineReports (data) VALUES ($1)"
+func dbInsertReport(p reports.Report) (string, error) {
+	var ID uuid.UUID
 
-	_, err := database.DB.Exec(context.Background(), query, p)
+	query := "INSERT INTO pipelineReports (data) VALUES ($1) RETURNING id"
+
+	err := database.DB.QueryRow(context.Background(), query, p).Scan(
+		&ID,
+	)
+
 	if err != nil {
 		logrus.Errorf("query failed: %s", err)
-		return err
+		return "", err
 	}
 
-	return nil
+	logrus.Printf("ID: %q", ID.String())
+
+	return ID.String(), nil
 }
 
 func dbDeleteReport(id string) error {

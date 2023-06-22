@@ -24,13 +24,17 @@ func CreatePipelineReport(c *gin.Context) {
 		return
 	}
 
-	if err = dbInsertReport(p); err != nil {
+	newReportID, err := dbInsertReport(p)
+	if err != nil {
 		logrus.Errorf("query failed: %s", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "report successfully published"})
+	c.JSON(http.StatusCreated, gin.H{
+		"message":  "report successfully published",
+		"reportid": newReportID,
+	})
 }
 
 // DeletePipelineReport removes a pipeline report from the database
@@ -43,7 +47,9 @@ func DeletePipelineReport(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Pipeline report deleted successfully"})
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Pipeline report deleted successfully"
+	})
 }
 
 // FindAllPipelineReports returns all pipeline reports from the database
@@ -62,7 +68,9 @@ func FindAllPipelineReports(c *gin.Context) {
 	rows, err := database.DB.Query(context.Background(), query)
 	if err != nil {
 		logrus.Errorf("query failed: %s", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": err,
+		})
 		return
 	}
 
@@ -74,7 +82,9 @@ func FindAllPipelineReports(c *gin.Context) {
 		err = rows.Scan(&p.ID, &p.Pipeline, &p.Created_at, &p.Updated_at)
 		if err != nil {
 			logrus.Errorf("parsing result: %s", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"message": err})
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": err
+			})
 			return
 		}
 
@@ -89,7 +99,9 @@ func FindAllPipelineReports(c *gin.Context) {
 		dataset = append(dataset, data)
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": dataset})
+	c.JSON(http.StatusOK, gin.H{
+		"data": dataset
+	})
 }
 
 // FindPipelineReportByID returns the latest pipeline report for a specific ID
