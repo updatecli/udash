@@ -48,7 +48,7 @@ func DeletePipelineReport(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"message": "Pipeline report deleted successfully"
+		"message": "Pipeline report deleted successfully",
 	})
 }
 
@@ -83,7 +83,7 @@ func FindAllPipelineReports(c *gin.Context) {
 		if err != nil {
 			logrus.Errorf("parsing result: %s", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": err
+				"message": err,
 			})
 			return
 		}
@@ -100,7 +100,7 @@ func FindAllPipelineReports(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data": dataset
+		"data": dataset,
 	})
 }
 
