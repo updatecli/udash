@@ -23,8 +23,6 @@ func dbInsertReport(p reports.Report) (string, error) {
 		return "", err
 	}
 
-	logrus.Printf("ID: %q", ID.String())
-
 	return ID.String(), nil
 }
 
@@ -56,10 +54,10 @@ func dbSearchReport(id string) (*PipelineRow, error) {
 	return &report, nil
 }
 
-func dbSearchNumberOfReportsByName(occurrence string) (int, error) {
+func dbSearchNumberOfReportsByID(id string) (int, error) {
 	var result int
 
-	err := database.DB.QueryRow(context.Background(), "SELECT COUNT(data) FROM pipelineReports WHERE data ->> 'Name' = $1", occurrence).Scan(
+	err := database.DB.QueryRow(context.Background(), "SELECT COUNT(data) FROM pipelineReports WHERE data ->> 'ID' = $1", id).Scan(
 		&result,
 	)
 
@@ -71,10 +69,10 @@ func dbSearchNumberOfReportsByName(occurrence string) (int, error) {
 	return result, nil
 }
 
-func dbSearchLatestReportByName(reportName string) (*PipelineRow, error) {
+func dbSearchLatestReportByID(id string) (*PipelineRow, error) {
 	report := PipelineRow{}
 
-	err := database.DB.QueryRow(context.Background(), "select * from pipelineReports where data ->> 'Name'=$1 ORDER BY updated_at DESC FETCH FIRST 1 ROWS ONLY", reportName).Scan(
+	err := database.DB.QueryRow(context.Background(), "select * from pipelineReports where data ->> 'ID'=$1 ORDER BY updated_at DESC FETCH FIRST 1 ROWS ONLY", id).Scan(
 		&report.ID,
 		&report.Pipeline,
 		&report.Created_at,

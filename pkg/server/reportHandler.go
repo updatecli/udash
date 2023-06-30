@@ -115,12 +115,12 @@ func FindPipelineReportByID(c *gin.Context) {
 		return
 	}
 
-	nbReportsByName, err := dbSearchNumberOfReportsByName(data.Pipeline.Name)
+	nbReportsByID, err := dbSearchNumberOfReportsByID(data.Pipeline.ID)
 	if err != nil {
 		logrus.Errorf("getting number of reports by name: %s", err)
 	}
 
-	latestReportByName, err := dbSearchLatestReportByName(data.Pipeline.Name)
+	latestReportByID, err := dbSearchLatestReportByID(data.Pipeline.ID)
 	if err != nil {
 		logrus.Errorf("getting latest report by name: %s", err)
 	}
@@ -128,10 +128,10 @@ func FindPipelineReportByID(c *gin.Context) {
 	switch err {
 	case nil:
 		c.JSON(http.StatusCreated, gin.H{
-			"message":            "success!",
-			"data":               *data,
-			"nbReportsByName":    nbReportsByName,
-			"latestReportByName": latestReportByName,
+			"message":          "success!",
+			"data":             *data,
+			"nbReportsByID":    nbReportsByID,
+			"latestReportByID": latestReportByID,
 		})
 	case pgx.ErrNoRows:
 		c.JSON(http.StatusNotFound, gin.H{})
