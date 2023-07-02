@@ -16,22 +16,22 @@ server.start: app.build ## Start application locally
 
 .PHONY: build
 build: ## Build updatecli as a "dirty snapshot" (no tag, no release, but all OS/arch combinations)
-	goreleaser build --snapshot --rm-dist
+	goreleaser build --snapshot --clean
 
 .PHONY: build.all
 build.all: ## Build updatecli for "release" (tag or release and all OS/arch combinations)
-	goreleaser --rm-dist --skip-publish
+	goreleaser --clean --skip-publish
 
 clean: ## Clean go test cache
 	go clean -testcache
 
 .PHONY: release ## Create a new updatecli release including packages
 release: ## release.snapshot generate a snapshot release but do not published it (no tag, but all OS/arch combinations)
-	goreleaser --rm-dist
+	goreleaser --clean
 
 .PHONY: release.snapshot ## Create a new snapshot release without publishing assets
 release.snapshot: ## release.snapshot generate a snapshot release but do not published it (no tag, but all OS/arch combinations)
-	goreleaser --snapshot --rm-dist --skip-publish
+	goreleaser --snapshot --clean --skip-publish
 
 .PHONY: db 
 db.reset: db.delete db.start ## Reset development database
