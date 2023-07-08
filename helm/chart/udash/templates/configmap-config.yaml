@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "udash.configMapName" . }}-front
+  labels:
+    {{- include "udash.labels" . | nindent 4 }}
+  {{- with .Values.configMap.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  // Config.json is used by Updatecli to get login information
+  config.json: |
+    {
+        "OAUTH_DOMAIN": "{{ .Values.secrets.auth.stringdata.issuer }}",
+        "OAUTH_CLIENTID": "{{ .Values.secrets.auth.stringdata.issuer }}",
+        "OAUTH_AUDIENCE": "{{ .Values.secrets.auth.stringdata.audience }}"
+    }
+  // Config.js is used by the front application to get login information
+  config.js: |
+    const config = (() => {
+      return {
+        "OAUTH_DOMAIN": "{{ .Values.secrets.auth.stringdata.issuer }}",
+        "OAUTH_CLIENTID": "{{ .Values.secrets.auth.stringdata.issuer }}",
+        "OAUTH_AUDIENCE": "{{ .Values.secrets.auth.stringdata.audience }}"
+      };
+    })();
+
+
