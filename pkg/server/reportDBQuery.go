@@ -3,20 +3,27 @@ package server
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/updatecli/udash/pkg/database"
+	"github.com/updatecli/updatecli/pkg/core/reports"
 )
 
-func dbInsertReport(p PipelineReport) error {
-	query := "INSERT INTO pipelineReports (data) VALUES ($1)"
+func dbInsertReport(p reports.Report) (string, error) {
+	var ID uuid.UUID
 
-	_, err := database.DB.Exec(context.Background(), query, p)
+	query := "INSERT INTO pipelineReports (data) VALUES ($1) RETURNING id"
+
+	err := database.DB.QueryRow(context.Background(), query, p).Scan(
+		&ID,
+	)
+
 	if err != nil {
 		logrus.Errorf("query failed: %s", err)
-		return err
+		return "", err
 	}
 
-	return nil
+	return ID.String(), nil
 }
 
 func dbDeleteReport(id string) error {
@@ -47,10 +54,10 @@ func dbSearchReport(id string) (*PipelineRow, error) {
 	return &report, nil
 }
 
-func dbSearchNumberOfReportsByName(occurrence string) (int, error) {
+func dbSearchNumberOfReportsByID(id string) (int, error) {
 	var result int
 
-	err := database.DB.QueryRow(context.Background(), "SELECT COUNT(data) FROM pipelineReports WHERE data ->> 'Name' = $1", occurrence).Scan(
+	err := database.DB.QueryRow(context.Background(), "SELECT COUNT(data) FROM pipelineReports WHERE data ->> 'ID' = $1", id).Scan(
 		&result,
 	)
 
@@ -62,10 +69,10 @@ func dbSearchNumberOfReportsByName(occurrence string) (int, error) {
 	return result, nil
 }
 
-func dbSearchLatestReportByName(reportName string) (*PipelineRow, error) {
+func dbSearchLatestReportByID(id string) (*PipelineRow, error) {
 	report := PipelineRow{}
 
-	err := database.DB.QueryRow(context.Background(), "select * from pipelineReports where data ->> 'Name'=$1 ORDER BY updated_at DESC FETCH FIRST 1 ROWS ONLY", reportName).Scan(
+	err := database.DB.QueryRow(context.Background(), "select * from pipelineReports where data ->> 'ID'=$1 ORDER BY updated_at DESC FETCH FIRST 1 ROWS ONLY", id).Scan(
 		&report.ID,
 		&report.Pipeline,
 		&report.Created_at,

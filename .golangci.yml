@@ -1,13 +1,5 @@
 ---
 linters-settings:
-  depguard:
-    list-type: blacklist
-    packages:
-      - github.com/alecthomas/assert
-      - github.com/magiconair/properties/assert
-    packages-with-error-message:
-      - github.com/alecthomas/assert: "use github.com/stretchr/testify/assert"
-      - github.com/magiconair/properties/assert: "use github.com/stretchr/testify/assert"
   dupl:
     threshold: 100
   exhaustive:
@@ -68,7 +60,6 @@ linters:
   disable-all: true
   enable:
     - asciicheck
-    - depguard
     - dogsled
     - errcheck
     - funlen
