@@ -1,7 +1,0 @@
-apiVersion: v2
-appVersion: 0.1.0
-description: An Updatecli platform
-icon: https://www.updatecli.io/images/updatecli_transparent.png
-name: udash
-type: application
-version: 0.1.0
