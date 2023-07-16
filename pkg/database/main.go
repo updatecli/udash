@@ -1,7 +1,7 @@
 package database
 
 import (
-	"database/sql"
+	"embed"
 	"fmt"
 	"log"
 	"os"
@@ -9,13 +9,13 @@ import (
 	"context"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
-	_ "github.com/lib/pq"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
 const (
@@ -25,6 +25,8 @@ const (
 var (
 	URI string = os.Getenv(URIEnvVariableName)
 	DB  *pgxpool.Pool
+	//go:embed migrations/*.sql
+	fs embed.FS
 )
 
 type Options struct {
@@ -60,22 +62,16 @@ func Connect(o Options) error {
 
 func RunMigrationUp() error {
 	logrus.Debugln("Running Database migration")
-	db, err := sql.Open("postgres", URI)
+	d, err := iofs.New(fs, "migrations")
 	if err != nil {
-		return fmt.Errorf("open database connection: %w", err)
+		log.Fatal(err)
 	}
 
-	driver, err := postgres.WithInstance(db, &postgres.Config{})
-	if err != nil {
-		return fmt.Errorf("init database db driver: %w", err)
-	}
-
-	m, err := migrate.NewWithDatabaseInstance(
-		"file://./db/migrations",
-		"postgres",
-		driver,
+	m, err := migrate.NewWithSourceInstance(
+		"iofs",
+		d,
+		URI,
 	)
-
 	if err != nil {
 		return fmt.Errorf("loading migration: %w", err)
 	}
