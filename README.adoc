@@ -1,23 +1,50 @@
 = Udash
 Another Updatecli Dashboard
 
-== Requirements
+IMPORTANT: This project is still in a very early stage, more to come
 
-* Postgresql Database
-* OAuth provider
+== Description
 
-== Options 
+Udash is an Updatecli backend application. Its mission is to visualize Updatecli pipeline report and to provide various insights such as Git repositories "update" state.
 
-Udash can be configured either via a configuration or environment variable
+**Pipeline Report**
 
-=== Environment
+Updatecli can be configured to upload pipeline reports after each execution. The goal is to have a central place to visualize all pipelines for a specific project.
 
-* **UDASH_AUTH_MODE**: Enable authentication Accept value ["","none","oauth"]
-* **UDASH_AUTH_ISSUER**: Define oauth domain url require `UDASH_AUTH_MODE` set to "oauth"
-* **UDASH_AUTH_AUDIENCE**: Define oauth audience require `UDASH_AUTH_MODE` set to "oauth"
-* **UDASH_DB_URI**: Define the postgresql URI
+**Insight**
 
-=== Config File
+Insight reuse pipeline report to provide a visualization per theme such as the state for all dependencies for a specific git repository.
+
+__Still work in progress__
+
+== Architecture
+
+=== Requirements
+
+Udash application requires a postgresql database to store the various pipeline reports, and an oauth provider to handle authorization.
+
+**Postgresql Database**
+
+**OAuth provider**
+
+The oauth provider **must** allow the PKCE flow.
+
+* Auth0 (tested)
+* GitHub link:https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#1-request-a-users-github-identity[Not supported yet]
+* link:https://docs.gitlab.com/ee/api/oauth2.html[GitLab]
+* link:https://github.com/dexidp/dex/issues/2244[Dex]
+* link:https://www.keycloak.org/docs/latest/securing_apps/#_installed_adapter[Keycloak]
+
+=== Udash API
+
+==== Option
+
+Udash must be configured via a configuration file, and some settings can be overridden by environment variables
+
+
+**Config File**
+
+The configuration file must be one of ["/etc/udash/config.yaml", "~/.udash/config.yaml","~/config.yaml"]
 
 ```
     server:
@@ -30,3 +57,61 @@ Udash can be configured either via a configuration or environment variable
       # uri defines the postgresql URI used to connect with its database
       uri: "postgresql URI"
 ```
+
+**Environment**
+
+* **UDASH_AUTH_MODE**: Enable authentication Accept value ["","none","oauth"]
+* **UDASH_AUTH_ISSUER**: Define oauth domain url require `UDASH_AUTH_MODE` set to "oauth"
+* **UDASH_AUTH_AUDIENCE**: Define oauth audience require `UDASH_AUTH_MODE` set to "oauth"
+* **UDASH_DB_URI**: Define the postgresql URI
+
+=== Udash Frontend
+
+==== Option
+
+Even though the Udash frontend is a client-side javascript application, it expects two configuration files that must exist in the `public` directory.
+
+** config.js
+
+```
+const config = (() => {
+  return {
+    "OAUTH_DOMAIN": "updatecli.example.oauth.com",
+    "OAUTH_CLIENTID": "86FVLxxxxxxxxxxxxxxxxxx",
+    "OAUTH_AUDIENCE": "http://app.updatecli.io/api"
+  };
+})();
+```
+
+`config.js` is used by the frontend application for the login
+
+** config.json
+
+```
+{
+  "OAUTH_DOMAIN": "updatecli.example.oauth.com",
+  "OAUTH_CLIENTID": "86FVLxxxxxxxxxxxxxxxxxx",
+  "OAUTH_AUDIENCE": "http://app.updatecli.io/api"
+}
+```
+
+`config.json` is used by the Updatecli application to retrieve oauth setting when running:
+
+`updatecli login http://app.updatecli.io`
+
+=== Updatecli
+
+Updatecli is expected to run as usual from CI environment. 
+
+But it must be authenticated before uploading any reports, by running:
+
+`updatecli login "https://app.updatecli.io" --experimental`
+
+Then any apply/diff command will upload pipeline reports
+
+
+=== Links
+
+* https://github.com/updatecli/updatecli[Updatecli]
+* https://github.com/updatecli/udash-front[Udash Frontend]
+* https://github.com/updatecli/charts[Helm Chart]
