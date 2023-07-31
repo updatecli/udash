@@ -25,7 +25,7 @@ jobs:
         run: "updatecli udash login --experimental --oauth-access-token $UDASH_ACCESS_TOKEN $UDASH_URL"
         env:
           UDASH_ACCESS_TOKEN: ${{ secrets.UDASH_ACCESS_TOKEN }}
-          UDASH_URL: ${{ env.UDASH_URL }}
+          UDASH_URL: ${{ vars.UDASH_URL }}
       - name: "Run updatecli in dryrun"
         run: "updatecli diff --config ./updatecli/updatecli.d --experimental"
         env:
@@ -46,5 +46,5 @@ jobs:
       - name: Logout from Udash
         run: "updatecli udash logout --experimental $UDASH_URL"
         env:
-          UDASH_URL: ${{ env.UDASH_URL }}
+          UDASH_URL: ${{ vars.UDASH_URL }}
 
