@@ -24,7 +24,7 @@ jobs:
       - name: Login with Udash
         run: "updatecli udash login --oauth-access-token $UDASH_ACCESS_TOKEN $UDASH_URL"
         env:
-          UDASH_ACCESS_TOKEN: ${{ secrets.UDASH.ACCESS_TOKEN }}
+          UDASH_ACCESS_TOKEN: ${{ secrets.UDASH_ACCESS_TOKEN }}
           UDASH_URL: ${{ env.UDASH_URL }}
       - name: "Run updatecli in dryrun"
         run: "updatecli diff --config ./updatecli/updatecli.d --experimental"
