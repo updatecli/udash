@@ -21,6 +21,11 @@ jobs:
           go-version-file: 'go.mod'
           check-latest: true
         id: go
+      - name: Login with Udash
+        run: "updatecli udash login --oauth-access-token $UDASH_ACCESS_TOKEN $UDASH_URL"
+        env:
+          UDASH_ACCESS_TOKEN: ${{ secrets.UDASH.ACCESS_TOKEN }}
+          UDASH_URL: ${{ env.UDASH_URL }}
       - name: "Run updatecli in dryrun"
         run: "updatecli diff --config ./updatecli/updatecli.d --experimental"
         env:
@@ -38,3 +43,8 @@ jobs:
         env:
           UPDATECLI_GITHUB_ACTOR: ${{ secrets.UPDATECLI_BOT_GITHUB_ACTOR }}
           UPDATECLI_GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
+      - name: Logout from Udash
+        run: "updatecli udash logout $UDASH_URL"
+        env:
+          UDASH_URL: ${{ env.UDASH_URL }}
+
