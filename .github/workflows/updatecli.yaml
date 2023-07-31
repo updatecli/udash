@@ -14,7 +14,7 @@ jobs:
       - name: "Checkout"
         uses: "actions/checkout@v3"
       - name: "Setup updatecli"
-        uses: "updatecli/updatecli-action@v2.33.0"
+        uses: "updatecli/updatecli-action@v2.34.0"
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
@@ -27,7 +27,7 @@ jobs:
           UDASH_ACCESS_TOKEN: ${{ secrets.UDASH.ACCESS_TOKEN }}
           UDASH_URL: ${{ env.UDASH_URL }}
       - name: "Run updatecli in dryrun"
-        run: "updatecli diff --config ./updatecli/updatecli.d"
+        run: "updatecli diff --config ./updatecli/updatecli.d --experimental"
         env:
           UPDATECLI_GITHUB_ACTOR: ${{ github.actor }}
           UPDATECLI_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -39,7 +39,7 @@ jobs:
           private_key: ${{ secrets.UPDATECLIBOT_APP_PRIVKEY }}
       - name: "Run updatecli"
         if: github.ref == 'refs/heads/main'
-        run: "updatecli apply --config ./updatecli/updatecli.d"
+        run: "updatecli apply --config ./updatecli/updatecli.d --experimental"
         env:
           UPDATECLI_GITHUB_ACTOR: ${{ secrets.UPDATECLI_BOT_GITHUB_ACTOR }}
           UPDATECLI_GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
