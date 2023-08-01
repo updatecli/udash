@@ -4,7 +4,7 @@ scms:
   default:
     kind: github
     spec:
-      owner: olblak
+      owner: updatecli
       repository: udash
       token: '{{ requiredEnv "UPDATECLI_GITHUB_TOKEN" }}'
       username: '{{ requiredEnv "UPDATECLI_GITHUB_ACTOR" }}'

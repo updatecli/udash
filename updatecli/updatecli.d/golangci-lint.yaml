@@ -17,7 +17,7 @@ scms:
         spec:
             branch: main
             email: me@olblak.com
-            owner: olblak
+            owner: updatecli
             repository: udash
             token: '{{ requiredEnv "UPDATECLI_GITHUB_TOKEN" }}'
             user: updatecli
