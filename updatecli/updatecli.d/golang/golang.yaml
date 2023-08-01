@@ -15,7 +15,7 @@ scms:
         spec:
             branch: main
             email: me@olblak.com
-            owner: olblak
+            owner: updatecli
             repository: udash
             token: '{{ requiredEnv "UPDATECLI_GITHUB_TOKEN" }}'
             user: updatecli
@@ -28,9 +28,6 @@ sources:
     golang:
         name: Get latest Golang version
         kind: golang
-        #spec:
-        #  versionfilter:
-        #    kind: semver
 
 conditions:
     workflowgo:
