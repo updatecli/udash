@@ -23,6 +23,7 @@ jobs:
         id: go
       - name: Login with Udash
         run: "updatecli udash login --experimental --oauth-access-token $UDASH_ACCESS_TOKEN $UDASH_URL"
+        if: github.ref == 'refs/heads/main'
         env:
           UDASH_ACCESS_TOKEN: ${{ secrets.UDASH_ACCESS_TOKEN }}
           UDASH_URL: ${{ vars.UDASH_URL }}
@@ -44,6 +45,7 @@ jobs:
           UPDATECLI_GITHUB_ACTOR: ${{ secrets.UPDATECLI_BOT_GITHUB_ACTOR }}
           UPDATECLI_GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
       - name: Logout from Udash
+        if: github.ref == 'refs/heads/main'
         run: "updatecli udash logout --experimental $UDASH_URL"
         env:
           UDASH_URL: ${{ vars.UDASH_URL }}
