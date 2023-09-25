@@ -255,8 +255,8 @@ github.com/twitchyliquid64/golang-asm v0.15.1 h1:SU5vSMR7hnwNxj24w34ZyCi/FmDZTkS
 github.com/twitchyliquid64/golang-asm v0.15.1/go.mod h1:a1lVb/DtPvCB8fslRZhAngC2+aY1QWCk3Cedj/Gdt08=
 github.com/ugorji/go/codec v1.2.11 h1:BMaWp1Bb6fHwEtbplGBGJ498wD+LKlNSl25MjdZY4dU=
 github.com/ugorji/go/codec v1.2.11/go.mod h1:UNopzCgEMSXjBc6AOMqYvWC1ktqTAfzJZUZgYf6w6lg=
-github.com/updatecli/updatecli v0.61.0 h1:qyqtUlMYwHFdPfgi7XQC5YjdGjJATr1TD9vWm3kJKKs=
-github.com/updatecli/updatecli v0.61.0/go.mod h1:ksBvZPjj3osRdnykEB+4Z/V8/zpcZev0Ins0soZstfg=
+github.com/updatecli/updatecli v0.61.1 h1:WIPIaQYpNpRsRp7MN3mR9LHIphd6NtanAWn79kpKbi8=
+github.com/updatecli/updatecli v0.61.1/go.mod h1:4s/gMk8CcHU3IIz4OYMUBuSueMqHIC6n2hSvnjFOT8M=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.32/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
