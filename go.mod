@@ -1,6 +1,8 @@
 module github.com/updatecli/udash
 
-go 1.20
+go 1.22
+
+toolchain go1.22.0
 
 require (
 	github.com/auth0/go-jwt-middleware/v2 v2.2.1
