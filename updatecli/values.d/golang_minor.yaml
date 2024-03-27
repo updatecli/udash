@@ -1,4 +1,5 @@
 name: "deps(golang): Bump Minor version for Golang module"
+pipelineid: "golang/gomod/minor"
 
 spec:
   versionfilter:
