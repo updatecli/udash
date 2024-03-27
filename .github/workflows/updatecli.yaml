@@ -30,8 +30,8 @@ jobs:
       - name: "Run updatecli in dryrun"
         run: "updatecli compose diff"
         env:
-          UPDATECLI_GITHUB_ACTOR: ${{ github.actor }}
-          UPDATECLI_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: tibdex/github-app-token@v1.8
         id: generate_token
         if: github.ref == 'refs/heads/main'
@@ -42,8 +42,8 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: "updatecli compose apply"
         env:
-          UPDATECLI_GITHUB_ACTOR: ${{ secrets.UPDATECLI_BOT_GITHUB_ACTOR }}
-          UPDATECLI_GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
+          GITHUB_ACTOR: ${{ secrets.UPDATECLI_BOT_GITHUB_ACTOR }}
+          GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
       - name: Logout from Udash
         if: github.ref == 'refs/heads/main'
         run: "updatecli udash logout --experimental $UDASH_URL"
