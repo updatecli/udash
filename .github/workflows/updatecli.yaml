@@ -28,7 +28,7 @@ jobs:
           UDASH_ACCESS_TOKEN: ${{ secrets.UDASH_ACCESS_TOKEN }}
           UDASH_URL: ${{ vars.UDASH_URL }}
       - name: "Run updatecli in dryrun"
-        run: "updatecli diff --config ./updatecli/updatecli.d --experimental"
+        run: "updatecli compose diff"
         env:
           UPDATECLI_GITHUB_ACTOR: ${{ github.actor }}
           UPDATECLI_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -40,7 +40,7 @@ jobs:
           private_key: ${{ secrets.UPDATECLIBOT_APP_PRIVKEY }}
       - name: "Run updatecli"
         if: github.ref == 'refs/heads/main'
-        run: "updatecli apply --config ./updatecli/updatecli.d --experimental"
+        run: "updatecli compose apply"
         env:
           UPDATECLI_GITHUB_ACTOR: ${{ secrets.UPDATECLI_BOT_GITHUB_ACTOR }}
           UPDATECLI_GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
