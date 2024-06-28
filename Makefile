@@ -38,7 +38,7 @@ db.reset: db.delete db.start ## Reset development database
 
 .PHONY: db.connect
 db.connect: ## Connect to development database
-	docker exec -i -t udash-db-1 psql --username=udash --password udash
+	docker exec -i -t --env "PGPASSWORD=password" udash-db-1 psql --username=udash udash
 
 .PHONY: db.start
 db.start: ## Start development database
@@ -61,5 +61,3 @@ lint: ## Execute the Golang's linters on updatecli's source code
 test: ## Execute the Golang's tests for updatecli
 	go test ./... -race -coverprofile=coverage.txt -covermode=atomic
 
-post:
-	curl -H "Content-Type: application/json" --data @data.json http://localhost:8080/api/pipelines
