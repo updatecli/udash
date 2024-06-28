@@ -50,6 +50,7 @@ func (s *Server) Run() {
 
 	switch strings.ToLower(s.Options.Auth.Mode) {
 	case "oauth":
+		r.GET("/api/pipeline/target/scms", checkJWT(), FindTargetSCM)
 		r.GET("/api/pipeline/reports", checkJWT(), FindAllPipelineReports)
 		r.GET("/api/pipeline/reports/:id", checkJWT(), FindPipelineReportByID)
 		r.POST("/api/pipeline/reports", checkJWT(), CreatePipelineReport)
@@ -57,6 +58,7 @@ func (s *Server) Run() {
 		r.DELETE("/api/pipeline/reports/:id", checkJWT(), DeletePipelineReport)
 
 	case "", "none":
+		r.GET("/api/pipeline/target/scms", FindTargetSCM)
 		r.GET("/api/pipeline/reports", FindAllPipelineReports)
 		r.GET("/api/pipeline/reports/:id", FindPipelineReportByID)
 		r.POST("/api/pipeline/reports", CreatePipelineReport)

@@ -24,9 +24,29 @@ func CreatePipelineReport(c *gin.Context) {
 		return
 	}
 
+	// Init scms table if needed
+	for i := range p.Targets {
+		branch := p.Targets[i].Scm.Branch.Target
+		url := p.Targets[i].Scm.URL
+
+		got, err := dbGetScm("", url, branch)
+		if err != nil {
+			logrus.Errorf("get scm data: %s", err)
+			continue
+		}
+
+		if len(got) == 0 && url != "" && branch != "" {
+			_, err := dbInsertSCM(url, branch)
+			if err != nil {
+				logrus.Errorf("insert scm data: %s", err)
+				continue
+			}
+		}
+	}
+
 	newReportID, err := dbInsertReport(p)
 	if err != nil {
-		logrus.Errorf("query failed: %s", err)
+		logrus.Errorf("insert reports: %s", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err})
 		return
 	}
@@ -77,7 +97,7 @@ func FindAllPipelineReports(c *gin.Context) {
 	dataset := []data{}
 
 	for rows.Next() {
-		p := PipelineRow{}
+		p := PipelineReportRow{}
 
 		err = rows.Scan(&p.ID, &p.Pipeline, &p.Created_at, &p.Updated_at)
 		if err != nil {
