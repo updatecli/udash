@@ -7,7 +7,8 @@ import (
 	"github.com/updatecli/updatecli/pkg/core/reports"
 )
 
-type PipelineRow struct {
+// PipelineReportRow represents a specific pipeline report from the database.
+type PipelineReportRow struct {
 	ID         uuid.UUID
 	Pipeline   reports.Report
 	Created_at time.Time

@@ -36,8 +36,8 @@ func dbDeleteReport(id string) error {
 	return nil
 }
 
-func dbSearchReport(id string) (*PipelineRow, error) {
-	report := PipelineRow{}
+func dbSearchReport(id string) (*PipelineReportRow, error) {
+	report := PipelineReportRow{}
 
 	err := database.DB.QueryRow(context.Background(), "select * from pipelineReports where id=$1", id).Scan(
 		&report.ID,
@@ -69,8 +69,8 @@ func dbSearchNumberOfReportsByID(id string) (int, error) {
 	return result, nil
 }
 
-func dbSearchLatestReportByID(id string) (*PipelineRow, error) {
-	report := PipelineRow{}
+func dbSearchLatestReportByID(id string) (*PipelineReportRow, error) {
+	report := PipelineReportRow{}
 
 	err := database.DB.QueryRow(context.Background(), "select * from pipelineReports where data ->> 'ID'=$1 ORDER BY updated_at DESC FETCH FIRST 1 ROWS ONLY", id).Scan(
 		&report.ID,
