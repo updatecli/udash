@@ -1,4 +1,5 @@
 ---
+version: 2
 archives:
   - name_template: >-
       {{ .ProjectName }}_
@@ -38,7 +39,7 @@ builds:
 
 changelog:
   ## Delegate Changelog to release-drafter
-  skip: true
+  disable: true
 
 dockers:
   - image_templates:
