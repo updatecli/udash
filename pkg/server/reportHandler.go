@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -83,7 +84,58 @@ func FindAllPipelineReports(c *gin.Context) {
 		UpdatedAt string
 	}
 
-	query := "SELECT * FROM pipelineReports ORDER BY updated_at DESC FETCH FIRST 1000 ROWS ONLY"
+	queryParams := c.Request.URL.Query()
+
+	scmid := queryParams.Get("scmid")
+	query := ""
+
+	switch scmid {
+	case "":
+		query = `
+	SELECT id, data, created_at, updated_at
+	FROM pipelineReports
+	ORDER BY updated_at DESC FETCH FIRST 1000 ROWS ONLY`
+
+	case "none", "null", "nil":
+		query = `
+	SELECT DISTINCT ON (s.data ->> 'Name') s.id, s.data, s.created_at, s.updated_at
+		FROM (
+    		SELECT *
+    		FROM pipelinereports
+        	WHERE NOT jsonb_path_exists(data::jsonb, '$.Targets[*].* ? (@.Scm.URL  != "" && @.Scm.Branch.Target != "")')
+    		ORDER BY updated_at DESC
+		) s
+	ORDER BY s.data ->> 'Name', s.updated_at DESC FETCH FIRST 1000 ROWS ONLY;`
+
+	default:
+		scm, err := dbGetScm(scmid, "", "")
+		if err != nil {
+			logrus.Errorf("get scm data: %s", err)
+			return
+		}
+
+		switch len(scm) {
+		case 0:
+			logrus.Errorf("scm data not found")
+
+		case 1:
+			query = `
+SELECT DISTINCT ON (s.data ->> 'Name') s.id, s.data, s.created_at, s.updated_at
+FROM (
+	SELECT *
+	FROM pipelinereports
+		WHERE jsonb_path_exists(data::jsonb, '$.Targets[*].* ? (@.Scm.URL  == "%s" && @.Scm.Branch.Target == "%s")')
+	ORDER BY updated_at DESC
+) s
+ORDER BY s.data ->> 'Name', s.updated_at DESC FETCH FIRST 1000 ROWS ONLY;
+`
+
+			query = fmt.Sprintf(query, scm[0].URL, scm[0].Branch)
+
+		default:
+			logrus.Errorf("multiple scms found")
+		}
+	}
 
 	rows, err := database.DB.Query(context.Background(), query)
 	if err != nil {

@@ -11,7 +11,12 @@ import (
 // dbGetSCMFromTarget represents a specific scm configuration from the database.
 func dbGetSCMFromTarget() ([]DatabaseSCMRow, error) {
 
-	query := "SELECT j.targets -> 'Scm' ->> 'URL', j.targets -> 'Scm' -> 'Branch' ->> 'Target' FROM (SELECT jsonb_path_query(data::jsonb, '$.Targets[*].*')  as targets from pipelineReports ) j group by 1,2;"
+	query := `
+		SELECT j.targets -> 'Scm' ->> 'URL', j.targets -> 'Scm' -> 'Branch' ->> 'Target'
+		FROM (
+			SELECT jsonb_path_query(data::jsonb, '$.Targets[*].*')  as targets
+			FROM pipelineReports
+		) j group by 1,2;`
 
 	rows, err := database.DB.Query(context.Background(), query)
 	if err != nil {
