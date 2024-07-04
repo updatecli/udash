@@ -50,20 +50,24 @@ func (s *Server) Run() {
 
 	switch strings.ToLower(s.Options.Auth.Mode) {
 	case "oauth":
-		r.GET("/api/pipeline/target/scms", checkJWT(), FindTargetSCM)
+		r.GET("/api/pipeline/scms", checkJWT(), FindTargetSCM)
 		r.GET("/api/pipeline/reports", checkJWT(), FindAllPipelineReports)
 		r.GET("/api/pipeline/reports/:id", checkJWT(), FindPipelineReportByID)
-		r.POST("/api/pipeline/reports", checkJWT(), CreatePipelineReport)
-		r.PUT("/api/pipeline/reports/:id", checkJWT(), UpdatePipelineReport)
-		r.DELETE("/api/pipeline/reports/:id", checkJWT(), DeletePipelineReport)
+		if !s.Options.DryRun {
+			r.POST("/api/pipeline/reports", checkJWT(), CreatePipelineReport)
+			r.PUT("/api/pipeline/reports/:id", checkJWT(), UpdatePipelineReport)
+			r.DELETE("/api/pipeline/reports/:id", checkJWT(), DeletePipelineReport)
+		}
 
 	case "", "none":
-		r.GET("/api/pipeline/target/scms", FindTargetSCM)
+		r.GET("/api/pipeline/scms", FindTargetSCM)
 		r.GET("/api/pipeline/reports", FindAllPipelineReports)
 		r.GET("/api/pipeline/reports/:id", FindPipelineReportByID)
-		r.POST("/api/pipeline/reports", CreatePipelineReport)
-		r.PUT("/api/pipeline/reports/:id", UpdatePipelineReport)
-		r.DELETE("/api/pipeline/reports/:id", DeletePipelineReport)
+		if !s.Options.DryRun {
+			r.POST("/api/pipeline/reports", CreatePipelineReport)
+			r.PUT("/api/pipeline/reports/:id", UpdatePipelineReport)
+			r.DELETE("/api/pipeline/reports/:id", DeletePipelineReport)
+		}
 
 	default:
 		logrus.Errorf("Authentication mode %q not supported", s.Options.Auth.Mode)
