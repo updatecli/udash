@@ -91,6 +91,11 @@ linters:
     - unused
     # - whitespace
 issues:
+  exclude-dirs:
+    - test/testdata_etc
+    - internal/cache
+    - internal/renameio
+    - internal/robustio
   # Excluding configuration per-path, per-linter, per-text and per-source
   exclude-rules:
     - path: _test\.go
@@ -106,8 +111,4 @@ issues:
       text: "unnecessaryDefer:"
 run:
   timeout: 5m
-  skip-dirs:
-    - test/testdata_etc
-    - internal/cache
-    - internal/renameio
-    - internal/robustio
+
