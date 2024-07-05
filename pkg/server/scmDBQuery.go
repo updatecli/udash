@@ -8,44 +8,6 @@ import (
 	"github.com/updatecli/udash/pkg/database"
 )
 
-// dbGetSCMFromTarget represents a specific scm configuration from the database.
-func dbGetSCMFromTarget() ([]DatabaseSCMRow, error) {
-
-	query := `
-		SELECT j.targets -> 'Scm' ->> 'URL', j.targets -> 'Scm' -> 'Branch' ->> 'Target'
-		FROM (
-			SELECT jsonb_path_query(data::jsonb, '$.Targets[*].*')  as targets
-			FROM pipelineReports
-		) j group by 1,2;`
-
-	rows, err := database.DB.Query(context.Background(), query)
-	if err != nil {
-		logrus.Errorf("get scm from pipeline target(s): %q\n\t%s", query, err)
-		return nil, err
-	}
-
-	results := []DatabaseSCMRow{}
-
-	for rows.Next() {
-		r := DatabaseSCMRow{}
-
-		err = rows.Scan(&r.URL, &r.Branch)
-		if err != nil {
-			logrus.Errorf("scanning scm row failed: %s", err)
-			continue
-		}
-
-		// No need to return empty git url
-		if r.URL == "" {
-			continue
-		}
-
-		results = append(results, r)
-	}
-
-	return results, nil
-}
-
 func dbInsertSCM(url, branch string) (string, error) {
 
 	var ID uuid.UUID
