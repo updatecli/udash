@@ -1,8 +1,6 @@
 module github.com/updatecli/udash
 
-go 1.22.4
-
-toolchain go1.22.5
+go 1.22.5
 
 require (
 	github.com/auth0/go-jwt-middleware/v2 v2.2.1
@@ -14,7 +12,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.18.2
-	github.com/updatecli/updatecli v0.79.1
+	github.com/updatecli/updatecli v0.82.0
 )
 
 require (
