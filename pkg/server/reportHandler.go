@@ -133,6 +133,8 @@ ORDER BY s.data ->> 'Name', s.updated_at DESC FETCH FIRST 1000 ROWS ONLY;
 			query = fmt.Sprintf(query, scm[0].URL, scm[0].Branch)
 
 		default:
+			// Normally we should never have multiple scms with the same id
+			// so we should never reach this point.
 			logrus.Errorf("multiple scms found")
 		}
 	}
