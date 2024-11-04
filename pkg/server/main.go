@@ -50,7 +50,7 @@ func (s *Server) Run() {
 
 	switch strings.ToLower(s.Options.Auth.Mode) {
 	case "oauth":
-		r.GET("/api/pipeline/scms", checkJWT(), FindTargetSCM)
+		r.GET("/api/pipeline/scms", checkJWT(), FindSCM)
 		r.GET("/api/pipeline/reports", checkJWT(), FindAllPipelineReports)
 		r.GET("/api/pipeline/reports/:id", checkJWT(), FindPipelineReportByID)
 		if !s.Options.DryRun {
@@ -60,7 +60,7 @@ func (s *Server) Run() {
 		}
 
 	case "", "none":
-		r.GET("/api/pipeline/scms", FindTargetSCM)
+		r.GET("/api/pipeline/scms", FindSCM)
 		r.GET("/api/pipeline/reports", FindAllPipelineReports)
 		r.GET("/api/pipeline/reports/:id", FindPipelineReportByID)
 		if !s.Options.DryRun {

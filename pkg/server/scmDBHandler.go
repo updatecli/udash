@@ -7,11 +7,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func FindTargetSCM(c *gin.Context) {
+func FindSCM(c *gin.Context) {
 
-	rows, err := dbGetScm("", "", "")
+	scmid := c.Request.URL.Query().Get("scmid")
+	url := c.Request.URL.Query().Get("url")
+	branch := c.Request.URL.Query().Get("branch")
+
+	rows, err := dbGetScm(scmid, url, branch)
 	if err != nil {
-		logrus.Errorf("find target scms: %s", err)
+		logrus.Errorf("searching for scms: %s", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": err,
 		})
