@@ -32,7 +32,7 @@ jobs:
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: tibdex/github-app-token@v1.8
+      - uses: tibdex/github-app-token@v2.1
         id: generate_token
         if: github.ref == 'refs/heads/main'
         with:
