@@ -16,7 +16,7 @@ func FindSCM(c *gin.Context) {
 	scmid := c.Request.URL.Query().Get("scmid")
 	url := c.Request.URL.Query().Get("url")
 	branch := c.Request.URL.Query().Get("branch")
-  summary := c.Request.URL.Query().Get("summary)
+	summary := c.Request.URL.Query().Get("summary")
 
 	rows, err := dbGetScm(scmid, url, branch)
 	if err != nil {
