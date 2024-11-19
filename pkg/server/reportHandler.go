@@ -92,20 +92,26 @@ func FindAllPipelineReports(c *gin.Context) {
 	switch scmid {
 	case "":
 		query = `
-	SELECT id, data, created_at, updated_at
-	FROM pipelineReports
-	ORDER BY updated_at DESC FETCH FIRST 1000 ROWS ONLY`
+SELECT id, data, created_at, updated_at
+FROM pipelineReports
+WHERE updated_at > current_date - interval '%d day'
+ORDER BY updated_at DESC`
+		query = fmt.Sprintf(query, monitoringDurationDays)
 
 	case "none", "null", "nil":
 		query = `
-	SELECT DISTINCT ON (s.data ->> 'Name') s.id, s.data, s.created_at, s.updated_at
-		FROM (
-    		SELECT *
-    		FROM pipelinereports
-        	WHERE NOT jsonb_path_exists(data::jsonb, '$.Targets[*].* ? (@.Scm.URL  != "" && @.Scm.Branch.Target != "")')
-    		ORDER BY updated_at DESC
-		) s
-	ORDER BY s.data ->> 'Name', s.updated_at DESC FETCH FIRST 1000 ROWS ONLY;`
+SELECT DISTINCT ON (s.data ->> 'Name') s.id, s.data, s.created_at, s.updated_at
+    FROM (
+        SELECT *
+            FROM pipelinereports
+            WHERE
+                NOT jsonb_path_exists(data::jsonb, '$.Targets[*].* ? (@.Scm.URL  != "" && @.Scm.Branch.Target != "")') AND
+                updated_at >  current_date - interval '%d day'
+            ORDER BY updated_at DESC
+        ) s
+ORDER BY s.data ->> 'Name', s.updated_at DESC;`
+
+		query = fmt.Sprintf(query, monitoringDurationDays)
 
 	default:
 		scm, err := dbGetScm(scmid, "", "")
@@ -122,15 +128,17 @@ func FindAllPipelineReports(c *gin.Context) {
 			query = `
 SELECT DISTINCT ON (s.data ->> 'Name') s.id, s.data, s.created_at, s.updated_at
 FROM (
-	SELECT *
-	FROM pipelinereports
-		WHERE jsonb_path_exists(data::jsonb, '$.Targets[*].* ? (@.Scm.URL  == "%s" && @.Scm.Branch.Target == "%s")')
-	ORDER BY updated_at DESC
+    SELECT *
+    FROM pipelinereports
+        WHERE
+            jsonb_path_exists(data::jsonb, '$.Targets[*].* ? (@.Scm.URL  == "%s" && @.Scm.Branch.Target == "%s")') AND
+            updated_at >  current_date - interval '%d day'
+    ORDER BY updated_at DESC
 ) s
-ORDER BY s.data ->> 'Name', s.updated_at DESC FETCH FIRST 1000 ROWS ONLY;
+ORDER BY s.data ->> 'Name', s.updated_at DESC;
 `
 
-			query = fmt.Sprintf(query, scm[0].URL, scm[0].Branch)
+			query = fmt.Sprintf(query, scm[0].URL, scm[0].Branch, monitoringDurationDays)
 
 		default:
 			// Normally we should never have multiple scms with the same id
