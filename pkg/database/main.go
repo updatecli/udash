@@ -31,7 +31,8 @@ var (
 
 type Options struct {
 	// URI defines the DB URI
-	URI string
+	URI               string
+	MigrationDisabled bool
 }
 
 func Connect(o Options) error {
