@@ -7,4 +7,4 @@ DROP INDEX idx_pipelinereports_data_jsonb;
 DROP INDEX idx_pipelinereports_updated_at;
 DROP INDEX idx_pipelinereports_data_name;
 DROP INDEX idx_pipelinereports_data_result;
-DROP INDEX idx_pipelinereports_distinct
+DROP INDEX idx_pipelinereports_distinct;
