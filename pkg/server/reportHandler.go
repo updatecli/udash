@@ -92,24 +92,33 @@ func FindAllPipelineReports(c *gin.Context) {
 	switch scmid {
 	case "":
 		query = `
+WITH filtered_reports AS (
+	SELECT id, data,created_at, updated_at
+	FROM pipelinereports
+	WHERE
+	  updated_at >  current_date - interval '%d day'
+)
 SELECT id, data, created_at, updated_at
-FROM pipelineReports
-WHERE updated_at > current_date - interval '%d day'
+FROM filtered_reports
 ORDER BY updated_at DESC`
 		query = fmt.Sprintf(query, monitoringDurationDays)
 
 	case "none", "null", "nil":
 		query = `
-SELECT DISTINCT ON (s.data ->> 'Name') s.id, s.data, s.created_at, s.updated_at
-    FROM (
-        SELECT *
-            FROM pipelinereports
-            WHERE
-                NOT jsonb_path_exists(data::jsonb, '$.Targets[*].* ? (@.Scm.URL  != "" && @.Scm.Branch.Target != "")') AND
-                updated_at >  current_date - interval '%d day'
-            ORDER BY updated_at DESC
-        ) s
-ORDER BY s.data ->> 'Name', s.updated_at DESC;`
+WITH filtered_reports AS (
+	SELECT id, data, created_at, updated_at
+	FROM pipelinereports
+	WHERE
+	  NOT jsonb_path_exists(data::jsonb, '$.Targets[*].* ? (@.Scm.URL  != "" && @.Scm.Branch.Target != "")') AND
+      updated_at >  current_date - interval '%d day'
+)
+SELECT DISTINCT ON (data ->> 'Name')
+	id,
+	data,
+	created_at,
+	updated_at
+FROM filtered_reports
+ORDER BY (data ->> 'Name'), updated_at DESC;`
 
 		query = fmt.Sprintf(query, monitoringDurationDays)
 
@@ -126,16 +135,21 @@ ORDER BY s.data ->> 'Name', s.updated_at DESC;`
 
 		case 1:
 			query = `
-SELECT DISTINCT ON (s.data ->> 'Name') s.id, s.data, s.created_at, s.updated_at
-FROM (
-    SELECT *
-    FROM pipelinereports
-        WHERE
-            jsonb_path_exists(data::jsonb, '$.Targets[*].* ? (@.Scm.URL  == "%s" && @.Scm.Branch.Target == "%s")') AND
-            updated_at >  current_date - interval '%d day'
-    ORDER BY updated_at DESC
-) s
-ORDER BY s.data ->> 'Name', s.updated_at DESC;
+WITH filtered_reports AS (
+	SELECT id, data, created_at, updated_at
+	FROM pipelinereports
+	WHERE
+		jsonb_path_exists(data::jsonb, '$.Targets[*].* ? (@.Scm.URL  == "%s" && @.Scm.Branch.Target == "%s")') AND
+		updated_at >  current_date - interval '%d day'
+)
+
+SELECT DISTINCT ON (data ->> 'Name')
+	id,
+	data,
+	created_at,
+	updated_at
+FROM filtered_reports
+ORDER BY (data ->> 'Name'), updated_at DESC;
 `
 
 			query = fmt.Sprintf(query, scm[0].URL, scm[0].Branch, monitoringDurationDays)

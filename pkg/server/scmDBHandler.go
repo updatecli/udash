@@ -69,16 +69,16 @@ func FindSCMSummary(c *gin.Context, scmRows []DatabaseSCMRow) {
 		}
 
 		query = `
-SELECT DISTINCT ON (s.data ->> 'Name') s.id, ( s.data ->> 'Result')
-FROM (
-	SELECT *
+WITH filtered_reports AS (
+	SELECT id, data, updated_at
 	FROM pipelinereports
-		WHERE
-			jsonb_path_exists(data::jsonb, '$.Targets[*].* ? (@.Scm.URL  == "%s" && @.Scm.Branch.Target == "%s")') AND
-			updated_at >  current_date - interval '%d day'
-	ORDER BY updated_at DESC
-) s
-ORDER BY s.data ->> 'Name', s.updated_at DESC;
+	WHERE jsonb_path_exists(data::jsonb, '$.Targets[*].* ? (@.Scm.URL  == "%s" && @.Scm.Branch.Target == "%s")') AND updated_at >  current_date - interval '%d day')
+SELECT DISTINCT ON (data ->> 'Name')
+	id,
+	(data ->> 'Result')
+
+FROM filtered_reports
+ORDER BY (data ->> 'Name'), updated_at DESC;
 `
 
 		query = fmt.Sprintf(query, scmURL, scmBranch, monitoringDurationDays)
