@@ -16,17 +16,11 @@ jobs:
       - name: "Setup updatecli"
         uses: "updatecli/updatecli-action@v2"
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
           check-latest: true
         id: go
-      - name: Login with Udash
-        run: "updatecli udash login --experimental --oauth-access-token $UDASH_ACCESS_TOKEN $UDASH_URL"
-        if: github.ref == 'refs/heads/main'
-        env:
-          UDASH_ACCESS_TOKEN: ${{ secrets.UDASH_ACCESS_TOKEN }}
-          UDASH_URL: ${{ vars.UDASH_URL }}
       - name: "Run updatecli in dryrun"
         run: "updatecli compose diff"
         env:
@@ -47,6 +41,3 @@ jobs:
       - name: Logout from Udash
         if: github.ref == 'refs/heads/main'
         run: "updatecli udash logout --experimental $UDASH_URL"
-        env:
-          UDASH_URL: ${{ vars.UDASH_URL }}
-
