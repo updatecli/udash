@@ -110,6 +110,37 @@ But it must be authenticated before uploading any reports, by running:
 Then any apply/diff command will upload pipeline reports
 
 
+
+=== Demo
+
+You can try Udash yourself by running the following steps:
+
+==== 1. Start Udash
+
+Udash is composed of a Postgresql database, an Updatecli API, and an Updatecli Frontend.
+
+Using Docker, you can start all services with the following command:
+
+`docker compose --file docker-compose.example.yaml up`
+
+Please keep in mind that no authentication is enabled in this example.
+
+Udash is now available on `udash.localhost` and the API on `udash.localhost/api`
+
+==== 2. Configure Updatecli
+
+Once Udash is running, you can configure Updatecli to upload reports to Udash by running:
+
+`updatecli udash login --api-url http://udash.localhost/api http://udash.localhost --experimental`
+
+==== 3. Run Updatecli
+
+You can now run Updatecli as usual, and it will upload the pipeline report to Udash.
+
+Please be aware that currently the UI is designed to visualize pipelines per git repository so without a scmid
+pipelines will be hard to discover.
+
+
 === Links
 
 * https://github.com/updatecli/updatecli[Updatecli]
