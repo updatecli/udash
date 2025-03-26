@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
 	"github.com/updatecli/udash/pkg/database"
+	"github.com/updatecli/udash/pkg/model"
 	"github.com/updatecli/updatecli/pkg/core/reports"
 )
 
@@ -23,26 +24,6 @@ func CreatePipelineReport(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err})
 		log.Fatal(err)
 		return
-	}
-
-	// Init scms table if needed
-	for i := range p.Targets {
-		branch := p.Targets[i].Scm.Branch.Target
-		url := p.Targets[i].Scm.URL
-
-		got, err := dbGetScm("", url, branch)
-		if err != nil {
-			logrus.Errorf("get scm data: %s", err)
-			continue
-		}
-
-		if len(got) == 0 && url != "" && branch != "" {
-			_, err := dbInsertSCM(url, branch)
-			if err != nil {
-				logrus.Errorf("insert scm data: %s", err)
-				continue
-			}
-		}
 	}
 
 	newReportID, err := dbInsertReport(p)
@@ -109,8 +90,8 @@ WITH filtered_reports AS (
 	SELECT id, data, created_at, updated_at
 	FROM pipelinereports
 	WHERE
-	  NOT jsonb_path_exists(data::jsonb, '$.Targets[*].* ? (@.Scm.URL  != "" && @.Scm.Branch.Target != "")') AND
-      updated_at >  current_date - interval '%d day'
+	  	(( cardinality(target_db_scm_ids) = 0 ) OR ( target_db_scm_ids IS NULL )) AND
+      	( updated_at >  current_date - interval '%d day' )
 )
 SELECT DISTINCT ON (data ->> 'Name')
 	id,
@@ -139,8 +120,8 @@ WITH filtered_reports AS (
 	SELECT id, data, created_at, updated_at
 	FROM pipelinereports
 	WHERE
-		jsonb_path_exists(data::jsonb, '$.Targets[*].* ? (@.Scm.URL  == "%s" && @.Scm.Branch.Target == "%s")') AND
-		updated_at >  current_date - interval '%d day'
+		( target_db_scm_ids && '{ %q }' ) AND
+		( updated_at >  current_date - interval '%d day' )
 )
 
 SELECT DISTINCT ON (data ->> 'Name')
@@ -152,7 +133,7 @@ FROM filtered_reports
 ORDER BY (data ->> 'Name'), updated_at DESC;
 `
 
-			query = fmt.Sprintf(query, scm[0].URL, scm[0].Branch, monitoringDurationDays)
+			query = fmt.Sprintf(query, scm[0].ID, monitoringDurationDays)
 
 		default:
 			// Normally we should never have multiple scms with the same id
@@ -173,7 +154,7 @@ ORDER BY (data ->> 'Name'), updated_at DESC;
 	dataset := []data{}
 
 	for rows.Next() {
-		p := PipelineReportRow{}
+		p := model.PipelineReport{}
 
 		err = rows.Scan(&p.ID, &p.Pipeline, &p.Created_at, &p.Updated_at)
 		if err != nil {
@@ -211,12 +192,12 @@ func FindPipelineReportByID(c *gin.Context) {
 		return
 	}
 
-	nbReportsByID, err := dbSearchNumberOfReportsByID(data.Pipeline.ID)
+	nbReportsByID, err := dbSearchNumberOfReportsByPipelineID(data.Pipeline.ID)
 	if err != nil {
 		logrus.Errorf("getting number of reports by name: %s", err)
 	}
 
-	latestReportByID, err := dbSearchLatestReportByID(data.Pipeline.ID)
+	latestReportByID, err := dbSearchLatestReportByPipelineID(data.Pipeline.ID)
 	if err != nil {
 		logrus.Errorf("getting latest report by name: %s", err)
 	}

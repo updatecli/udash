@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"github.com/updatecli/udash/pkg/database"
+	"github.com/updatecli/udash/pkg/model"
 )
 
 func FindSCM(c *gin.Context) {
@@ -39,7 +40,7 @@ func FindSCM(c *gin.Context) {
 }
 
 // FindSCMSummary returns a summary of all git repositories detected.
-func FindSCMSummary(c *gin.Context, scmRows []DatabaseSCMRow) {
+func FindSCMSummary(c *gin.Context, scmRows []model.SCM) {
 
 	type scmSummaryData struct {
 		ID                string         `json:"id"`
@@ -72,7 +73,10 @@ func FindSCMSummary(c *gin.Context, scmRows []DatabaseSCMRow) {
 WITH filtered_reports AS (
 	SELECT id, data, updated_at
 	FROM pipelinereports
-	WHERE jsonb_path_exists(data::jsonb, '$.Targets[*].* ? (@.Scm.URL  == "%s" && @.Scm.Branch.Target == "%s")') AND updated_at >  current_date - interval '%d day')
+	WHERE 
+		( target_db_scm_ids && '{ %q }' ) AND 
+		( updated_at >  current_date - interval '%d day' )
+)
 SELECT DISTINCT ON (data ->> 'Name')
 	id,
 	(data ->> 'Result')
@@ -81,7 +85,7 @@ FROM filtered_reports
 ORDER BY (data ->> 'Name'), updated_at DESC;
 `
 
-		query = fmt.Sprintf(query, scmURL, scmBranch, monitoringDurationDays)
+		query = fmt.Sprintf(query, scmID, monitoringDurationDays)
 
 		rows, err := database.DB.Query(context.Background(), query)
 		if err != nil {

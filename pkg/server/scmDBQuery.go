@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/updatecli/udash/pkg/database"
+	"github.com/updatecli/udash/pkg/model"
 )
 
 func dbInsertSCM(url, branch string) (string, error) {
@@ -27,7 +28,7 @@ func dbInsertSCM(url, branch string) (string, error) {
 }
 
 // dbGetSCM returns a list of scms from the scm database table.
-func dbGetScm(id, url, branch string) ([]DatabaseSCMRow, error) {
+func dbGetScm(id, url, branch string) ([]model.SCM, error) {
 
 	query := "SELECT * FROM scms"
 	if id != "" || url != "" || branch != "" {
@@ -75,10 +76,10 @@ func dbGetScm(id, url, branch string) ([]DatabaseSCMRow, error) {
 		return nil, err
 	}
 
-	results := []DatabaseSCMRow{}
+	results := []model.SCM{}
 
 	for rows.Next() {
-		r := DatabaseSCMRow{}
+		r := model.SCM{}
 
 		err = rows.Scan(&r.ID, &r.Branch, &r.URL, &r.Created_at, &r.Updated_at)
 		if err != nil {
