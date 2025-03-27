@@ -1,11 +1,11 @@
-name: "deps(golang): Bump Minor version for Golang module"
-pipelineid: "golang/gomod/minor"
-groupby: individual
+name: "deps(golang): Bump Major version for Golang module"
+pipelineid: "golang/gomod/major"
+groupby: all
 
 spec:
   versionfilter:
     kind: semver
-    pattern: minoronly
+    pattern: majoronly
   ignore:
     - modules:
         # Ignoring the following modules as they do not publish release
