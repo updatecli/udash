@@ -1,0 +1,11 @@
+src:
+  url: "https://github.com/updatecli/updatecli.git"
+  branch: "main"
+
+files:
+  - src: updatecli/values.d/golang_major.yaml
+    dst: updatecli/values.d/golang_major.yaml
+  - src: updatecli/values.d/golang_minor.yaml
+    dst: updatecli/values.d/golang_minor.yaml
+  - src: updatecli/values.d/golang_patch.yaml
+    dst: updatecli/values.d/golang_patch.yaml
