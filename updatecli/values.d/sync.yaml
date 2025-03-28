@@ -9,6 +9,8 @@ files:
     dst: updatecli/values.d/golang_minor.yaml
   - src: updatecli/values.d/golang_patch.yaml
     dst: updatecli/values.d/golang_patch.yaml
+  - src: updatecli/values.d/githubaction.yaml
+    dst: updatecli/values.d/githubaction.yaml
 
 pr:
   automerge: true
