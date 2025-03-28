@@ -1,0 +1,26 @@
+package model
+
+import (
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/updatecli/updatecli/pkg/core/reports"
+)
+
+// PipelineReport represents a specific pipeline report from the database.
+type PipelineReport struct {
+	// ID is the unique identifier of the record in the database.
+	ID uuid.UUID `json:",omitempty"`
+	// Pipeline represent the Updatecli pipeline report.
+	Pipeline reports.Report `json:",omitempty"`
+	// PipelineID represent the ID of the pipeline executed by Updatecli.
+	// different execution of the same pipeline will have the same PipelineID.
+	// This value is coming from the pipeline report to improve the search of reports.
+	PipelineID string `json:",omitempty"`
+	// TargetScmIDs is a list of unique identifiers of the scm configuration associated with the database.
+	TargetScmIDs []uuid.UUID `json:",omitempty"`
+	// Create_at represent the creation date of the record.
+	Created_at time.Time `json:",omitempty"`
+	// Updated_at represent the last update date of the record.
+	Updated_at time.Time `json:",omitempty"`
+}
