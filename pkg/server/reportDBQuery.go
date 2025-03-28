@@ -2,30 +2,73 @@ package server
 
 import (
 	"context"
+	"slices"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/updatecli/udash/pkg/database"
+	"github.com/updatecli/udash/pkg/model"
 	"github.com/updatecli/updatecli/pkg/core/reports"
 )
 
-func dbInsertReport(p reports.Report) (string, error) {
+// dbInsertReport inserts a new report into the database.
+func dbInsertReport(report reports.Report) (string, error) {
 	var ID uuid.UUID
+	var targetDBScmIDs []uuid.UUID
 
-	query := "INSERT INTO pipelineReports (data) VALUES ($1) RETURNING id"
+	for _, target := range report.Targets {
+		if target.Scm.URL != "" && target.Scm.Branch.Target != "" {
+			url := target.Scm.URL
+			branch := target.Scm.Branch.Target
 
-	err := database.DB.QueryRow(context.Background(), query, p).Scan(
+			ids, err := dbGetScm("", url, branch)
+			if err != nil {
+				logrus.Errorf("query failed: %s", err)
+				return "", err
+			}
+
+			switch len(ids) {
+			// If no scm is found, we insert it
+			case 0:
+				id, err := dbInsertSCM(target.Scm.URL, target.Scm.Branch.Source)
+				if err != nil {
+					logrus.Errorf("insert scm data: %s", err)
+					continue
+				}
+
+				parsedID, err := uuid.Parse(id)
+				if err != nil {
+					logrus.Errorf("parsing id: %s", err)
+				}
+
+				targetDBScmIDs = append(targetDBScmIDs, parsedID)
+			default:
+				for _, id := range ids {
+					if !slices.Contains(targetDBScmIDs, id.ID) {
+						targetDBScmIDs = append(targetDBScmIDs, id.ID)
+					}
+				}
+			}
+		}
+	}
+
+	query := `INSERT INTO pipelineReports
+	(data, pipeline_id, pipeline_result, pipeline_name, target_db_scm_ids)
+	VALUES ($1, $2, $3, $4, $5)
+	RETURNING id
+`
+	err := database.DB.QueryRow(context.Background(), query, report, report.ID, report.Result, report.Name, targetDBScmIDs).Scan(
 		&ID,
 	)
-
 	if err != nil {
-		logrus.Errorf("query failed: %s", err)
+		logrus.Errorf("query failed: %s\n\t=> %q", err, query)
 		return "", err
 	}
 
 	return ID.String(), nil
 }
 
+// dbDeleteReport deletes a report from the database.
 func dbDeleteReport(id string) error {
 	query := "DELETE FROM pipelineReports WHERE id=$1"
 
@@ -36,10 +79,13 @@ func dbDeleteReport(id string) error {
 	return nil
 }
 
-func dbSearchReport(id string) (*PipelineRow, error) {
-	report := PipelineRow{}
+// dbSearchReport searches a report by its database record id.
+func dbSearchReport(id string) (*model.PipelineReport, error) {
+	report := model.PipelineReport{}
 
-	err := database.DB.QueryRow(context.Background(), "select * from pipelineReports where id=$1", id).Scan(
+	query := "SELECT id,data,created_at,updated_at FROM pipelineReports WHERE id=$1"
+
+	err := database.DB.QueryRow(context.Background(), query, id).Scan(
 		&report.ID,
 		&report.Pipeline,
 		&report.Created_at,
@@ -54,10 +100,13 @@ func dbSearchReport(id string) (*PipelineRow, error) {
 	return &report, nil
 }
 
-func dbSearchNumberOfReportsByID(id string) (int, error) {
+// dbSearchNumberOfReportsByPipelineID searches the number of reports for a specific pipeline id.
+func dbSearchNumberOfReportsByPipelineID(id string) (int, error) {
 	var result int
 
-	err := database.DB.QueryRow(context.Background(), "SELECT COUNT(data) FROM pipelineReports WHERE data ->> 'ID' = $1", id).Scan(
+	query := "SELECT COUNT(data) FROM pipelineReports WHERE pipeline_id = $1"
+
+	err := database.DB.QueryRow(context.Background(), query, id).Scan(
 		&result,
 	)
 
@@ -69,10 +118,17 @@ func dbSearchNumberOfReportsByID(id string) (int, error) {
 	return result, nil
 }
 
-func dbSearchLatestReportByID(id string) (*PipelineRow, error) {
-	report := PipelineRow{}
+// dbSearchLatestReportByPipelineID searches the latest report for a specific pipeline id.
+func dbSearchLatestReportByPipelineID(id string) (*model.PipelineReport, error) {
+	report := model.PipelineReport{}
 
-	err := database.DB.QueryRow(context.Background(), "select * from pipelineReports where data ->> 'ID'=$1 ORDER BY updated_at DESC FETCH FIRST 1 ROWS ONLY", id).Scan(
+	query := `SELECT id,data,created_at,updated_at
+	FROM pipelineReports
+	WHERE pipeline_id = $1
+	ORDER BY updated_at DESC FETCH FIRST 1 ROWS ONLY
+`
+
+	err := database.DB.QueryRow(context.Background(), query, id).Scan(
 		&report.ID,
 		&report.Pipeline,
 		&report.Created_at,

@@ -20,25 +20,25 @@ build: ## Build updatecli as a "dirty snapshot" (no tag, no release, but all OS/
 
 .PHONY: build.all
 build.all: ## Build updatecli for "release" (tag or release and all OS/arch combinations)
-	goreleaser --clean --skip-publish
+	goreleaser --clean --skip=publish,sign
 
 clean: ## Clean go test cache
 	go clean -testcache
 
 .PHONY: release ## Create a new updatecli release including packages
 release: ## release.snapshot generate a snapshot release but do not published it (no tag, but all OS/arch combinations)
-	goreleaser --clean
+	goreleaser --clean --timeout=2h
 
 .PHONY: release.snapshot ## Create a new snapshot release without publishing assets
 release.snapshot: ## release.snapshot generate a snapshot release but do not published it (no tag, but all OS/arch combinations)
-	goreleaser --snapshot --clean --skip-publish
+	goreleaser --snapshot --clean --skip=publish,sign
 
 .PHONY: db 
 db.reset: db.delete db.start ## Reset development database
 
 .PHONY: db.connect
 db.connect: ## Connect to development database
-	docker exec -i -t udash-db-1 psql --username=udash --password udash
+	docker exec -i -t --env "PGPASSWORD=password" udash-db-1 psql --username=udash udash
 
 .PHONY: db.start
 db.start: ## Start development database
@@ -61,5 +61,3 @@ lint: ## Execute the Golang's linters on updatecli's source code
 test: ## Execute the Golang's tests for updatecli
 	go test ./... -race -coverprofile=coverage.txt -covermode=atomic
 
-post:
-	curl -H "Content-Type: application/json" --data @data.json http://localhost:8080/api/pipelines

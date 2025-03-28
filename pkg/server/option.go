@@ -2,7 +2,8 @@ package server
 
 // Options holds the server options
 type Options struct {
-	Auth AuthOptions
+	Auth   AuthOptions
+	DryRun bool
 }
 
 func (o *Options) Init() {

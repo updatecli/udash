@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
 	"github.com/updatecli/udash/pkg/database"
+	"github.com/updatecli/udash/pkg/model"
 	"github.com/updatecli/updatecli/pkg/core/reports"
 )
 
@@ -26,7 +28,7 @@ func CreatePipelineReport(c *gin.Context) {
 
 	newReportID, err := dbInsertReport(p)
 	if err != nil {
-		logrus.Errorf("query failed: %s", err)
+		logrus.Errorf("insert reports: %s", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err})
 		return
 	}
@@ -63,7 +65,82 @@ func FindAllPipelineReports(c *gin.Context) {
 		UpdatedAt string
 	}
 
-	query := "SELECT * FROM pipelineReports ORDER BY updated_at DESC FETCH FIRST 1000 ROWS ONLY"
+	queryParams := c.Request.URL.Query()
+
+	scmid := queryParams.Get("scmid")
+	query := ""
+
+	switch scmid {
+	case "":
+		query = `
+WITH filtered_reports AS (
+	SELECT id, data,created_at, updated_at
+	FROM pipelinereports
+	WHERE
+	  updated_at >  current_date - interval '%d day'
+)
+SELECT id, data, created_at, updated_at
+FROM filtered_reports
+ORDER BY updated_at DESC`
+		query = fmt.Sprintf(query, monitoringDurationDays)
+
+	case "none", "null", "nil":
+		query = `
+WITH filtered_reports AS (
+	SELECT id, data, created_at, updated_at
+	FROM pipelinereports
+	WHERE
+	  	(( cardinality(target_db_scm_ids) = 0 ) OR ( target_db_scm_ids IS NULL )) AND
+      	( updated_at >  current_date - interval '%d day' )
+)
+SELECT DISTINCT ON (data ->> 'Name')
+	id,
+	data,
+	created_at,
+	updated_at
+FROM filtered_reports
+ORDER BY (data ->> 'Name'), updated_at DESC;`
+
+		query = fmt.Sprintf(query, monitoringDurationDays)
+
+	default:
+		scm, err := dbGetScm(scmid, "", "")
+		if err != nil {
+			logrus.Errorf("get scm data: %s", err)
+			return
+		}
+
+		switch len(scm) {
+		case 0:
+			logrus.Errorf("scm data not found")
+
+		case 1:
+			query = `
+WITH filtered_reports AS (
+	SELECT id, data, created_at, updated_at
+	FROM pipelinereports
+	WHERE
+		( target_db_scm_ids && '{ %q }' ) AND
+		( updated_at >  current_date - interval '%d day' )
+)
+
+SELECT DISTINCT ON (data ->> 'Name')
+	id,
+	data,
+	created_at,
+	updated_at
+FROM filtered_reports
+ORDER BY (data ->> 'Name'), updated_at DESC;
+`
+
+			query = fmt.Sprintf(query, scm[0].ID, monitoringDurationDays)
+
+		default:
+			// Normally we should never have multiple scms with the same id
+			// so we should never reach this point.
+			logrus.Errorf("multiple scms found")
+		}
+	}
 
 	rows, err := database.DB.Query(context.Background(), query)
 	if err != nil {
@@ -77,7 +154,7 @@ func FindAllPipelineReports(c *gin.Context) {
 	dataset := []data{}
 
 	for rows.Next() {
-		p := PipelineRow{}
+		p := model.PipelineReport{}
 
 		err = rows.Scan(&p.ID, &p.Pipeline, &p.Created_at, &p.Updated_at)
 		if err != nil {
@@ -115,12 +192,12 @@ func FindPipelineReportByID(c *gin.Context) {
 		return
 	}
 
-	nbReportsByID, err := dbSearchNumberOfReportsByID(data.Pipeline.ID)
+	nbReportsByID, err := dbSearchNumberOfReportsByPipelineID(data.Pipeline.ID)
 	if err != nil {
 		logrus.Errorf("getting number of reports by name: %s", err)
 	}
 
-	latestReportByID, err := dbSearchLatestReportByID(data.Pipeline.ID)
+	latestReportByID, err := dbSearchLatestReportByPipelineID(data.Pipeline.ID)
 	if err != nil {
 		logrus.Errorf("getting latest report by name: %s", err)
 	}
