@@ -4,7 +4,7 @@ go 1.24.1
 
 require (
 	github.com/auth0/go-jwt-middleware/v2 v2.3.0
-	github.com/fsnotify/fsnotify v1.8.0
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/golang-migrate/migrate/v4 v4.18.2
 	github.com/google/uuid v1.6.0
