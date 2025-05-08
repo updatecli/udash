@@ -2,21 +2,136 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"slices"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/sirupsen/logrus"
 	"github.com/updatecli/udash/pkg/database"
 	"github.com/updatecli/udash/pkg/model"
 	"github.com/updatecli/updatecli/pkg/core/reports"
 )
 
+func stringPtr(s string) *string {
+	return &s
+}
+
 // dbInsertReport inserts a new report into the database.
 func dbInsertReport(report reports.Report) (string, error) {
 	var ID uuid.UUID
 	var targetDBScmIDs []uuid.UUID
 
-	for _, target := range report.Targets {
+	configTargetIDs := pgtype.Hstore{}
+	configConditionIDs := pgtype.Hstore{}
+	configSourceIDs := pgtype.Hstore{}
+
+	for sourceID, source := range report.Sources {
+
+		if source.Config == nil {
+			continue
+		}
+
+		s, ok := source.Config.(map[string]interface{})
+		if !ok {
+			logrus.Errorf("wrong config source:\n\t%s:\n%v", sourceID, source.Config)
+			continue
+		}
+
+		data, err := json.Marshal(s)
+		if err != nil {
+			logrus.Errorf("marshaling source config: %s", err)
+			continue
+		}
+
+		kind, ok := s["Kind"].(string)
+		if !ok || kind == "" {
+			continue
+		}
+
+		results, err := dbGetConfigSource(kind, "", string(data))
+		if err != nil {
+			logrus.Errorf("failed: %s", err)
+			continue
+		}
+
+		switch len(results) {
+		case 0:
+			id, err := dbInsertConfigResource("source", kind, string(data))
+			if err != nil {
+				logrus.Errorf("insert config source data: %s", err)
+				continue
+			}
+
+			parsedID, err := uuid.Parse(id)
+			if err != nil {
+				logrus.Errorf("parsing id: %s", err)
+			}
+
+			configSourceIDs[parsedID.String()] = stringPtr(sourceID)
+		case 1:
+			configSourceIDs[results[0].ID.String()] = stringPtr(sourceID)
+		default:
+			logrus.Warningf("multiple config source found for %s", sourceID)
+			for _, result := range results {
+				logrus.Warningf("config source %s", result.ID)
+			}
+		}
+	}
+
+	for conditionID, condition := range report.Conditions {
+		if condition.Config == nil {
+			continue
+		}
+
+		c, ok := condition.Config.(map[string]interface{})
+		if !ok {
+			logrus.Errorf("wrong config condition")
+			continue
+		}
+
+		kind, ok := c["Kind"].(string)
+		if !ok || kind == "" {
+			continue
+		}
+
+		data, err := json.Marshal(c)
+		if err != nil {
+			logrus.Errorf("marshaling target config: %s", err)
+			continue
+		}
+
+		results, err := dbGetConfigTarget(kind, "", string(data))
+		if err != nil {
+			logrus.Errorf("failed: %s", err)
+			continue
+		}
+
+		switch len(results) {
+		case 0:
+			id, err := dbInsertConfigResource("condition", kind, string(data))
+			if err != nil {
+				logrus.Errorf("insert config condition data: %s", err)
+				continue
+			}
+
+			parsedID, err := uuid.Parse(id)
+			if err != nil {
+				logrus.Errorf("parsing id: %s", err)
+			}
+
+			configConditionIDs[parsedID.String()] = stringPtr(conditionID)
+		case 1:
+			configConditionIDs[results[0].ID.String()] = stringPtr(conditionID)
+		default:
+			logrus.Warningf("multiple config condition found for %s", conditionID)
+			for _, result := range results {
+				logrus.Warningf("config condition %s", result.ID)
+			}
+		}
+	}
+
+	for targetID, target := range report.Targets {
 		if target.Scm.URL != "" && target.Scm.Branch.Target != "" {
 			url := target.Scm.URL
 			branch := target.Scm.Branch.Target
@@ -50,14 +165,73 @@ func dbInsertReport(report reports.Report) (string, error) {
 				}
 			}
 		}
+
+		if target.Config != nil {
+
+			t, ok := target.Config.(map[string]interface{})
+			if !ok {
+				logrus.Errorf("wrong config target:\n\t%s:\n%v", targetID, target.Config)
+				continue
+			}
+
+			kind, ok := t["Kind"].(string)
+			if !ok || kind == "" {
+				logrus.Errorf("wrong config target kind:\n\t%s:\n%v", targetID, target.Config)
+				continue
+			}
+
+			data, err := json.Marshal(t)
+			if err != nil {
+				logrus.Errorf("marshaling target config: %s", err)
+				continue
+			}
+
+			results, err := dbGetConfigTarget(kind, "", string(data))
+			if err != nil {
+				logrus.Errorf("failed: %s", err)
+				continue
+			}
+
+			switch len(results) {
+			case 0:
+				id, err := dbInsertConfigResource("target", kind, string(data))
+				if err != nil {
+					logrus.Errorf("insert config target data: %s", err)
+					continue
+				}
+
+				parsedID, err := uuid.Parse(id)
+				if err != nil {
+					logrus.Errorf("parsing id: %s", err)
+				}
+
+				configTargetIDs[parsedID.String()] = stringPtr(targetID)
+			case 1:
+				configTargetIDs[results[0].ID.String()] = stringPtr(targetID)
+			default:
+				logrus.Warningf("multiple config target found for %s", targetID)
+				for _, result := range results {
+					logrus.Warningf("config target %s", result.ID)
+				}
+			}
+		}
 	}
 
 	query := `INSERT INTO pipelineReports
-	(data, pipeline_id, pipeline_result, pipeline_name, target_db_scm_ids)
-	VALUES ($1, $2, $3, $4, $5)
+	(data, pipeline_id, pipeline_result, pipeline_name, target_db_scm_ids, config_source_ids, config_condition_ids, config_target_ids)
+	VALUES
+	($1, $2, $3, $4, $5, $6, $7, $8)
 	RETURNING id
 `
-	err := database.DB.QueryRow(context.Background(), query, report, report.ID, report.Result, report.Name, targetDBScmIDs).Scan(
+	err := database.DB.QueryRow(context.Background(), query,
+		report,
+		report.ID,
+		report.Result,
+		report.Name,
+		targetDBScmIDs,
+		configSourceIDs,
+		configConditionIDs,
+		configTargetIDs).Scan(
 		&ID,
 	)
 	if err != nil {
