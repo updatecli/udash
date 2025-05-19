@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"encoding/json"
+
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/updatecli/udash/pkg/database"
@@ -82,7 +84,7 @@ func dbGetConfigSource(kind, id, config string) ([]model.ConfigSource, error) {
 
 	query := "SELECT id, kind, created_at, updated_at, config FROM " + table
 	if id != "" || kind != "" || config != "" {
-		query = "SELECT * FROM " + table + " WHERE ("
+		query = query + " WHERE ("
 		argCounter := 0
 		if id != "" {
 			switch argCounter {
@@ -107,9 +109,9 @@ func dbGetConfigSource(kind, id, config string) ([]model.ConfigSource, error) {
 		if config != "" {
 			switch argCounter {
 			case 0:
-				query = query + " config @>'" + config + "'"
+				query = query + " config @> '" + config + "'"
 			default:
-				query = query + " AND config @>'" + config + "'"
+				query = query + " AND config @> '" + config + "'"
 			}
 		}
 		query = query + ")"
@@ -128,10 +130,18 @@ func dbGetConfigSource(kind, id, config string) ([]model.ConfigSource, error) {
 
 		r := model.ConfigSource{}
 
-		err := rows.Scan(&r.ID, &r.Kind, &r.Created_at, &r.Updated_at, &r.Config)
+		var config string
+
+		err := rows.Scan(&r.ID, &r.Kind, &r.Created_at, &r.Updated_at, &config)
 		if err != nil {
 			logrus.Errorf("parsing Source result: %s", err)
 			return nil, err
+		}
+
+		err = json.Unmarshal([]byte(config), &r.Config)
+		if err != nil {
+			logrus.Errorf("parsing config source result: %s\n\t%s", r.ID, err)
+			continue
 		}
 
 		results = append(results, r)
@@ -147,7 +157,7 @@ func dbGetConfigCondition(kind, id, config string) ([]model.ConfigCondition, err
 
 	query := "SELECT id, kind, created_at, updated_at, config FROM " + table
 	if id != "" || kind != "" || config != "" {
-		query = "SELECT * FROM " + table + " WHERE ("
+		query = query + " WHERE ("
 		argCounter := 0
 		if id != "" {
 			switch argCounter {
@@ -173,9 +183,9 @@ func dbGetConfigCondition(kind, id, config string) ([]model.ConfigCondition, err
 		if config != "" {
 			switch argCounter {
 			case 0:
-				query = query + " config @>'" + config + "'"
+				query = query + " config @> '" + config + "'"
 			default:
-				query = query + " AND config @>'" + config + "'"
+				query = query + " AND config @> '" + config + "'"
 			}
 		}
 		query = query + ")"
@@ -194,12 +204,20 @@ func dbGetConfigCondition(kind, id, config string) ([]model.ConfigCondition, err
 
 		r := model.ConfigCondition{}
 
-		err := rows.Scan(&r.ID, &r.Kind, &r.Created_at, &r.Updated_at, &r.Config)
+		var config string
+
+		err := rows.Scan(&r.ID, &r.Kind, &r.Created_at, &r.Updated_at, &config)
 		if err != nil {
 
 			logrus.Errorf("Query: %q\n\t%s", query, err)
 			logrus.Errorf("parsing  condition result: %s", err)
 			return nil, err
+		}
+
+		err = json.Unmarshal([]byte(config), &r.Config)
+		if err != nil {
+			logrus.Errorf("parsing config source result: %s\n\t%s", r.ID, err)
+			continue
 		}
 
 		results = append(results, r)
@@ -216,7 +234,7 @@ func dbGetConfigTarget(kind, id, config string) ([]model.ConfigTarget, error) {
 	query := "SELECT id, kind, created_at, updated_at, config FROM " + table
 
 	if id != "" || kind != "" || config != "" {
-		query = "SELECT * FROM " + table + " WHERE ("
+		query = query + " WHERE ("
 		argCounter := 0
 		if id != "" {
 			switch argCounter {
@@ -242,9 +260,9 @@ func dbGetConfigTarget(kind, id, config string) ([]model.ConfigTarget, error) {
 		if config != "" {
 			switch argCounter {
 			case 0:
-				query = query + " config @>'" + config + "'"
+				query = query + " config @> '" + config + "'"
 			default:
-				query = query + " AND config @>'" + config + "'"
+				query = query + " AND config @> '" + config + "'"
 			}
 		}
 		query = query + ")"
@@ -262,12 +280,19 @@ func dbGetConfigTarget(kind, id, config string) ([]model.ConfigTarget, error) {
 	for rows.Next() {
 
 		r := model.ConfigTarget{}
+		var config string
 
-		err := rows.Scan(&r.ID, &r.Kind, &r.Created_at, &r.Updated_at, &r.Config)
+		err := rows.Scan(&r.ID, &r.Kind, &r.Created_at, &r.Updated_at, &config)
 		if err != nil {
 			logrus.Errorf("Query: %q\n\t%s", query, err)
 			logrus.Errorf("parsing target result: %s", err)
 			return nil, err
+		}
+
+		err = json.Unmarshal([]byte(config), &r.Config)
+		if err != nil {
+			logrus.Errorf("parsing config source result: %s\n\t%s", r.ID, err)
+			continue
 		}
 
 		results = append(results, r)

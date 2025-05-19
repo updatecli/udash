@@ -30,9 +30,9 @@ func dbInsertSCM(url, branch string) (string, error) {
 // dbGetSCM returns a list of scms from the scm database table.
 func dbGetScm(id, url, branch string) ([]model.SCM, error) {
 
-	query := "SELECT * FROM scms"
+	query := "SELECT id, branch, url, created_at, updated_at FROM scms"
 	if id != "" || url != "" || branch != "" {
-		query = "SELECT * FROM scms WHERE ("
+		query = query + " WHERE ("
 
 		argCounter := 0
 
