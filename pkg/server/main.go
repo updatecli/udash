@@ -54,8 +54,11 @@ func (s *Server) Run() {
 		r.GET("/api/pipeline/reports", checkJWT(), FindAllPipelineReports)
 		r.GET("/api/pipeline/reports/:id", checkJWT(), FindPipelineReportByID)
 		r.GET("/api/pipeline/config/sources", checkJWT(), FindAllConfigSources)
+		r.POST("/api/pipeline/config/sources", checkJWT(), FindAllConfigSourcesWithJSONBody)
 		r.GET("/api/pipeline/config/conditions", checkJWT(), FindAllConfigConditions)
+		r.POST("/api/pipeline/config/conditions", checkJWT(), FindAllConfigConditionsWithJSONBody)
 		r.GET("/api/pipeline/config/targets", checkJWT(), FindAllConfigTargets)
+		r.POST("/api/pipeline/config/targets", checkJWT(), FindAllConfigTargetsWithJSONBody)
 		if !s.Options.DryRun {
 			r.POST("/api/pipeline/reports", checkJWT(), CreatePipelineReport)
 			r.PUT("/api/pipeline/reports/:id", checkJWT(), UpdatePipelineReport)
@@ -67,8 +70,11 @@ func (s *Server) Run() {
 		r.GET("/api/pipeline/reports", FindAllPipelineReports)
 		r.GET("/api/pipeline/reports/:id", FindPipelineReportByID)
 		r.GET("/api/pipeline/config/sources", FindAllConfigSources)
+		r.POST("/api/pipeline/config/sources", FindAllConfigSourcesWithJSONBody)
 		r.GET("/api/pipeline/config/conditions", FindAllConfigConditions)
+		r.POST("/api/pipeline/config/conditions", FindAllConfigConditionsWithJSONBody)
 		r.GET("/api/pipeline/config/targets", FindAllConfigTargets)
+		r.POST("/api/pipeline/config/targets", FindAllConfigTargetsWithJSONBody)
 		if !s.Options.DryRun {
 			r.POST("/api/pipeline/reports", CreatePipelineReport)
 			r.PUT("/api/pipeline/reports/:id", UpdatePipelineReport)
