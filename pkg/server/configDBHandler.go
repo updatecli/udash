@@ -131,7 +131,7 @@ func DeleteConfigCondition(c *gin.Context) {
 
 	err := dbDeleteConfigResource("condition", id)
 	if err != nil {
-		logrus.Errorf("deleting config source: %s", err)
+		logrus.Errorf("deleting config condition: %s", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": err,
 		})
@@ -198,7 +198,7 @@ func DeleteTargetTarget(c *gin.Context) {
 
 	err := dbDeleteConfigResource("target", id)
 	if err != nil {
-		logrus.Errorf("deleting config source: %s", err)
+		logrus.Errorf("deleting config target: %s", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": err,
 		})
