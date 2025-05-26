@@ -75,7 +75,7 @@ func FindAllPipelineReports(c *gin.Context) {
 		query = `
 WITH filtered_reports AS (
 	SELECT id, data,created_at, updated_at
-	FROM pipelinereports
+	FROM pipelineReports
 	WHERE
 	  updated_at >  current_date - interval '%d day'
 )
@@ -88,7 +88,7 @@ ORDER BY updated_at DESC`
 		query = `
 WITH filtered_reports AS (
 	SELECT id, data, created_at, updated_at
-	FROM pipelinereports
+	FROM pipelineReports
 	WHERE
 	  	(( cardinality(target_db_scm_ids) = 0 ) OR ( target_db_scm_ids IS NULL )) AND
       	( updated_at >  current_date - interval '%d day' )
@@ -118,7 +118,7 @@ ORDER BY (data ->> 'Name'), updated_at DESC;`
 			query = `
 WITH filtered_reports AS (
 	SELECT id, data, created_at, updated_at
-	FROM pipelinereports
+	FROM pipelineReports
 	WHERE
 		( target_db_scm_ids && '{ %q }' ) AND
 		( updated_at >  current_date - interval '%d day' )

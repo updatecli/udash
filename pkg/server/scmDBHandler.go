@@ -72,7 +72,7 @@ func FindSCMSummary(c *gin.Context, scmRows []model.SCM) {
 		query = `
 WITH filtered_reports AS (
 	SELECT id, data, updated_at
-	FROM pipelinereports
+	FROM pipelineReports
 	WHERE 
 		( target_db_scm_ids && '{ %q }' ) AND 
 		( updated_at >  current_date - interval '%d day' )
