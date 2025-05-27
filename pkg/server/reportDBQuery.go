@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"slices"
 
 	"github.com/google/uuid"
@@ -315,4 +316,120 @@ func dbSearchLatestReportByPipelineID(id string) (*model.PipelineReport, error) 
 	}
 
 	return &report, nil
+}
+
+type respSearchLatestReportData struct {
+	ID        string
+	Name      string
+	Result    string
+	CreatedAt string
+	UpdatedAt string
+}
+
+// dbSearchLatestReport searches the latest reports according some parameters.
+func dbSearchLatestReport(scmID, sourceID, conditionID, targetID string) ([]respSearchLatestReportData, error) {
+
+	query := ""
+
+	switch scmID {
+	case "":
+		query = `
+WITH filtered_reports AS (
+	SELECT id, data,created_at, updated_at
+	FROM pipelineReports
+	WHERE
+	  updated_at >  current_date - interval '%d day'
+)
+SELECT id, data, created_at, updated_at
+FROM filtered_reports
+ORDER BY updated_at DESC`
+		query = fmt.Sprintf(query, monitoringDurationDays)
+
+	case "none", "null", "nil":
+		query = `
+WITH filtered_reports AS (
+	SELECT id, data, created_at, updated_at
+	FROM pipelineReports
+	WHERE
+	  	(( cardinality(target_db_scm_ids) = 0 ) OR ( target_db_scm_ids IS NULL )) AND
+      	( updated_at >  current_date - interval '%d day' )
+)
+SELECT DISTINCT ON (data ->> 'Name')
+	id,
+	data,
+	created_at,
+	updated_at
+FROM filtered_reports
+ORDER BY (data ->> 'Name'), updated_at DESC;`
+
+		query = fmt.Sprintf(query, monitoringDurationDays)
+
+	default:
+		scm, err := dbGetScm(scmID, "", "")
+		if err != nil {
+			logrus.Errorf("get scm data: %s", err)
+			return nil, err
+		}
+
+		switch len(scm) {
+		case 0:
+			logrus.Errorf("scm data not found")
+
+		case 1:
+			query = `
+WITH filtered_reports AS (
+	SELECT id, data, created_at, updated_at
+	FROM pipelineReports
+	WHERE
+		( target_db_scm_ids && '{ %q }' ) AND
+		( updated_at >  current_date - interval '%d day' )
+)
+
+SELECT DISTINCT ON (data ->> 'Name')
+	id,
+	data,
+	created_at,
+	updated_at
+FROM filtered_reports
+ORDER BY (data ->> 'Name'), updated_at DESC;
+`
+
+			query = fmt.Sprintf(query, scm[0].ID, monitoringDurationDays)
+
+		default:
+			// Normally we should never have multiple scms with the same id
+			// so we should never reach this point.
+			logrus.Errorf("multiple scms found")
+		}
+	}
+
+	rows, err := database.DB.Query(context.Background(), query)
+	if err != nil {
+		logrus.Errorf("query failed: %s", err)
+		return nil, err
+	}
+
+	dataset := []respSearchLatestReportData{}
+
+	for rows.Next() {
+		p := model.PipelineReport{}
+
+		err = rows.Scan(&p.ID, &p.Pipeline, &p.Created_at, &p.Updated_at)
+		if err != nil {
+			logrus.Errorf("parsing result: %s", err)
+			return nil, err
+		}
+
+		data := respSearchLatestReportData{
+			ID:        p.ID.String(),
+			Name:      p.Pipeline.Name,
+			Result:    p.Pipeline.Result,
+			CreatedAt: p.Created_at.String(),
+			UpdatedAt: p.Created_at.String(),
+		}
+
+		dataset = append(dataset, data)
+	}
+
+	return dataset, nil
 }

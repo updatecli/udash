@@ -53,11 +53,14 @@ help: ## Show this Makefile's help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 
-.PHONY: Run application linting tests
+.PHONY: lint
 lint: ## Execute the Golang's linters on updatecli's source code
 	golangci-lint run
 	
-.PHONY: Run application tests
+.PHONY: test
 test: ## Execute the Golang's tests for updatecli
 	go test ./... -race -coverprofile=coverage.txt -covermode=atomic
 
+.PHONY: docs
+docs: ## Genereate api documentation
+	swag init --parseDependencyLevel 1

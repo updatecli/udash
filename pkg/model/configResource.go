@@ -20,7 +20,7 @@ type ConfigSource struct {
 	Created_at time.Time `json:",omitempty"`
 	// Updated_at represent the last update date of the record.
 	Updated_at time.Time `json:",omitempty"`
-
+	// Config is the configuration of the source resource.
 	Config source.Config `json:",omitempty"`
 }
 
