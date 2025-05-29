@@ -105,6 +105,56 @@ func dbDeleteConfigResource(resourceType string, id string) error {
 	return nil
 }
 
+// dbGetConfigKind returns a list of resource configurations from the database filtered by kind.
+func dbGetConfigKind(resourceType string) ([]string, error) {
+	// SELECT kind FROM config_sources GROUP BY kind
+
+	table := ""
+	switch resourceType {
+	case "source":
+		table = configSourceTableName
+	case "condition":
+		table = configConditionTableName
+	case "target":
+		table = configTargetTableName
+	default:
+		return nil, fmt.Errorf("unknown resource type %q", resourceType)
+	}
+
+	query := psql.Select(
+		sm.Columns("kind"),
+		sm.From(table),
+		sm.GroupBy("kind"),
+	)
+
+	ctx := context.Background()
+	queryString, args, err := query.Build(ctx)
+
+	if err != nil {
+		logrus.Errorf("building query failed: %s\n\t%s", queryString, err)
+		return nil, err
+	}
+
+	rows, err := database.DB.Query(context.Background(), queryString, args...)
+	if err != nil {
+		logrus.Errorf("query failed: %q\n\t%s", queryString, err)
+		return nil, err
+	}
+
+	results := []string{}
+	for rows.Next() {
+		var kind string
+		err := rows.Scan(&kind)
+		if err != nil {
+			logrus.Errorf("parsing config source kind result: %s", err)
+			return nil, err
+		}
+		results = append(results, kind)
+	}
+
+	return results, nil
+}
+
 // dbGetConfigSource returns a list of resource configurations from the database.
 func dbGetConfigSource(kind, id, config string) ([]model.ConfigSource, error) {
 

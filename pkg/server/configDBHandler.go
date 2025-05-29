@@ -27,6 +27,11 @@ type TargetConfigResponse struct {
 	Configs []model.ConfigTarget `json:"configs"`
 }
 
+// ConfigKindResponse represents a response containing configuration kinds.
+type ConfigKindResponse struct {
+	Data []string `json:"data"`
+}
+
 // ListConfigSources returns a resource configuration from the database.
 // @Summary List all configuration sources
 // @Description List all configuration sources from the database
@@ -94,6 +99,84 @@ func SearchConfigSources(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SourceConfigResponse{
 		Configs: rows,
+	})
+}
+
+// SearchConfigSourcesKind returns a resource configuration from the database.
+// @Summary Search configuration sources by kind
+// @Description Search for configuration sources by kind in the database
+// @Tags Configuration Sources
+// @Accept json
+// @Produce json
+// @Success 200 {object} ConfigKindResponse
+// @Failure 400 {object} DefaultResponseModel
+// @Failure 500 {object} DefaultResponseModel
+// @Router /api/pipeline/config/sources/kind [post]
+func SearchConfigSourcesKind(c *gin.Context) {
+
+	kinds, err := dbGetConfigKind("source")
+	if err != nil {
+		logrus.Errorf("searching for config source kind: %s", err)
+		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
+			Err: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, ConfigKindResponse{
+		Data: kinds,
+	})
+}
+
+// SearchConfigConditionKind returns a resource configuration from the database.
+// @Summary Search configuration conditions by kind
+// @Description Search for configuration condition by kind in the database
+// @Tags Configuration Conditions
+// @Accept json
+// @Produce json
+// @Success 200 {object} ConfigKindResponse
+// @Failure 400 {object} DefaultResponseModel
+// @Failure 500 {object} DefaultResponseModel
+// @Router /api/pipeline/config/sources/kind [post]
+func SearchConfigConditionsKind(c *gin.Context) {
+
+	kinds, err := dbGetConfigKind("condition")
+	if err != nil {
+		logrus.Errorf("searching for config condition kind: %s", err)
+		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
+			Err: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, ConfigKindResponse{
+		Data: kinds,
+	})
+}
+
+// SearchConfigTargetKind returns a resource configuration from the database.
+// @Summary Search configuration targets by kind
+// @Description Search for configuration target by kind in the database
+// @Tags Configuration Targets
+// @Accept json
+// @Produce json
+// @Success 200 {object} ConfigKindResponse
+// @Failure 400 {object} DefaultResponseModel
+// @Failure 500 {object} DefaultResponseModel
+// @Router /api/pipeline/config/sources/kind [post]
+func SearchConfigTargetsKind(c *gin.Context) {
+
+	kinds, err := dbGetConfigKind("target")
+	if err != nil {
+		logrus.Errorf("searching for config target kind: %s", err)
+		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
+			Err: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, ConfigKindResponse{
+		Data: kinds,
 	})
 }
 
