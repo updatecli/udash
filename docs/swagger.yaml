@@ -435,6 +435,13 @@ definitions:
           $ref: '#/definitions/model.ConfigCondition'
         type: array
     type: object
+  server.ConfigKindResponse:
+    properties:
+      data:
+        items:
+          type: string
+        type: array
+    type: object
   server.CreatePipelineReportResponse:
     properties:
       message:
@@ -759,8 +766,6 @@ paths:
       responses:
         "200":
           description: OK
-        "500":
-          description: Internal Server Error
       summary: Landing page
       tags:
       - Landing
@@ -894,6 +899,29 @@ paths:
       summary: List all configuration sources
       tags:
       - Configuration Sources
+  /api/pipeline/config/sources/kind:
+    post:
+      consumes:
+      - application/json
+      description: Search for configuration target by kind in the database
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.ConfigKindResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: Search configuration targets by kind
+      tags:
+      - Configuration Targets
   /api/pipeline/config/sources/search:
     post:
       consumes:
