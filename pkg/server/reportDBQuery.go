@@ -9,6 +9,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/sirupsen/logrus"
+	"github.com/stephenafamo/bob/dialect/psql"
+	"github.com/stephenafamo/bob/dialect/psql/dm"
+	"github.com/stephenafamo/bob/dialect/psql/im"
+	"github.com/stephenafamo/bob/dialect/psql/sm"
 	"github.com/updatecli/udash/pkg/database"
 	"github.com/updatecli/udash/pkg/model"
 	"github.com/updatecli/updatecli/pkg/core/reports"
@@ -218,25 +222,48 @@ func dbInsertReport(report reports.Report) (string, error) {
 		}
 	}
 
-	query := `INSERT INTO pipelineReports
-	(data, pipeline_id, pipeline_result, pipeline_name, target_db_scm_ids, config_source_ids, config_condition_ids, config_target_ids)
-	VALUES
-	($1, $2, $3, $4, $5, $6, $7, $8)
-	RETURNING id
-`
-	err := database.DB.QueryRow(context.Background(), query,
-		report,
-		report.ID,
-		report.Result,
-		report.Name,
-		targetDBScmIDs,
-		configSourceIDs,
-		configConditionIDs,
-		configTargetIDs).Scan(
+	// INSERT INTO pipelineReports
+	// (data, pipeline_id, pipeline_result, pipeline_name, target_db_scm_ids, config_source_ids, config_condition_ids, config_target_ids)
+	// VALUES
+	// ($1, $2, $3, $4, $5, $6, $7, $8)
+	// RETURNING id
+	query := psql.Insert(
+		im.Into(
+			"pipelineReports",
+			"data",
+			"pipeline_id",
+			"pipeline_result",
+			"pipeline_name",
+			"target_db_scm_ids",
+			"config_source_ids",
+			"config_condition_ids",
+			"config_target_ids",
+		),
+		im.Values(
+			psql.Arg(report),
+			psql.Arg(report.ID),
+			psql.Arg(report.Result),
+			psql.Arg(report.Name),
+			psql.Arg(targetDBScmIDs),
+			psql.Arg(configSourceIDs),
+			psql.Arg(configConditionIDs),
+			psql.Arg(configTargetIDs),
+		),
+		im.Returning("id"),
+	)
+
+	ctx := context.Background()
+	queryString, args, err := query.Build(ctx)
+	if err != nil {
+		logrus.Errorf("building query failed: %s\n\t%s", queryString, err)
+		return "", err
+	}
+
+	err = database.DB.QueryRow(context.Background(), queryString, args...).Scan(
 		&ID,
 	)
 	if err != nil {
-		logrus.Errorf("query failed: %s\n\t=> %q", err, query)
+		logrus.Errorf("query failed: %s\n\t=> %q", err, queryString)
 		return "", err
 	}
 
@@ -245,9 +272,20 @@ func dbInsertReport(report reports.Report) (string, error) {
 
 // dbDeleteReport deletes a report from the database.
 func dbDeleteReport(id string) error {
-	query := "DELETE FROM pipelineReports WHERE id=$1"
 
-	if _, err := database.DB.Exec(context.Background(), query, id); err != nil {
+	//"DELETE FROM pipelineReports WHERE id=$1"
+	query := psql.Delete(
+		dm.From("pipelineReports"),
+		dm.Where(psql.Quote("id").EQ(psql.Arg(id))),
+	)
+
+	ctx := context.Background()
+	queryString, args, err := query.Build(ctx)
+	if err != nil {
+		return fmt.Errorf("building query failed: %s\n\t%s", queryString, err)
+	}
+
+	if _, err := database.DB.Exec(context.Background(), queryString, args...); err != nil {
 		logrus.Errorf("query failed: %s", err)
 		return err
 	}
@@ -258,9 +296,19 @@ func dbDeleteReport(id string) error {
 func dbSearchReport(id string) (*model.PipelineReport, error) {
 	report := model.PipelineReport{}
 
-	query := "SELECT id,data,created_at,updated_at FROM pipelineReports WHERE id=$1"
+	// "SELECT id,data,created_at,updated_at FROM pipelineReports WHERE id=$1"
+	query := psql.Select(
+		sm.Columns("id", "data", "created_at", "updated_at"),
+		sm.From("pipelineReports"),
+		sm.Where(psql.Quote("id").EQ(psql.Arg(id))),
+	)
 
-	err := database.DB.QueryRow(context.Background(), query, id).Scan(
+	queryString, args, err := query.Build(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("building query failed: %s\n\t%s", queryString, err)
+	}
+
+	err = database.DB.QueryRow(context.Background(), queryString, args...).Scan(
 		&report.ID,
 		&report.Pipeline,
 		&report.Created_at,
@@ -279,9 +327,20 @@ func dbSearchReport(id string) (*model.PipelineReport, error) {
 func dbSearchNumberOfReportsByPipelineID(id string) (int, error) {
 	var result int
 
-	query := "SELECT COUNT(data) FROM pipelineReports WHERE pipeline_id = $1"
+	// "SELECT COUNT(data) FROM pipelineReports WHERE pipeline_id = $1"
 
-	err := database.DB.QueryRow(context.Background(), query, id).Scan(
+	query := psql.Select(
+		sm.Columns("count(data)"),
+		sm.From("pipelineReports"),
+		sm.Where(psql.Quote("pipeline_id").EQ(psql.Arg(id))),
+	)
+
+	queryString, args, err := query.Build(context.Background())
+	if err != nil {
+		return 0, fmt.Errorf("building query failed: %s\n\t%s", queryString, err)
+	}
+
+	err = database.DB.QueryRow(context.Background(), queryString, args...).Scan(
 		&result,
 	)
 
@@ -297,13 +356,25 @@ func dbSearchNumberOfReportsByPipelineID(id string) (int, error) {
 func dbSearchLatestReportByPipelineID(id string) (*model.PipelineReport, error) {
 	report := model.PipelineReport{}
 
-	query := `SELECT id,data,created_at,updated_at
-	FROM pipelineReports
-	WHERE pipeline_id = $1
-	ORDER BY updated_at DESC FETCH FIRST 1 ROWS ONLY
-`
+	// SELECT id,data,created_at,updated_at
+	// FROM pipelineReports
+	// WHERE pipeline_id = $1
+	// ORDER BY updated_at DESC FETCH FIRST 1 ROWS ONLY
 
-	err := database.DB.QueryRow(context.Background(), query, id).Scan(
+	query := psql.Select(
+		sm.Columns("id", "data", "created_at", "updated_at"),
+		sm.From("pipelineReports"),
+		sm.Where(psql.Quote("pipeline_id").EQ(psql.Arg(id))),
+		sm.OrderBy(psql.Quote("updated_at")).Desc(),
+		sm.Limit(1),
+	)
+
+	queryString, args, err := query.Build(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("building query failed: %s\n\t%s", queryString, err)
+	}
+
+	err = database.DB.QueryRow(context.Background(), queryString, args...).Scan(
 		&report.ID,
 		&report.Pipeline,
 		&report.Created_at,
@@ -329,40 +400,78 @@ type respSearchLatestReportData struct {
 // dbSearchLatestReport searches the latest reports according some parameters.
 func dbSearchLatestReport(scmID, sourceID, conditionID, targetID string) ([]respSearchLatestReportData, error) {
 
-	query := ""
+	queryString := ""
+	var args []any
+	var err error
+
+	filteredReportsQuery := psql.Select(
+		sm.From("pipelineReports"),
+		sm.Columns("id", "data", "created_at", "updated_at"),
+		sm.Where(
+			psql.Raw(fmt.Sprintf("updated_at > current_date - interval '%d day'", monitoringDurationDays)),
+		),
+	)
+
+	if sourceID != "" {
+		filteredReportsQuery.Apply(
+			sm.Where(
+				psql.Raw(`config_source_ids \? ?`, sourceID),
+			),
+		)
+	}
+
+	if conditionID != "" {
+		filteredReportsQuery.Apply(
+			sm.Where(
+				psql.Raw(`config_condition_ids \? ?`, conditionID),
+			),
+		)
+	}
+
+	if targetID != "" {
+		filteredReportsQuery.Apply(
+			sm.Where(
+				psql.Raw(`config_target_ids \? ?`, targetID),
+			),
+		)
+	}
 
 	switch scmID {
 	case "":
-		query = `
-WITH filtered_reports AS (
-	SELECT id, data,created_at, updated_at
-	FROM pipelineReports
-	WHERE
-	  updated_at >  current_date - interval '%d day'
-)
-SELECT id, data, created_at, updated_at
-FROM filtered_reports
-ORDER BY updated_at DESC`
-		query = fmt.Sprintf(query, monitoringDurationDays)
+		// WITH filtered_reports AS (
+		// 	SELECT id, data,created_at, updated_at
+		// 	FROM pipelineReports
+		// 	WHERE
+		// 	  updated_at >  current_date - interval '%d day'
+		// )
+		// SELECT id, data, created_at, updated_at
+		// FROM filtered_reports
+		// ORDER BY updated_at DESC`
 
 	case "none", "null", "nil":
-		query = `
-WITH filtered_reports AS (
-	SELECT id, data, created_at, updated_at
-	FROM pipelineReports
-	WHERE
-	  	(( cardinality(target_db_scm_ids) = 0 ) OR ( target_db_scm_ids IS NULL )) AND
-      	( updated_at >  current_date - interval '%d day' )
-)
-SELECT DISTINCT ON (data ->> 'Name')
-	id,
-	data,
-	created_at,
-	updated_at
-FROM filtered_reports
-ORDER BY (data ->> 'Name'), updated_at DESC;`
+		// WITH filtered_reports AS (
+		// 	SELECT id, data, created_at, updated_at
+		// 	FROM pipelineReports
+		// 	WHERE
+		// 	  	(( cardinality(target_db_scm_ids) = 0 ) OR ( target_db_scm_ids IS NULL )) AND
+		//       	( updated_at >  current_date - interval '%d day' )
+		// )
+		// SELECT DISTINCT ON (data ->> 'Name')
+		// 	id,
+		// 	data,
+		// 	created_at,
+		// 	updated_at
+		// FROM filtered_reports
+		// ORDER BY (data ->> 'Name'), updated_at DESC;`
 
-		query = fmt.Sprintf(query, monitoringDurationDays)
+		filteredReportsQuery.Apply(
+			sm.Where(
+				psql.Or(
+					psql.Quote("cardinality(target_db_scm_ids) = 0"),
+					psql.Quote("target_db_scm_ids").IsNull(),
+				),
+			),
+		)
 
 	default:
 		scm, err := dbGetScm(scmID, "", "")
@@ -376,25 +485,27 @@ ORDER BY (data ->> 'Name'), updated_at DESC;`
 			logrus.Errorf("scm data not found")
 
 		case 1:
-			query = `
-WITH filtered_reports AS (
-	SELECT id, data, created_at, updated_at
-	FROM pipelineReports
-	WHERE
-		( target_db_scm_ids && '{ %q }' ) AND
-		( updated_at >  current_date - interval '%d day' )
-)
+			// WITH filtered_reports AS (
+			// 	SELECT id, data, created_at, updated_at
+			// 	FROM pipelineReports
+			// 	WHERE
+			// 		( target_db_scm_ids && '{ %q }' ) AND
+			// 		( updated_at >  current_date - interval '%d day' )
+			// )
+			//
+			// SELECT DISTINCT ON (data ->> 'Name')
+			// 	id,
+			// 	data,
+			// 	created_at,
+			// 	updated_at
+			// FROM filtered_reports
+			// ORDER BY (data ->> 'Name'), updated_at DESC;
 
-SELECT DISTINCT ON (data ->> 'Name')
-	id,
-	data,
-	created_at,
-	updated_at
-FROM filtered_reports
-ORDER BY (data ->> 'Name'), updated_at DESC;
-`
-
-			query = fmt.Sprintf(query, scm[0].ID, monitoringDurationDays)
+			filteredReportsQuery.Apply(
+				sm.Where(
+					psql.Raw(`target_db_scm_ids && ?`, fmt.Sprintf("{%s}", scm[0].ID.String())),
+				),
+			)
 
 		default:
 			// Normally we should never have multiple scms with the same id
@@ -403,7 +514,25 @@ ORDER BY (data ->> 'Name'), updated_at DESC;
 		}
 	}
 
-	rows, err := database.DB.Query(context.Background(), query)
+	query := psql.Select(
+		sm.Distinct("data ->> 'Name'"),
+		sm.With("filtered_reports").As(filteredReportsQuery),
+		sm.Columns("id", "data", "created_at", "updated_at"),
+		sm.From("filtered_reports"),
+		sm.OrderBy("data ->> 'Name'"),
+		sm.OrderBy(psql.Quote("updated_at")).Desc(),
+	)
+
+	queryString, args, err = query.Build(context.Background())
+	if err != nil {
+		logrus.Errorf("building query failed: %s\n\t%s", queryString, err)
+		return nil, err
+	}
+
+	logrus.Infof("searching latest reports with query: %s", queryString)
+	logrus.Infof("searching latest reports with args: %v", args)
+
+	rows, err := database.DB.Query(context.Background(), queryString, args...)
 	if err != nil {
 		logrus.Errorf("query failed: %s", err)
 		return nil, err

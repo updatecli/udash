@@ -7,20 +7,37 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/updatecli/udash/pkg/database"
 	"github.com/updatecli/udash/pkg/model"
+
+	"github.com/stephenafamo/bob/dialect/psql"
+	"github.com/stephenafamo/bob/dialect/psql/im"
+	"github.com/stephenafamo/bob/dialect/psql/sm"
 )
 
 func dbInsertSCM(url, branch string) (string, error) {
 
 	var ID uuid.UUID
 
-	query := "INSERT INTO scms (url, branch) VALUES ($1, $2) RETURNING id"
+	//"INSERT INTO scms (url, branch) VALUES ($1, $2) RETURNING id"
+	query := psql.Insert(
+		im.Into("scms", "url", "branch"),
+		im.Values(psql.Arg(url), psql.Arg(branch)),
+		im.Returning("id"),
+	)
 
-	err := database.DB.QueryRow(context.Background(), query, url, branch).Scan(
+	ctx := context.Background()
+	queryString, args, err := query.Build(ctx)
+
+	if err != nil {
+		logrus.Errorf("building query failed: %s\n\t%s", queryString, err)
+		return "", err
+	}
+
+	err = database.DB.QueryRow(context.Background(), queryString, args...).Scan(
 		&ID,
 	)
 
 	if err != nil {
-		logrus.Errorf("query failed: %q\n\t%s", query, err)
+		logrus.Errorf("query failed: %q\n\t%s", queryString, err)
 		return "", err
 	}
 
@@ -30,49 +47,40 @@ func dbInsertSCM(url, branch string) (string, error) {
 // dbGetSCM returns a list of scms from the scm database table.
 func dbGetScm(id, url, branch string) ([]model.SCM, error) {
 
-	query := "SELECT id, branch, url, created_at, updated_at FROM scms"
-	if id != "" || url != "" || branch != "" {
-		query = query + " WHERE ("
+	query := psql.Select(
+		sm.Columns("id", "branch", "url", "created_at", "updated_at"),
+		sm.From("scms"),
+	)
 
-		argCounter := 0
-
-		if id != "" {
-			switch argCounter {
-			case 0:
-				query = query + " id='" + id + "'"
-				argCounter++
-			default:
-				query = query + "AND id='" + id + "'"
-				argCounter++
-			}
-		}
-
-		if url != "" {
-			switch argCounter {
-			case 0:
-				query = query + " url='" + url + "'"
-				argCounter++
-			default:
-				query = query + "AND url='" + url + "'"
-				argCounter++
-			}
-		}
-
-		if branch != "" {
-			switch argCounter {
-			case 0:
-				query = query + " branch='" + branch + "'"
-			default:
-				query = query + "AND branch='" + branch + "'"
-			}
-		}
-
-		query = query + ")"
+	if id != "" {
+		query.Apply(
+			sm.Where(psql.Quote("id").EQ(psql.Arg(id))),
+		)
 	}
 
-	rows, err := database.DB.Query(context.Background(), query)
+	if url != "" {
+		query.Apply(
+			sm.Where(psql.Quote("url").EQ(psql.Arg(url))),
+		)
+	}
+
+	if branch != "" {
+		query.Apply(
+			sm.Where(psql.Quote("branch").EQ(psql.Arg(branch))),
+		)
+	}
+
+	ctx := context.Background()
+	queryString, args, err := query.Build(ctx)
+
 	if err != nil {
-		logrus.Errorf("query failed: %q\n\t%s", query, err)
+		logrus.Errorf("building query failed: %s\n\t%s", queryString, err)
+		return nil, err
+	}
+
+	rows, err := database.DB.Query(ctx, queryString, args...)
+	if err != nil {
+		logrus.Errorf("query failed: %s\n\t%s", queryString, err)
 		return nil, err
 	}
 

@@ -8,6 +8,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"github.com/stephenafamo/bob/dialect/psql"
+	"github.com/stephenafamo/bob/dialect/psql/dm"
+	"github.com/stephenafamo/bob/dialect/psql/im"
+	"github.com/stephenafamo/bob/dialect/psql/sm"
 	"github.com/updatecli/udash/pkg/database"
 	"github.com/updatecli/udash/pkg/model"
 )
@@ -37,14 +41,27 @@ func dbInsertConfigResource(resourceType string, resourceKind string, resourceCo
 		return "", fmt.Errorf("unknown resource type %q", resourceType)
 	}
 
-	query := fmt.Sprintf("INSERT INTO %s (kind, config) VALUES ($1, $2) RETURNING id", table)
+	// INSERT INTO %s (kind, config) VALUES ($1, $2) RETURNING id", table)
+	query := psql.Insert(
+		im.Into(table, "kind", "config"),
+		im.Values(psql.Arg(resourceKind), psql.Arg(resourceConfig)),
+		im.Returning("id"),
+	)
 
-	err := database.DB.QueryRow(context.Background(), query, resourceKind, resourceConfig).Scan(
+	ctx := context.Background()
+	queryString, args, err := query.Build(ctx)
+
+	if err != nil {
+		logrus.Errorf("building query failed: %s\n\t%s", queryString, err)
+		return "", err
+	}
+
+	err = database.DB.QueryRow(context.Background(), queryString, args...).Scan(
 		&ID,
 	)
 
 	if err != nil {
-		logrus.Errorf("query failed: %q\n\t%s", query, err)
+		logrus.Errorf("query failed: %q\n\t%s", queryString, err)
 		return "", err
 	}
 
@@ -66,11 +83,22 @@ func dbDeleteConfigResource(resourceType string, id string) error {
 		return fmt.Errorf("unknown resource type %q", resourceType)
 	}
 
-	query := fmt.Sprintf("DELETE FROM %s WHERE id = $1", table)
+	// "DELETE FROM %s WHERE id = $1", table
+	query := psql.Delete(
+		dm.From(table),
+		dm.Where(psql.Quote("id").EQ(psql.Arg(id))),
+	)
+	ctx := context.Background()
+	queryString, args, err := query.Build(ctx)
 
-	_, err := database.DB.Exec(context.Background(), query, id)
 	if err != nil {
-		logrus.Errorf("query failed: %q\n\t%s", query, err)
+		logrus.Errorf("building query failed: %s\n\t%s", queryString, err)
+		return err
+	}
+
+	_, err = database.DB.Exec(context.Background(), queryString, args...)
+	if err != nil {
+		logrus.Errorf("query failed: %q\n\t%s", queryString, err)
 		return err
 	}
 
@@ -82,45 +110,41 @@ func dbGetConfigSource(kind, id, config string) ([]model.ConfigSource, error) {
 
 	table := configSourceTableName
 
-	query := "SELECT id, kind, created_at, updated_at, config FROM " + table
-	if id != "" || kind != "" || config != "" {
-		query = query + " WHERE ("
-		argCounter := 0
-		if id != "" {
-			switch argCounter {
-			case 0:
-				query = query + " id='" + id + "'"
-				argCounter++
-			default:
-				query = query + " AND id='" + id + "'"
-				argCounter++
-			}
-		}
-		if kind != "" {
-			switch argCounter {
-			case 0:
-				query = query + " kind='" + kind + "'"
-				argCounter++
-			default:
-				query = query + " AND kind='" + kind + "'"
-				argCounter++
-			}
-		}
-		if config != "" {
-			switch argCounter {
-			case 0:
-				query = query + " config @> '" + config + "'"
-			default:
-				query = query + " AND config @> '" + config + "'"
-			}
-		}
-		query = query + ")"
+	// SELECT id, kind, created_at, updated_at, config FROM " + table
+	query := psql.Select(
+		sm.Columns("id", "kind", "created_at", "updated_at", "config"),
+		sm.From(table),
+	)
+
+	if id != "" {
+		query.Apply(
+			sm.Where(psql.Quote("id").EQ(psql.Arg(id))),
+		)
 	}
 
-	rows, err := database.DB.Query(context.Background(), query)
+	if kind != "" {
+		query.Apply(
+			sm.Where(psql.Quote("kind").EQ(psql.Arg(kind))),
+		)
+	}
+
+	if config != "" {
+		query.Apply(
+			sm.Where(psql.Raw("config @> ?", config)),
+		)
+	}
+
+	ctx := context.Background()
+	queryString, args, err := query.Build(ctx)
+	if err != nil {
+		logrus.Errorf("building query failed: %s\n\t%s", queryString, err)
+		return nil, err
+	}
+
+	rows, err := database.DB.Query(context.Background(), queryString, args...)
 
 	if err != nil {
-		logrus.Errorf("query failed: %q\n\t%s", query, err)
+		logrus.Errorf("query failed: %q\n\t%s", queryString, err)
 		return nil, err
 	}
 
@@ -155,43 +179,38 @@ func dbGetConfigCondition(kind, id, config string) ([]model.ConfigCondition, err
 
 	table := configConditionTableName
 
-	query := "SELECT id, kind, created_at, updated_at, config FROM " + table
-	if id != "" || kind != "" || config != "" {
-		query = query + " WHERE ("
-		argCounter := 0
-		if id != "" {
-			switch argCounter {
-			case 0:
-				query = query + " id='" + id + "'"
-				argCounter++
-			default:
-				query = query + " AND id='" + id + "'"
-				argCounter++
-			}
-		}
-		if kind != "" {
-			switch argCounter {
-			case 0:
-				query = query + " kind='" + kind + "'"
-				argCounter++
-			default:
-				query = query + " AND kind='" + kind + "'"
-				argCounter++
-			}
-		}
+	// SELECT id, kind, created_at, updated_at, config FROM " + table
+	query := psql.Select(
+		sm.Columns("id", "kind", "created_at", "updated_at", "config"),
+		sm.From(table),
+	)
 
-		if config != "" {
-			switch argCounter {
-			case 0:
-				query = query + " config @> '" + config + "'"
-			default:
-				query = query + " AND config @> '" + config + "'"
-			}
-		}
-		query = query + ")"
+	if id != "" {
+		query.Apply(
+			sm.Where(psql.Quote("id").EQ(psql.Arg(id))),
+		)
 	}
 
-	rows, err := database.DB.Query(context.Background(), query)
+	if kind != "" {
+		query.Apply(
+			sm.Where(psql.Quote("kind").EQ(psql.Arg(kind))),
+		)
+	}
+
+	if config != "" {
+		query.Apply(
+			sm.Where(psql.Raw("config @> ?", config)),
+		)
+	}
+
+	ctx := context.Background()
+	queryString, args, err := query.Build(ctx)
+	if err != nil {
+		logrus.Errorf("building query failed: %s\n\t%s", queryString, err)
+		return nil, err
+	}
+
+	rows, err := database.DB.Query(context.Background(), queryString, args...)
 
 	if err != nil {
 		logrus.Errorf("query failed: %q\n\t%s", query, err)
@@ -209,14 +228,14 @@ func dbGetConfigCondition(kind, id, config string) ([]model.ConfigCondition, err
 		err := rows.Scan(&r.ID, &r.Kind, &r.Created_at, &r.Updated_at, &config)
 		if err != nil {
 
-			logrus.Errorf("Query: %q\n\t%s", query, err)
+			logrus.Errorf("Query: %q\n\t%s", queryString, err)
 			logrus.Errorf("parsing  condition result: %s", err)
 			return nil, err
 		}
 
 		err = json.Unmarshal([]byte(config), &r.Config)
 		if err != nil {
-			logrus.Errorf("parsing config source result: %s\n\t%s", r.ID, err)
+			logrus.Errorf("parsing config condition result: %s\n\t%s", r.ID, err)
 			continue
 		}
 
@@ -231,47 +250,41 @@ func dbGetConfigTarget(kind, id, config string) ([]model.ConfigTarget, error) {
 
 	table := configTargetTableName
 
-	query := "SELECT id, kind, created_at, updated_at, config FROM " + table
+	// SELECT id, kind, created_at, updated_at, config FROM " + table
+	query := psql.Select(
+		sm.Columns("id", "kind", "created_at", "updated_at", "config"),
+		sm.From(table),
+	)
 
-	if id != "" || kind != "" || config != "" {
-		query = query + " WHERE ("
-		argCounter := 0
-		if id != "" {
-			switch argCounter {
-			case 0:
-				query = query + " id='" + id + "'"
-				argCounter++
-			default:
-				query = query + " AND id='" + id + "'"
-				argCounter++
-			}
-		}
-		if kind != "" {
-			switch argCounter {
-			case 0:
-				query = query + " kind='" + kind + "'"
-				argCounter++
-			default:
-				query = query + " AND kind='" + kind + "'"
-				argCounter++
-			}
-		}
-
-		if config != "" {
-			switch argCounter {
-			case 0:
-				query = query + " config @> '" + config + "'"
-			default:
-				query = query + " AND config @> '" + config + "'"
-			}
-		}
-		query = query + ")"
+	if id != "" {
+		query.Apply(
+			sm.Where(psql.Quote("id").EQ(psql.Arg(id))),
+		)
 	}
 
-	rows, err := database.DB.Query(context.Background(), query)
+	if kind != "" {
+		query.Apply(
+			sm.Where(psql.Quote("kind").EQ(psql.Arg(kind))),
+		)
+	}
+
+	if config != "" {
+		query.Apply(
+			sm.Where(psql.Raw("config @> ?", config)),
+		)
+	}
+
+	ctx := context.Background()
+	queryString, args, err := query.Build(ctx)
+	if err != nil {
+		logrus.Errorf("building query failed: %s\n\t%s", queryString, err)
+		return nil, err
+	}
+
+	rows, err := database.DB.Query(context.Background(), queryString, args...)
 
 	if err != nil {
-		logrus.Errorf("query failed: %q\n\t%s", query, err)
+		logrus.Errorf("query failed: %q\n\t%s", queryString, err)
 		return nil, err
 	}
 
@@ -284,7 +297,7 @@ func dbGetConfigTarget(kind, id, config string) ([]model.ConfigTarget, error) {
 
 		err := rows.Scan(&r.ID, &r.Kind, &r.Created_at, &r.Updated_at, &config)
 		if err != nil {
-			logrus.Errorf("Query: %q\n\t%s", query, err)
+			logrus.Errorf("Query: %q\n\t%s", queryString, err)
 			logrus.Errorf("parsing target result: %s", err)
 			return nil, err
 		}

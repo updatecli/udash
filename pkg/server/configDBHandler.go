@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -67,9 +68,9 @@ func ListConfigSources(c *gin.Context) {
 // @Router /api/pipeline/config/sources/search [post]
 func SearchConfigSources(c *gin.Context) {
 	type configResource struct {
-		ID     string `json:"id"`
-		Kind   string `json:"kind"`
-		Config string `json:"config"`
+		ID     string          `json:"id"`
+		Kind   string          `json:"kind"`
+		Config json.RawMessage `json:"config"`
 	}
 
 	queryConfig := configResource{}
@@ -82,7 +83,7 @@ func SearchConfigSources(c *gin.Context) {
 		return
 	}
 
-	rows, err := dbGetConfigSource(queryConfig.Kind, queryConfig.ID, queryConfig.Config)
+	rows, err := dbGetConfigSource(queryConfig.Kind, queryConfig.ID, string(queryConfig.Config))
 	if err != nil {
 		logrus.Errorf("searching for config source: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -160,9 +161,9 @@ func ListConfigConditions(c *gin.Context) {
 // @Router /api/pipeline/config/conditions/search [post]
 func SearchConfigConditions(c *gin.Context) {
 	type configResource struct {
-		ID     string `json:"id"`
-		Kind   string `json:"kind"`
-		Config string `json:"config"`
+		ID     string          `json:"id"`
+		Kind   string          `json:"kind"`
+		Config json.RawMessage `json:"config"`
 	}
 
 	queryConfig := configResource{}
@@ -175,7 +176,7 @@ func SearchConfigConditions(c *gin.Context) {
 		return
 	}
 
-	rows, err := dbGetConfigCondition(queryConfig.Kind, queryConfig.ID, queryConfig.Config)
+	rows, err := dbGetConfigCondition(queryConfig.Kind, queryConfig.ID, string(queryConfig.Config))
 	if err != nil {
 		logrus.Errorf("searching for config condition: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -252,9 +253,9 @@ func ListConfigTargets(c *gin.Context) {
 // @Router /api/pipeline/config/targets/search [post]
 func SearchConfigTargets(c *gin.Context) {
 	type configResource struct {
-		ID     string `json:"id"`
-		Kind   string `json:"kind"`
-		Config string `json:"config"`
+		ID     string          `json:"id"`
+		Kind   string          `json:"kind"`
+		Config json.RawMessage `json:"config"`
 	}
 
 	queryConfig := configResource{}
@@ -267,7 +268,7 @@ func SearchConfigTargets(c *gin.Context) {
 		return
 	}
 
-	rows, err := dbGetConfigTarget(queryConfig.Kind, queryConfig.ID, queryConfig.Config)
+	rows, err := dbGetConfigTarget(queryConfig.Kind, queryConfig.ID, string(queryConfig.Config))
 	if err != nil {
 		logrus.Errorf("searching for config target: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
