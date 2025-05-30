@@ -19,6 +19,14 @@ type PipelineReport struct {
 	PipelineID string `json:",omitempty"`
 	// TargetScmIDs is a list of unique identifiers of the scm configuration associated with the database.
 	TargetScmIDs []uuid.UUID `json:",omitempty"`
+
+	// TargetConfigIDs is a list of unique identifiers of the target configuration associated with the database.
+	TargetConfigIDs map[uuid.UUID]string `json:",omitempty"`
+	// ConditionConfigIDs is a list of unique identifiers of the condition configuration associated with the database.
+	ConditionConfigIDs map[uuid.UUID]string `json:",omitempty"`
+	// SourceConfigIDs is a list of unique identifiers of the source configuration associated with the database.
+	SourceConfigIDs map[uuid.UUID]string `json:",omitempty"`
+
 	// Create_at represent the creation date of the record.
 	Created_at time.Time `json:",omitempty"`
 	// Updated_at represent the last update date of the record.

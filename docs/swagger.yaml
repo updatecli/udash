@@ -1,0 +1,1206 @@
+definitions:
+  condition.Config:
+    properties:
+      dependsOn:
+        description: |-
+          "dependson" allows to specify the order of execution of resources
+          It accepts a list of rules like "(resourceType#)resourceId(:booleanOperator)"
+
+          The resourceType is optional and can be one of "condition", "source" or "target"
+          By default the resourceType is the current resource type
+
+          The resourceId is the name of the resource to depend on
+
+          The booleanOperator is optional and can be "AND" or "OR"
+
+          examples:
+          dependson:
+            - condition#myCondition:and
+            - source#mySource
+
+          remarks:
+            The parameters "sourceid" and "conditionsids" affect the order of resource execution.
+            To avoid circular dependencies, the depended resource may need to remove any conditionids or set "disablesourceinput to true".
+        items:
+          type: string
+        type: array
+      deprecatedDependsOn:
+        description: '!deprecated, please use dependson'
+        items:
+          type: string
+        type: array
+      deprecatedSCMID:
+        description: '!deprecated, please use scmid'
+        type: string
+      deprecatedSourceID:
+        description: '! Deprecated in favor of sourceID'
+        type: string
+      disableSourceInput:
+        description: disablesourceinput disable the mechanism to retrieve a default
+          value from a source.
+        type: boolean
+      failWhen:
+        description: FailWhen allows to reverse a condition expected result from true
+          to false.
+        type: boolean
+      kind:
+        description: kind specifies the resource kind which defines accepted spec
+          value
+        type: string
+      name:
+        description: name specifies the resource name
+        type: string
+      scmid:
+        description: scmid specifies the scm configuration key associated to the current
+          resource
+        type: string
+      sourceID:
+        description: sourceid specifies which "source", based on its ID, is used to
+          retrieve the default value.
+        type: string
+      spec:
+        description: spec specifies parameters for a specific resource kind
+      transformers:
+        description: transformers defines how the default input value need to be transformed
+        items:
+          $ref: '#/definitions/transformer.Transformer'
+        type: array
+    type: object
+  model.ConfigCondition:
+    properties:
+      config:
+        $ref: '#/definitions/condition.Config'
+      created_at:
+        description: Created_at represent the creation date of the record.
+        type: string
+      id:
+        description: ID is the unique identifier of the record in the database.
+        type: string
+      kind:
+        description: Kind represent the kind of the resource configuration.
+        type: string
+      updated_at:
+        description: Updated_at represent the last update date of the record.
+        type: string
+    type: object
+  model.ConfigSource:
+    properties:
+      config:
+        allOf:
+        - $ref: '#/definitions/source.Config'
+        description: Config is the configuration of the source resource.
+      created_at:
+        description: Created_at represent the creation date of the record.
+        type: string
+      id:
+        description: ID is the unique identifier of the record in the database.
+        type: string
+      kind:
+        description: Kind represent the kind of the resource configuration.
+        type: string
+      updated_at:
+        description: Updated_at represent the last update date of the record.
+        type: string
+    type: object
+  model.ConfigTarget:
+    properties:
+      config:
+        $ref: '#/definitions/target.Config'
+      created_at:
+        description: Created_at represent the creation date of the record.
+        type: string
+      id:
+        description: ID is the unique identifier of the record in the database.
+        type: string
+      kind:
+        description: Kind represent the kind of the resource configuration.
+        type: string
+      updated_at:
+        description: Updated_at represent the last update date of the record.
+        type: string
+    type: object
+  model.PipelineReport:
+    properties:
+      conditionConfigIDs:
+        additionalProperties:
+          type: string
+        description: ConditionConfigIDs is a list of unique identifiers of the condition
+          configuration associated with the database.
+        type: object
+      created_at:
+        description: Create_at represent the creation date of the record.
+        type: string
+      id:
+        description: ID is the unique identifier of the record in the database.
+        type: string
+      pipeline:
+        allOf:
+        - $ref: '#/definitions/reports.Report'
+        description: Pipeline represent the Updatecli pipeline report.
+      pipelineID:
+        description: |-
+          PipelineID represent the ID of the pipeline executed by Updatecli.
+          different execution of the same pipeline will have the same PipelineID.
+          This value is coming from the pipeline report to improve the search of reports.
+        type: string
+      sourceConfigIDs:
+        additionalProperties:
+          type: string
+        description: SourceConfigIDs is a list of unique identifiers of the source
+          configuration associated with the database.
+        type: object
+      targetConfigIDs:
+        additionalProperties:
+          type: string
+        description: TargetConfigIDs is a list of unique identifiers of the target
+          configuration associated with the database.
+        type: object
+      targetScmIDs:
+        description: TargetScmIDs is a list of unique identifiers of the scm configuration
+          associated with the database.
+        items:
+          type: string
+        type: array
+      updated_at:
+        description: Updated_at represent the last update date of the record.
+        type: string
+    type: object
+  reports.Action:
+    properties:
+      actionUrl:
+        description: Link is the URL of the action
+        type: string
+      description:
+        description: Description is the description of the action
+        type: string
+      id:
+        description: ID is the unique identifier of the action
+        type: string
+      pipelineTitle:
+        description: PipelineTitle is the title of the pipeline
+        type: string
+      pipelineURL:
+        allOf:
+        - $ref: '#/definitions/reports.PipelineURL'
+        description: using a pointer to avoid empty tag
+      targets:
+        description: Targets is the list of targets IDs associated with the action
+        items:
+          $ref: '#/definitions/reports.ActionTarget'
+        type: array
+      title:
+        description: Title is the title of the action
+        type: string
+    type: object
+  reports.ActionTarget:
+    properties:
+      changelogs:
+        items:
+          $ref: '#/definitions/reports.ActionTargetChangelog'
+        type: array
+      description:
+        type: string
+      id:
+        type: string
+      title:
+        type: string
+    type: object
+  reports.ActionTargetChangelog:
+    properties:
+      description:
+        description: Description is the description of the changelog
+        type: string
+      title:
+        description: Title is the title of the changelog
+        type: string
+    type: object
+  reports.PipelineURL:
+    properties:
+      name:
+        description: Name is the name of the pipeline
+        type: string
+      url:
+        description: URL is the URL of the pipeline
+        type: string
+    type: object
+  reports.Report:
+    properties:
+      actions:
+        additionalProperties:
+          $ref: '#/definitions/reports.Action'
+        type: object
+      conditions:
+        additionalProperties:
+          $ref: '#/definitions/result.Condition'
+        type: object
+      err:
+        type: string
+      id:
+        description: ID defines the report ID
+        type: string
+      name:
+        type: string
+      pipelineID:
+        description: PipelineID represents the Updatecli manifest pipelineID
+        type: string
+      reportURL:
+        type: string
+      result:
+        type: string
+      sources:
+        additionalProperties:
+          $ref: '#/definitions/result.Source'
+        type: object
+      targets:
+        additionalProperties:
+          $ref: '#/definitions/result.Target'
+        type: object
+    type: object
+  result.Changelog:
+    properties:
+      body:
+        description: Body represents the body of the changelog.
+        type: string
+      publishedAt:
+        description: PublishedAt represents the date the changelog was published.
+        type: string
+      title:
+        description: Title represents the title of the changelog. Typically a version
+          number.
+        type: string
+      url:
+        description: URL represents the URL to the changelog.
+        type: string
+    type: object
+  result.Condition:
+    properties:
+      config:
+        description: Config stores the source configuration
+      consoleOutput:
+        description: ConsoleOutput stores the console output of the condition execution
+        type: string
+      description:
+        description: Description stores the condition execution description.
+        type: string
+      id:
+        description: ID contains a uniq identifier for the condition
+        type: string
+      name:
+        description: Name holds the condition name
+        type: string
+      pass:
+        description: Pass stores the information detected by the condition execution.
+        type: boolean
+      result:
+        description: "Result holds the condition result, accepted values must be one:\n\t\t\t*
+          \"SUCCESS\"\n\t\t\t* \"FAILURE\"\n\t\t\t* \"ATTENTION\"\n\t\t\t* \"SKIPPED\""
+        type: string
+      scm:
+        allOf:
+        - $ref: '#/definitions/result.SCM'
+        description: Scm stores scm information
+      sourceID:
+        description: SourceID stores the source ID used by the condition
+        type: string
+    type: object
+  result.GitBranch:
+    properties:
+      source:
+        description: Source defines the branch used as a source
+        type: string
+      target:
+        description: Target defines the branch used by Updatecli to apply the changes
+          done from the working branch
+        type: string
+      working:
+        description: Working defines the working branch used by Updatecli
+        type: string
+    type: object
+  result.SCM:
+    properties:
+      branch:
+        allOf:
+        - $ref: '#/definitions/result.GitBranch'
+        description: Branch defines the different branches used by Updatecli
+      branchReset:
+        description: BranchReset defines if the scm branch was reset to the base branch
+          during the pipeline execution
+        type: boolean
+      id:
+        description: ID contains a uniq identifier for the scm
+        type: string
+      url:
+        description: URL defines the git URL
+        type: string
+    type: object
+  result.Source:
+    properties:
+      config:
+        description: Config stores the source configuration
+      consoleOutput:
+        description: ConsoleOutput stores the console output of the source execution
+        type: string
+      description:
+        description: Description stores the source execution description
+        type: string
+      id:
+        description: ID contains a uniq identifier for the source
+        type: string
+      information:
+        description: Information stores the information detected by the source execution
+          such as a version
+        type: string
+      name:
+        description: Name holds the source name
+        type: string
+      result:
+        description: "Result holds the source result, accepted values must be one:\n\t\t\t*
+          \"SUCCESS\"\n\t\t\t* \"FAILURE\"\n\t\t\t* \"ATTENTION\"\n\t\t\t* \"SKIPPED\""
+        type: string
+      scm:
+        allOf:
+        - $ref: '#/definitions/result.SCM'
+        description: Scm stores scm information
+    type: object
+  result.Target:
+    properties:
+      changed:
+        description: Changed specifies if the target was modify during the pipeline
+          execution
+        type: boolean
+      changelogs:
+        description: Changelogs holds the changelog description
+        items:
+          $ref: '#/definitions/result.Changelog'
+        type: array
+      config:
+        description: Config stores the source configuration
+      consoleOutput:
+        description: ConsoleOutput stores the console output of the target execution
+        type: string
+      description:
+        description: Description stores the target execution description
+        type: string
+      dryRun:
+        description: DryRun defines if a target was executed in DryRun mode
+        type: boolean
+      files:
+        description: Files holds the list of files modified by a target execution
+        items:
+          type: string
+        type: array
+      id:
+        description: ID contains a uniq identifier for the target
+        type: string
+      information:
+        description: Information stores the old information detected by the target
+          execution
+        type: string
+      name:
+        description: Name holds the target name
+        type: string
+      newInformation:
+        description: NewInformation stores the new information updated by during the
+          target execution
+        type: string
+      result:
+        description: "Result holds the target result, accepted values must be one:\n\t\t\t*
+          \"SUCCESS\"\n\t\t\t* \"FAILURE\"\n\t\t\t* \"ATTENTION\"\n\t\t\t* \"SKIPPED\""
+        type: string
+      scm:
+        allOf:
+        - $ref: '#/definitions/result.SCM'
+        description: Scm stores scm information
+      sourceID:
+        description: SourceID stores the source ID used by the target
+        type: string
+    type: object
+  server.AboutResponseModel:
+    properties:
+      version:
+        properties:
+          api:
+            type: string
+          buildTime:
+            type: string
+          golang:
+            type: string
+        type: object
+    type: object
+  server.ConditionConfigResponse:
+    properties:
+      configs:
+        description: Configs is a list of configuration conditions.
+        items:
+          $ref: '#/definitions/model.ConfigCondition'
+        type: array
+    type: object
+  server.ConfigKindResponse:
+    properties:
+      data:
+        items:
+          type: string
+        type: array
+    type: object
+  server.CreatePipelineReportResponse:
+    properties:
+      message:
+        type: string
+      reportid:
+        type: string
+    type: object
+  server.DefaultResponseModel:
+    properties:
+      error:
+        type: string
+      message:
+        type: string
+    type: object
+  server.FindSCMSummaryResponse:
+    properties:
+      data:
+        additionalProperties:
+          $ref: '#/definitions/server.ScmBranchData'
+        type: object
+    type: object
+  server.GetPipelineReportByIDResponse:
+    properties:
+      data:
+        $ref: '#/definitions/model.PipelineReport'
+      latestReportByID:
+        $ref: '#/definitions/model.PipelineReport'
+      message:
+        type: string
+      nbReportsByID:
+        type: integer
+    type: object
+  server.GetPipelineReportsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/server.respSearchLatestReportData'
+        type: array
+    type: object
+  server.ScmBranchData:
+    additionalProperties:
+      $ref: '#/definitions/server.ScmSummaryData'
+    type: object
+  server.ScmSummaryData:
+    properties:
+      id:
+        description: ID is the unique identifier of the SCM.
+        type: string
+      total_result:
+        description: TotalResult is the total number of results for this SCM.
+        type: integer
+      total_result_by_type:
+        additionalProperties:
+          type: integer
+        description: TotalResultByType is a map of result types and their counts.
+        type: object
+    type: object
+  server.SourceConfigResponse:
+    properties:
+      configs:
+        description: Configs is a list of configuration sources.
+        items:
+          $ref: '#/definitions/model.ConfigSource'
+        type: array
+    type: object
+  server.TargetConfigResponse:
+    properties:
+      configs:
+        description: Configs is a list of configuration targets.
+        items:
+          $ref: '#/definitions/model.ConfigTarget'
+        type: array
+    type: object
+  server.respSearchLatestReportData:
+    properties:
+      createdAt:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      result:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  source.Config:
+    properties:
+      dependsOn:
+        description: |-
+          "dependson" allows to specify the order of execution of resources
+          It accepts a list of rules like "(resourceType#)resourceId(:booleanOperator)"
+
+          The resourceType is optional and can be one of "condition", "source" or "target"
+          By default the resourceType is the current resource type
+
+          The resourceId is the name of the resource to depend on
+
+          The booleanOperator is optional and can be "AND" or "OR"
+
+          examples:
+          dependson:
+            - condition#myCondition:and
+            - source#mySource
+
+          remarks:
+            The parameters "sourceid" and "conditionsids" affect the order of resource execution.
+            To avoid circular dependencies, the depended resource may need to remove any conditionids or set "disablesourceinput to true".
+        items:
+          type: string
+        type: array
+      deprecatedDependsOn:
+        description: '!deprecated, please use dependson'
+        items:
+          type: string
+        type: array
+      deprecatedSCMID:
+        description: '!deprecated, please use scmid'
+        type: string
+      kind:
+        description: kind specifies the resource kind which defines accepted spec
+          value
+        type: string
+      name:
+        description: name specifies the resource name
+        type: string
+      scmid:
+        description: scmid specifies the scm configuration key associated to the current
+          resource
+        type: string
+      spec:
+        description: spec specifies parameters for a specific resource kind
+      transformers:
+        description: transformers defines how the default input value need to be transformed
+        items:
+          $ref: '#/definitions/transformer.Transformer'
+        type: array
+    type: object
+  target.Config:
+    properties:
+      dependsOn:
+        description: |-
+          "dependson" allows to specify the order of execution of resources
+          It accepts a list of rules like "(resourceType#)resourceId(:booleanOperator)"
+
+          The resourceType is optional and can be one of "condition", "source" or "target"
+          By default the resourceType is the current resource type
+
+          The resourceId is the name of the resource to depend on
+
+          The booleanOperator is optional and can be "AND" or "OR"
+
+          examples:
+          dependson:
+            - condition#myCondition:and
+            - source#mySource
+
+          remarks:
+            The parameters "sourceid" and "conditionsids" affect the order of resource execution.
+            To avoid circular dependencies, the depended resource may need to remove any conditionids or set "disablesourceinput to true".
+        items:
+          type: string
+        type: array
+      dependsOnChange:
+        description: |-
+          dependsonchange enables the mechanism to check if the dependant target(s) have made a change.
+          If the dependant target(s) have not made a change the target will be skipped.
+
+          default:
+            false
+        type: boolean
+      deprecatedConditionIDs:
+        description: |-
+          ! Deprecated - please use DependsOn with `condition#conditionid` keys
+
+          conditionids specifies the list of conditions to be evaluated before running the target.
+          if at least one condition is not met, the target will be skipped.
+
+          default:
+            by default, all conditions are evaluated.
+        items:
+          type: string
+        type: array
+      deprecatedDependsOn:
+        description: '!deprecated, please use dependson'
+        items:
+          type: string
+        type: array
+      deprecatedSCMID:
+        description: '!deprecated, please use scmid'
+        type: string
+      deprecatedSourceID:
+        description: '! Deprecated - please use all lowercase `sourceid`'
+        type: string
+      disableConditions:
+        description: |-
+          disableconditions disables the mechanism to evaluate all conditions before running the target.
+
+          default:
+            false
+
+          remark:
+           It's possible to only monitor specific conditions by setting disableconditions to true
+           and using DependsOn with `condition#conditionid` keys
+        type: boolean
+      disableSourceInput:
+        description: |-
+          disablesourceinput disables the mechanism to retrieve a default value from a source.
+          For example, if true, source information like changelog will not be accessible for a github/pullrequest action.
+
+          default:
+           false
+        type: boolean
+      kind:
+        description: kind specifies the resource kind which defines accepted spec
+          value
+        type: string
+      name:
+        description: name specifies the resource name
+        type: string
+      scmid:
+        description: scmid specifies the scm configuration key associated to the current
+          resource
+        type: string
+      sourceID:
+        description: |-
+          sourceid specifies where retrieving the default value.
+
+          default:
+            if only one source is defined, then sourceid is set to that sourceid.
+        type: string
+      spec:
+        description: spec specifies parameters for a specific resource kind
+      transformers:
+        description: transformers defines how the default input value need to be transformed
+        items:
+          $ref: '#/definitions/transformer.Transformer'
+        type: array
+    type: object
+  transformer.FindSubMatch:
+    properties:
+      captureIndex:
+        description: CaptureIndex defines which substring occurrence to retrieve.
+          Note also that a value of `0` for `captureIndex` returns all submatches,
+          and individual submatch indexes start at `1`.
+        type: integer
+      deprecatedCaptureIndex:
+        type: integer
+      pattern:
+        description: Pattern defines regular expression to use for retrieving a submatch
+        type: string
+    type: object
+  transformer.Replacer:
+    properties:
+      from:
+        description: From defines the source value which need to be replaced
+        type: string
+      to:
+        description: To defines the "to what" a "from" value needs to be replaced
+        type: string
+    type: object
+  transformer.Transformer:
+    properties:
+      addPrefix:
+        description: AddPrefix adds a prefix to the transformer input value
+        type: string
+      addSuffix:
+        description: AddSuffix adds a suffix to the transformer input value
+        type: string
+      deprecatedAddPrefix:
+        type: string
+      deprecatedAddSuffix:
+        type: string
+      deprecatedFindSubMatch: {}
+      deprecatedSemVerInc:
+        type: string
+      deprecatedTrimPrefix:
+        type: string
+      deprecatedTrimSuffix:
+        type: string
+      find:
+        description: Find searches for a specific value if it exists and return false
+          if it doesn't
+        type: string
+      findSubMatch:
+        allOf:
+        - $ref: '#/definitions/transformer.FindSubMatch'
+        description: Find searches for a specific value if it exists then return the
+          value using regular expression
+      quote:
+        description: Quote add quote around the value
+        type: boolean
+      replacer:
+        allOf:
+        - $ref: '#/definitions/transformer.Replacer'
+        description: Replacer specifies what value needs to be changed and how
+      replacers:
+        description: Replacers specifies a list of replacer instruction
+        items:
+          $ref: '#/definitions/transformer.Replacer'
+        type: array
+      semVerInc:
+        description: SemvVerInc specifies a  comma separated list semantic versioning
+          component that needs to be upgraded.
+        type: string
+      trimPrefix:
+        description: TrimPrefix removes a prefix to the transformer input value
+        type: string
+      trimSuffix:
+        description: TrimSuffix removes the suffix from the transformer input value
+        type: string
+      unquote:
+        description: Unquote remove quotes around the value
+        type: boolean
+    type: object
+info:
+  contact: {}
+paths:
+  /api/:
+    get:
+      description: Landing page of the API
+      responses:
+        "200":
+          description: OK
+      summary: Landing page
+      tags:
+      - Landing
+  /api/ping:
+    get:
+      description: Ping the API to check if it's running
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: Ping the API
+      tags:
+      - Ping
+  /api/pipeline/config/conditions:
+    delete:
+      description: Delete a configuration condition from the database
+      parameters:
+      - description: ID of the configuration condition to delete
+        in: query
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: Delete a configuration condition
+      tags:
+      - Configuration Conditions
+    get:
+      description: List all configuration conditions from the database
+      parameters:
+      - description: ID of the configuration condition
+        in: query
+        name: id
+        type: string
+      - description: Kind of the configuration condition
+        in: query
+        name: kind
+        type: string
+      - description: Configuration of the condition
+        in: query
+        name: config
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.ConditionConfigResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: List all configuration conditions
+      tags:
+      - Configuration Conditions
+  /api/pipeline/config/conditions/search:
+    post:
+      consumes:
+      - application/json
+      description: Search for configuration conditions in the database
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.ConditionConfigResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: Search configuration conditions
+      tags:
+      - Configuration Conditions
+  /api/pipeline/config/kinds:
+    post:
+      consumes:
+      - application/json
+      description: Search for configuration by kind in the database
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.ConfigKindResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: Search configuration by kind
+      tags:
+      - Configuration
+  /api/pipeline/config/sources:
+    delete:
+      description: Delete a configuration source from the database
+      parameters:
+      - description: ID of the configuration source to delete
+        in: query
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: Delete a configuration source
+      tags:
+      - Configuration Sources
+    get:
+      description: List all configuration sources from the database
+      parameters:
+      - description: ID of the configuration source
+        in: query
+        name: id
+        type: string
+      - description: Kind of the configuration source
+        in: query
+        name: kind
+        type: string
+      - description: Configuration of the source
+        in: query
+        name: config
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.SourceConfigResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: List all configuration sources
+      tags:
+      - Configuration Sources
+  /api/pipeline/config/sources/search:
+    post:
+      consumes:
+      - application/json
+      description: Search for configuration sources in the database
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.SourceConfigResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: Search configuration sources
+      tags:
+      - Configuration Sources
+  /api/pipeline/config/targets:
+    delete:
+      description: Delete a configuration target from the database
+      parameters:
+      - description: ID of the configuration target to delete
+        in: query
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: Delete a configuration target
+      tags:
+      - Configuration Targets
+    get:
+      description: List all configuration targets from the database
+      parameters:
+      - description: ID of the configuration target
+        in: query
+        name: id
+        type: string
+      - description: Kind of the configuration target
+        in: query
+        name: kind
+        type: string
+      - description: Configuration of the target
+        in: query
+        name: config
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.TargetConfigResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: List all target configurations.
+      tags:
+      - Configuration Targets
+  /api/pipeline/config/targets/search:
+    post:
+      consumes:
+      - application/json
+      description: Search for configuration targets in the database
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.TargetConfigResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: Search configuration targets
+      tags:
+      - Configuration Targets
+  /api/pipeline/reports:
+    get:
+      description: List all pipeline reports from the database
+      parameters:
+      - description: SCM ID
+        in: query
+        name: scmid
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.GetPipelineReportsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: List all pipeline reports
+      tags:
+      - Pipeline Reports
+    post:
+      consumes:
+      - application/json
+      description: Create a new pipeline report in the database
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/server.CreatePipelineReportResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: Create a new pipeline report
+      tags:
+      - Pipeline Reports
+  /api/pipeline/reports/{id}:
+    delete:
+      description: Delete a pipeline report from the database
+      parameters:
+      - description: Report ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: Delete a pipeline report
+      tags:
+      - Pipeline Reports
+    get:
+      description: Get the latest pipeline report for a specific ID
+      parameters:
+      - description: Report ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/server.GetPipelineReportByIDResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: Get a pipeline report by ID
+      tags:
+      - Pipeline Reports
+    put:
+      consumes:
+      - application/json
+      description: Update a pipeline report in the database. Please note that this
+        endpoint is not supported yet.
+      parameters:
+      - description: Report ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: Update a pipeline report
+      tags:
+      - Pipeline Reports
+  /api/pipeline/reports/search:
+    post:
+      consumes:
+      - application/json
+      description: Search pipeline reports in the database using advanced filtering
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.GetPipelineReportsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: Search pipeline reports
+      tags:
+      - Pipeline Reports
+  /api/scms:
+    get:
+      description: List SCMs data from the database
+      parameters:
+      - description: ID of the SCM
+        in: query
+        name: scmid
+        type: string
+      - description: URL of the SCM
+        in: query
+        name: url
+        type: string
+      - description: Branch of the SCM
+        in: query
+        name: branch
+        type: string
+      - description: Return a summary of the SCMs
+        in: query
+        name: summary
+        type: boolean
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: List SCMs
+      tags:
+      - SCMs
+  /api/scms/summary:
+    get:
+      description: Find SCM Summary of all git repositories detected
+      parameters:
+      - description: ID of the SCM
+        in: query
+        name: scmid
+        type: string
+      - description: URL of the SCM
+        in: query
+        name: url
+        type: string
+      - description: Branch of the SCM
+        in: query
+        name: branch
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.FindSCMSummaryResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: Find SCM Summary
+      tags:
+      - SCMs
+swagger: "2.0"

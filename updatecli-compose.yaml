@@ -1,7 +1,11 @@
+---
 policies:
-  #  - name: Local Updatecli Website Policies
-  #    config:
-  #      - updatecli/updatecli.d/
+  - name: Local Updatecli Website Policies
+    config:
+      - updatecli/updatecli.d/
+    values:
+      - updatecli/values.d/scm.yaml
+
   - name: Update Updatecli policies
     policy: ghcr.io/updatecli/policies/updatecli/autodiscovery:0.5.0@sha256:947817644fb89e27f7b7121b822328c2d47364c7a3a08241e4d2ac1a5897020c
     values:

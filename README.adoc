@@ -37,6 +37,10 @@ The oauth provider **must** allow the PKCE flow.
 
 === Udash API
 
+==== Documentation
+
+The api documentation is available at `/api/swagger/index.html` or in the docs directory.
+
 ==== Option
 
 Udash must be configured via a configuration file, and some settings can be overridden by environment variables
