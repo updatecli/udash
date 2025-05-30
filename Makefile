@@ -62,5 +62,5 @@ test: ## Execute the Golang's tests for updatecli
 	go test ./... -race -coverprofile=coverage.txt -covermode=atomic
 
 .PHONY: docs
-docs: ## Genereate api documentation
+docs: ## Generate api documentation
 	swag init --parseDependencyLevel 1
