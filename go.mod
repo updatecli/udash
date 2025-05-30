@@ -12,7 +12,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1
-	github.com/updatecli/updatecli v0.96.0
+	github.com/updatecli/updatecli v0.101.0
 )
 
 require (
