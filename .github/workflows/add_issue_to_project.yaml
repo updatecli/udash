@@ -1,3 +1,4 @@
+---
 name: Add issues to Updatecli project
 on:
   issues:
@@ -6,7 +7,7 @@ on:
 jobs:
   add-to-project:
     name: Add issue to Updatecli project
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/add-to-project@244f685bbc3b7adfa8466e08b698b5577571133e # v1.0.2
         with:
