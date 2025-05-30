@@ -102,7 +102,7 @@ func SearchConfigSources(c *gin.Context) {
 	})
 }
 
-// SearchConfigKind returns a resource configuration from the database.
+// SearchConfigKinds returns a resource configuration from the database.
 // @Summary Search configuration by kind
 // @Description Search for configuration by kind in the database
 // @Tags Configuration
@@ -111,8 +111,8 @@ func SearchConfigSources(c *gin.Context) {
 // @Success 200 {object} ConfigKindResponse
 // @Failure 400 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/config/sources/kind [post]
-func SearchConfigKind(c *gin.Context) {
+// @Router /api/pipeline/config/kinds [post]
+func SearchConfigKinds(c *gin.Context) {
 
 	resourceType := c.Request.URL.Query().Get("type")
 
