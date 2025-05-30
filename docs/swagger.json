@@ -143,6 +143,41 @@
                 }
             }
         },
+        "/api/pipeline/config/kinds": {
+            "post": {
+                "description": "Search for configuration by kind in the database",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Configuration"
+                ],
+                "summary": "Search configuration by kind",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.ConfigKindResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    }
+                }
+            }
+        },
         "/api/pipeline/config/sources": {
             "get": {
                 "description": "List all configuration sources from the database",
@@ -203,41 +238,6 @@
                 "responses": {
                     "200": {
                         "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/server.DefaultResponseModel"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/server.DefaultResponseModel"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/pipeline/config/sources/kind": {
-            "post": {
-                "description": "Search for configuration target by kind in the database",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Configuration Targets"
-                ],
-                "summary": "Search configuration targets by kind",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/server.ConfigKindResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/server.DefaultResponseModel"
                         }

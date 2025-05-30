@@ -851,6 +851,29 @@ paths:
       summary: Search configuration conditions
       tags:
       - Configuration Conditions
+  /api/pipeline/config/kinds:
+    post:
+      consumes:
+      - application/json
+      description: Search for configuration by kind in the database
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.ConfigKindResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: Search configuration by kind
+      tags:
+      - Configuration
   /api/pipeline/config/sources:
     delete:
       description: Delete a configuration source from the database
@@ -899,29 +922,6 @@ paths:
       summary: List all configuration sources
       tags:
       - Configuration Sources
-  /api/pipeline/config/sources/kind:
-    post:
-      consumes:
-      - application/json
-      description: Search for configuration target by kind in the database
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/server.ConfigKindResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/server.DefaultResponseModel'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/server.DefaultResponseModel'
-      summary: Search configuration targets by kind
-      tags:
-      - Configuration Targets
   /api/pipeline/config/sources/search:
     post:
       consumes:
