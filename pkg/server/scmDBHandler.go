@@ -85,12 +85,7 @@ type FindSCMSummaryResponse struct {
 // @Router /api/scms/summary [get]
 func FindSCMSummary(c *gin.Context, scmRows []model.SCM) {
 
-	type data struct {
-		// URLS is a map of scmURLS where the key is the scm URL.
-		Data map[string]ScmBranchData
-	}
-
-	dataset := data{}
+	dataset := FindSCMSummaryResponse{}
 
 	query := ""
 	for _, row := range scmRows {

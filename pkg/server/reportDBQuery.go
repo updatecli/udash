@@ -23,6 +23,8 @@ func stringPtr(s string) *string {
 }
 
 // dbInsertReport inserts a new report into the database.
+//
+//nolint:funlen
 func dbInsertReport(report reports.Report) (string, error) {
 	var ID uuid.UUID
 	var targetDBScmIDs []uuid.UUID

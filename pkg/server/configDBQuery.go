@@ -23,6 +23,13 @@ const (
 	configConditionTableName = "config_conditions"
 	// configTargetTableName defines the table name for config targets
 	configTargetTableName = "config_targets"
+
+	//configSourceType defines the kind of config source
+	configSourceType = "source"
+	//configConditionType defines the kind of config condition
+	configConditionType = "condition"
+	//configTargetType defines the kind of config target
+	configTargetType = "target"
 )
 
 // dbInsertConfigResource inserts a new resource configuration into the database.
@@ -31,11 +38,11 @@ func dbInsertConfigResource(resourceType string, resourceKind string, resourceCo
 
 	table := ""
 	switch resourceType {
-	case "source":
+	case configSourceType:
 		table = configSourceTableName
-	case "condition":
+	case configConditionType:
 		table = configConditionTableName
-	case "target":
+	case configTargetType:
 		table = configTargetTableName
 	default:
 		return "", fmt.Errorf("unknown resource type %q", resourceType)
@@ -73,11 +80,11 @@ func dbDeleteConfigResource(resourceType string, id string) error {
 
 	table := ""
 	switch resourceType {
-	case "source":
+	case configSourceType:
 		table = configSourceTableName
-	case "condition":
+	case configConditionType:
 		table = configConditionTableName
-	case "target":
+	case configTargetType:
 		table = configTargetTableName
 	default:
 		return fmt.Errorf("unknown resource type %q", resourceType)
@@ -110,11 +117,11 @@ func dbGetConfigKind(resourceType string) ([]string, error) {
 
 	table := ""
 	switch resourceType {
-	case "source":
+	case configSourceType:
 		table = configSourceTableName
-	case "condition":
+	case configConditionType:
 		table = configConditionTableName
-	case "target":
+	case configTargetType:
 		table = configTargetTableName
 	default:
 		return nil, fmt.Errorf("unknown resource type %q", resourceType)
