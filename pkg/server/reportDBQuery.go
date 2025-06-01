@@ -392,10 +392,20 @@ func dbSearchLatestReportByPipelineID(id string) (*model.PipelineReport, error) 
 }
 
 type respSearchLatestReportData struct {
-	ID        string
-	Name      string
-	Result    string
+	// ID represents the unique identifier of the report.
+	ID string
+	// Name represents the name of the report.
+	Name string
+	// Result represents the result of the report.
+	Result string
+	// Report contains the report data.
+	Report reports.Report
+	// FilteredResourceID contains the resource config ID that was filtered
+	// It allows to identify in the report which resource was used to filter the report.
+	FilteredResourceID string
+	// CreatedAt represents the creation date of the report.
 	CreatedAt string
+	// UpdatedAt represents the last update date of the report.
 	UpdatedAt string
 }
 
@@ -408,33 +418,72 @@ func dbSearchLatestReport(scmID, sourceID, conditionID, targetID string) ([]resp
 
 	filteredReportsQuery := psql.Select(
 		sm.From("pipelineReports"),
-		sm.Columns("id", "data", "created_at", "updated_at"),
+		sm.Columns("id", "data", "config_source_ids", "config_condition_ids", "config_target_ids", "created_at", "updated_at"),
 		sm.Where(
 			psql.Raw(fmt.Sprintf("updated_at > current_date - interval '%d day'", monitoringDurationDays)),
 		),
 	)
 
+	query := psql.Select(
+		sm.Distinct("data ->> 'Name'"),
+		sm.With("filtered_reports").As(filteredReportsQuery),
+		sm.Columns("id", "data", "created_at", "updated_at"),
+		sm.From("filtered_reports"),
+		sm.OrderBy("data ->> 'Name'"),
+		sm.OrderBy(psql.Quote("updated_at")).Desc(),
+	)
+
 	if sourceID != "" {
+
+		// Ensure sourceID is a valid UUID
+		_, err = uuid.Parse(sourceID)
+		if err != nil {
+			return nil, fmt.Errorf("parsing sourceID: %s", err)
+		}
+
 		filteredReportsQuery.Apply(
 			sm.Where(
 				psql.Raw(`config_source_ids \? ?`, sourceID),
 			),
 		)
+
+		query.Apply(
+			sm.Columns("config_source_ids"),
+		)
 	}
 
 	if conditionID != "" {
+		// Ensure conditionID is a valid UUID
+		_, err = uuid.Parse(conditionID)
+		if err != nil {
+			return nil, fmt.Errorf("parsing conditionID: %s", err)
+		}
+
 		filteredReportsQuery.Apply(
 			sm.Where(
 				psql.Raw(`config_condition_ids \? ?`, conditionID),
 			),
 		)
+
+		query.Apply(
+			sm.Columns("config_condition_ids"),
+		)
 	}
 
 	if targetID != "" {
+		// Ensure targetID is a valid UUID
+		_, err = uuid.Parse(targetID)
+		if err != nil {
+			return nil, fmt.Errorf("parsing targetID: %s", err)
+		}
+
 		filteredReportsQuery.Apply(
 			sm.Where(
 				psql.Raw(`config_target_ids \? ?`, targetID),
 			),
+		)
+		query.Apply(
+			sm.Columns("config_target_ids"),
 		)
 	}
 
@@ -516,28 +565,14 @@ func dbSearchLatestReport(scmID, sourceID, conditionID, targetID string) ([]resp
 		}
 	}
 
-	query := psql.Select(
-		sm.Distinct("data ->> 'Name'"),
-		sm.With("filtered_reports").As(filteredReportsQuery),
-		sm.Columns("id", "data", "created_at", "updated_at"),
-		sm.From("filtered_reports"),
-		sm.OrderBy("data ->> 'Name'"),
-		sm.OrderBy(psql.Quote("updated_at")).Desc(),
-	)
-
 	queryString, args, err = query.Build(context.Background())
 	if err != nil {
-		logrus.Errorf("building query failed: %s\n\t%s", queryString, err)
-		return nil, err
+		return nil, fmt.Errorf("building query failed: %s\n\t%s", queryString, err)
 	}
-
-	logrus.Infof("searching latest reports with query: %s", queryString)
-	logrus.Infof("searching latest reports with args: %v", args)
 
 	rows, err := database.DB.Query(context.Background(), queryString, args...)
 	if err != nil {
-		logrus.Errorf("query failed: %s", err)
-		return nil, err
+		return nil, fmt.Errorf("query failed: %q\n\t%s", queryString, err)
 	}
 
 	dataset := []respSearchLatestReportData{}
@@ -545,18 +580,49 @@ func dbSearchLatestReport(scmID, sourceID, conditionID, targetID string) ([]resp
 	for rows.Next() {
 		p := model.PipelineReport{}
 
-		err = rows.Scan(&p.ID, &p.Pipeline, &p.Created_at, &p.Updated_at)
-		if err != nil {
-			logrus.Errorf("parsing result: %s", err)
-			return nil, err
+		filteredResources := pgtype.Hstore{}
+
+		if sourceID != "" || conditionID != "" || targetID != "" {
+			err = rows.Scan(&p.ID, &p.Pipeline, &p.Created_at, &p.Updated_at, &filteredResources)
+			if err != nil {
+				return nil, fmt.Errorf("parsing result: %s", err)
+			}
+
+		} else {
+			err = rows.Scan(&p.ID, &p.Pipeline, &p.Created_at, &p.Updated_at)
+			if err != nil {
+				return nil, fmt.Errorf("parsing result: %s", err)
+			}
 		}
 
 		data := respSearchLatestReportData{
 			ID:        p.ID.String(),
 			Name:      p.Pipeline.Name,
 			Result:    p.Pipeline.Result,
+			Report:    p.Pipeline,
 			CreatedAt: p.Created_at.String(),
 			UpdatedAt: p.Created_at.String(),
+		}
+
+		if sourceID != "" {
+			if _, ok := filteredResources[sourceID]; !ok {
+				return nil, fmt.Errorf("sourceID %s not found in pipeline report", sourceID)
+			}
+			data.FilteredResourceID = *filteredResources[sourceID]
+		}
+
+		if conditionID != "" {
+			if _, ok := filteredResources[conditionID]; !ok {
+				return nil, fmt.Errorf("conditionID %s not found in pipeline report", conditionID)
+			}
+			data.FilteredResourceID = *filteredResources[conditionID]
+		}
+
+		if targetID != "" {
+			if _, ok := filteredResources[targetID]; !ok {
+				return nil, fmt.Errorf("targetID %s not found in pipeline report", targetID)
+			}
+			data.FilteredResourceID = *filteredResources[targetID]
 		}
 
 		dataset = append(dataset, data)
