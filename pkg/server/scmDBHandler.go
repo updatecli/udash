@@ -107,12 +107,12 @@ WITH filtered_reports AS (
 		( target_db_scm_ids && '{ %q }' ) AND 
 		( updated_at >  current_date - interval '%d day' )
 )
-SELECT DISTINCT ON (data ->> 'Name')
+SELECT DISTINCT ON (data ->> 'ID')
 	id,
 	(data ->> 'Result')
 
 FROM filtered_reports
-ORDER BY (data ->> 'Name'), updated_at DESC;
+ORDER BY (data ->> 'ID'), updated_at DESC;
 `
 
 		query = fmt.Sprintf(query, scmID, monitoringDurationDays)

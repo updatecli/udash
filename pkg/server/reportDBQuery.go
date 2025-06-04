@@ -418,18 +418,22 @@ func dbSearchLatestReport(scmID, sourceID, conditionID, targetID string) ([]resp
 
 	filteredReportsQuery := psql.Select(
 		sm.From("pipelineReports"),
-		sm.Columns("id", "data", "config_source_ids", "config_condition_ids", "config_target_ids", "created_at", "updated_at"),
+		sm.Columns("id", "data", "config_source_ids", "config_condition_ids", "config_target_ids", "target_db_scm_ids", "created_at", "updated_at"),
 		sm.Where(
 			psql.Raw(fmt.Sprintf("updated_at > current_date - interval '%d day'", monitoringDurationDays)),
 		),
 	)
 
 	query := psql.Select(
-		sm.Distinct("data ->> 'Name'"),
+		sm.Distinct(
+			"data -> 'ID'",
+			"target_db_scm_ids",
+		),
 		sm.With("filtered_reports").As(filteredReportsQuery),
 		sm.Columns("id", "data", "created_at", "updated_at"),
 		sm.From("filtered_reports"),
-		sm.OrderBy("data ->> 'Name'"),
+		sm.OrderBy("data -> 'ID'"),
+		sm.OrderBy("target_db_scm_ids"),
 		sm.OrderBy(psql.Quote("updated_at")).Desc(),
 	)
 
