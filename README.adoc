@@ -144,6 +144,12 @@ You can now run Updatecli as usual, and it will upload the pipeline report to Ud
 Please be aware that currently the UI is designed to visualize pipelines per git repository so without a scmid
 pipelines will be hard to discover.
 
+=== Roadmap
+
+- [ ] Versioned API endpoint
+- [ ] Add tests
+- [ ] Add sql linting check using sqlfluff
+- [ ] Support paginationhttps://meet.google.com/vnj-momt-brs?authuser=0
 
 === Links
 
