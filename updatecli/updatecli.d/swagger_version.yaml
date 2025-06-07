@@ -1,0 +1,44 @@
+name: "ci: bump Swag version"
+pipelineid: "swagger"
+actions:
+  default:
+    title: 'ci: bump Swagger version to {{ source "latestVersion" }}'
+    kind: github/pullrequest
+    spec:
+      automerge: true
+      labels:
+        - dependencies
+        - skip-changelog
+    scmid: default
+scms:
+  default:
+    kind: github
+    spec:
+      branch: "{{ .scm.branch }}"
+      email: "{{ .scm.email }}"
+      owner: "{{ .scm.owner }}"
+      repository: "{{ .scm.repository }}"
+      token: '{{ requiredEnv "GITHUB_TOKEN" }}'
+      user: "{{ .scm.user }}"
+      username: '{{ requiredEnv "GITHUB_ACTOR" }}'
+sources:
+  latestVersion:
+    name: Get latest Swag release
+    kind: githubrelease
+    spec:
+      owner: swaggo
+      repository: swag
+      token: '{{ requiredEnv "GITHUB_TOKEN" }}'
+      username: '{{ requiredEnv "GITHUB_ACTOR" }}'
+      versionfilter:
+        kind: semver
+targets:
+  goWorkflow:
+    name: 'ci: update Swagger version to {{ source "latestVersion" }}'
+    kind: file
+    spec:
+      content: 'SWAGGER_VERSION: {{ source "latestVersion" }}'
+      file: .github/workflows/updatecli.yaml
+      matchpattern: "SWAGGER_VERSION: .*"
+    scmid: default
+    sourceid: latestVersion

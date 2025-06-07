@@ -12,7 +12,23 @@ import (
 	"github.com/updatecli/udash/pkg/model"
 )
 
-func FindSCM(c *gin.Context) {
+type ListSCMsResponse struct {
+	// SCMs is a list of SCMs.
+	SCMs []model.SCM `json:"scms"`
+}
+
+// ListSCMs returns a list of SCMs from the database.
+// @Summary List SCMs
+// @Description List SCMs data from the database
+// @Tags SCMs
+// @Param scmid query string false "ID of the SCM"
+// @Param url query string false "URL of the SCM"
+// @Param branch query string false "Branch of the SCM"
+// @Param summary query bool false "Return a summary of the SCMs"
+// @Success 200 {object} DefaultResponseModel
+// @Failure 500 {object} DefaultResponseModel
+// @Router /api/scms [get]
+func ListSCMs(c *gin.Context) {
 
 	scmid := c.Request.URL.Query().Get("scmid")
 	url := c.Request.URL.Query().Get("url")
@@ -22,8 +38,8 @@ func FindSCM(c *gin.Context) {
 	rows, err := dbGetScm(scmid, url, branch)
 	if err != nil {
 		logrus.Errorf("searching for scms: %s", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": err,
+		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
+			Err: err.Error(),
 		})
 
 		return
@@ -34,28 +50,42 @@ func FindSCM(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"scms": rows,
+	c.JSON(http.StatusOK, ListSCMsResponse{
+		SCMs: rows,
 	})
 }
 
+// ScmSummaryData represents the summary data for a single SCM.
+type ScmSummaryData struct {
+	// ID is the unique identifier of the SCM.
+	ID string `json:"id"`
+	// TotalResultByType is a map of result types and their counts.
+	TotalResultByType map[string]int `json:"total_result_by_type"`
+	// TotalResult is the total number of results for this SCM.
+	TotalResult int `json:"total_result"`
+}
+
+// ScmBranchData represents a map of branches and their summary data for a single SCM URL.
+type ScmBranchData map[string]ScmSummaryData
+
+// FindSCMSummaryResponse represents the response for the FindSCMSummary endpoint.
+type FindSCMSummaryResponse struct {
+	Data map[string]ScmBranchData `json:"data"`
+}
+
 // FindSCMSummary returns a summary of all git repositories detected.
+// @Summary Find SCM Summary
+// @Description Find SCM Summary of all git repositories detected
+// @Tags SCMs
+// @Param scmid query string false "ID of the SCM"
+// @Param url query string false "URL of the SCM"
+// @Param branch query string false "Branch of the SCM"
+// @Success 200 {object} FindSCMSummaryResponse
+// @Failure 500 {object} DefaultResponseModel
+// @Router /api/scms/summary [get]
 func FindSCMSummary(c *gin.Context, scmRows []model.SCM) {
 
-	type scmSummaryData struct {
-		ID                string         `json:"id"`
-		TotalResultByType map[string]int `json:"total_result_by_type"`
-		TotalResult       int            `json:"total_result"`
-	}
-
-	type scmBranchData map[string]scmSummaryData
-
-	type data struct {
-		// URLS is a map of scmURLS where the key is the scm URL.
-		Data map[string]scmBranchData
-	}
-
-	dataset := data{}
+	dataset := FindSCMSummaryResponse{}
 
 	query := ""
 	for _, row := range scmRows {
@@ -72,17 +102,17 @@ func FindSCMSummary(c *gin.Context, scmRows []model.SCM) {
 		query = `
 WITH filtered_reports AS (
 	SELECT id, data, updated_at
-	FROM pipelinereports
+	FROM pipelineReports
 	WHERE 
 		( target_db_scm_ids && '{ %q }' ) AND 
 		( updated_at >  current_date - interval '%d day' )
 )
-SELECT DISTINCT ON (data ->> 'Name')
+SELECT DISTINCT ON (data ->> 'ID')
 	id,
 	(data ->> 'Result')
 
 FROM filtered_reports
-ORDER BY (data ->> 'Name'), updated_at DESC;
+ORDER BY (data ->> 'ID'), updated_at DESC;
 `
 
 		query = fmt.Sprintf(query, scmID, monitoringDurationDays)
@@ -90,21 +120,21 @@ ORDER BY (data ->> 'Name'), updated_at DESC;
 		rows, err := database.DB.Query(context.Background(), query)
 		if err != nil {
 			logrus.Errorf("query failed: %s", err)
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": err,
+			c.JSON(http.StatusInternalServerError, DefaultResponseModel{
+				Err: err.Error(),
 			})
 			return
 		}
 
 		if dataset.Data == nil {
-			dataset.Data = make(map[string]scmBranchData)
+			dataset.Data = make(map[string]ScmBranchData)
 		}
 
 		if dataset.Data[scmURL] == nil {
-			dataset.Data[scmURL] = make(map[string]scmSummaryData)
+			dataset.Data[scmURL] = make(map[string]ScmSummaryData)
 		}
 
-		d := scmSummaryData{
+		d := ScmSummaryData{
 			ID:                scmID.String(),
 			TotalResultByType: make(map[string]int),
 		}
@@ -119,8 +149,8 @@ ORDER BY (data ->> 'Name'), updated_at DESC;
 			err = rows.Scan(&id, &result)
 			if err != nil {
 				logrus.Errorf("parsing result: %s", err)
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"message": err,
+				c.JSON(http.StatusInternalServerError, DefaultResponseModel{
+					Err: err.Error(),
 				})
 				return
 			}
@@ -145,7 +175,7 @@ ORDER BY (data ->> 'Name'), updated_at DESC;
 		dataset.Data[scmURL][scmBranch] = scmData
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"data": dataset.Data,
+	c.JSON(http.StatusOK, FindSCMSummaryResponse{
+		Data: dataset.Data,
 	})
 }

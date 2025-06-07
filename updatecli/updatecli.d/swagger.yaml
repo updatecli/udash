@@ -1,0 +1,39 @@
+name: Update API Documentation
+
+pipelineid: "venom"
+actions:
+  default:
+    kind: github/pullrequest
+    spec:
+      automerge: true
+      labels:
+        - docs
+    scmid: default
+
+scms:
+  default:
+    kind: github
+    spec:
+      branch: "{{ .scm.branch }}"
+      email: "{{ .scm.email }}"
+      owner: "{{ .scm.owner }}"
+      repository: "{{ .scm.repository }}"
+      token: '{{ requiredEnv "GITHUB_TOKEN" }}'
+      user: "{{ .scm.user }}"
+      username: '{{ requiredEnv "GITHUB_ACTOR" }}'
+
+targets:
+  swagger:
+    name: Update API Documentation
+    kind: shell
+    scmid: default
+    spec:
+      command: |
+        swag init --parseDependencyLevel 1
+      changedif:
+        kind: file/checksum
+        spec:
+          files:
+            - docs/swagger.yaml
+            - docs/swagger.json
+            - docs/docs.go
