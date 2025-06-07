@@ -39,7 +39,7 @@ The oauth provider **must** allow the PKCE flow.
 
 ==== Documentation
 
-The api documentation is available at `/api/swagger/index.html` or in the docs directory.
+The api documentation is available at `/swagger/index.html` or in the docs directory.
 
 ==== Option
 

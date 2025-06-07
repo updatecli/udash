@@ -80,52 +80,33 @@ func (s *Server) Run() {
 	// Init Server Option
 	s.Options.Init()
 
-	r.GET("/api/", Landing)
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	r.GET("/api", Landing)
 	r.GET("/api/ping", Ping)
 	r.GET("/api/about", About)
 
-	r.GET("/api/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	api := r.Group("/api/alpha/pipeline")
+	if strings.ToLower(s.Options.Auth.Mode) == "oauth" {
+		logrus.Debugf("Using OAuth authentication mode: %s", s.Options.Auth.Mode)
+		api.Use(checkJWT())
+	}
 
-	switch strings.ToLower(s.Options.Auth.Mode) {
-	case "oauth":
-		r.GET("/api/pipeline/scms", checkJWT(), ListSCMs)
-		r.GET("/api/pipeline/reports", checkJWT(), ListPipelineReports)
-		r.POST("/api/pipeline/reports/search", checkJWT(), SearchPipelineReports)
-		r.GET("/api/pipeline/reports/:id", checkJWT(), GetPipelineReportByID)
-		r.GET("/api/pipeline/config/kinds", checkJWT(), SearchConfigKinds)
-		r.GET("/api/pipeline/config/sources", checkJWT(), ListConfigSources)
-		r.POST("/api/pipeline/config/sources/search", checkJWT(), SearchConfigSources)
-		r.GET("/api/pipeline/config/conditions", checkJWT(), ListConfigConditions)
-		r.POST("/api/pipeline/config/conditions/search", checkJWT(), SearchConfigConditions)
-		r.GET("/api/pipeline/config/targets", checkJWT(), ListConfigTargets)
-		r.POST("/api/pipeline/config/targets/search", checkJWT(), SearchConfigTargets)
-		if !s.Options.DryRun {
-			r.POST("/api/pipeline/reports", checkJWT(), CreatePipelineReport)
-			r.PUT("/api/pipeline/reports/:id", checkJWT(), UpdatePipelineReport)
-			r.DELETE("/api/pipeline/reports/:id", checkJWT(), DeletePipelineReport)
-		}
-
-	case "", "none":
-		r.GET("/api/pipeline/scms", ListSCMs)
-		r.GET("/api/pipeline/reports", ListPipelineReports)
-		r.POST("/api/pipeline/reports/search", SearchPipelineReports)
-		r.GET("/api/pipeline/reports/:id", GetPipelineReportByID)
-		r.GET("/api/pipeline/config/kinds", SearchConfigKinds)
-		r.GET("/api/pipeline/config/sources", ListConfigSources)
-		r.POST("/api/pipeline/config/sources/search", SearchConfigSources)
-		r.GET("/api/pipeline/config/conditions", ListConfigConditions)
-		r.POST("/api/pipeline/config/conditions/search", SearchConfigConditions)
-		r.GET("/api/pipeline/config/targets", ListConfigTargets)
-		r.POST("/api/pipeline/config/targets/search", SearchConfigTargets)
-		if !s.Options.DryRun {
-			r.POST("/api/pipeline/reports", CreatePipelineReport)
-			r.PUT("/api/pipeline/reports/:id", UpdatePipelineReport)
-			r.DELETE("/api/pipeline/reports/:id", DeletePipelineReport)
-		}
-
-	default:
-		logrus.Errorf("Authentication mode %q not supported", s.Options.Auth.Mode)
-		os.Exit(1)
+	r.GET("/api/alpha/pipeline/scms", ListSCMs)
+	r.GET("/api/alpha/pipeline/reports", ListPipelineReports)
+	r.POST("/api/alpha/pipeline/reports/search", SearchPipelineReports)
+	r.GET("/api/alpha/pipeline/reports/:id", GetPipelineReportByID)
+	r.GET("/api/alpha/pipeline/config/kinds", SearchConfigKinds)
+	r.GET("/api/alpha/pipeline/config/sources", ListConfigSources)
+	r.POST("/api/alpha/pipeline/config/sources/search", SearchConfigSources)
+	r.GET("/api/alpha/pipeline/config/conditions", ListConfigConditions)
+	r.POST("/api/alpha/pipeline/config/conditions/search", SearchConfigConditions)
+	r.GET("/api/alpha/pipeline/config/targets", ListConfigTargets)
+	r.POST("/api/alpha/pipeline/config/targets/search", SearchConfigTargets)
+	if !s.Options.DryRun {
+		r.POST("/api/alpha/pipeline/reports", CreatePipelineReport)
+		r.PUT("/api/alpha/pipeline/reports/:id", UpdatePipelineReport)
+		r.DELETE("/api/alpha/pipeline/reports/:id", DeletePipelineReport)
 	}
 
 	// listen and server on 0.0.0.0:8080
