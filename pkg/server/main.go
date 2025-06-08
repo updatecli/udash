@@ -86,27 +86,27 @@ func (s *Server) Run() {
 	r.GET("/api/ping", Ping)
 	r.GET("/api/about", About)
 
-	api := r.Group("/api/alpha/pipeline")
+	api := r.Group("/api/pipeline")
 	if strings.ToLower(s.Options.Auth.Mode) == "oauth" {
 		logrus.Debugf("Using OAuth authentication mode: %s", s.Options.Auth.Mode)
 		api.Use(checkJWT())
 	}
 
-	r.GET("/api/alpha/pipeline/scms", ListSCMs)
-	r.GET("/api/alpha/pipeline/reports", ListPipelineReports)
-	r.POST("/api/alpha/pipeline/reports/search", SearchPipelineReports)
-	r.GET("/api/alpha/pipeline/reports/:id", GetPipelineReportByID)
-	r.GET("/api/alpha/pipeline/config/kinds", SearchConfigKinds)
-	r.GET("/api/alpha/pipeline/config/sources", ListConfigSources)
-	r.POST("/api/alpha/pipeline/config/sources/search", SearchConfigSources)
-	r.GET("/api/alpha/pipeline/config/conditions", ListConfigConditions)
-	r.POST("/api/alpha/pipeline/config/conditions/search", SearchConfigConditions)
-	r.GET("/api/alpha/pipeline/config/targets", ListConfigTargets)
-	r.POST("/api/alpha/pipeline/config/targets/search", SearchConfigTargets)
+	r.GET("/api/pipeline/scms", ListSCMs)
+	r.GET("/api/pipeline/reports", ListPipelineReports)
+	r.POST("/api/pipeline/reports/search", SearchPipelineReports)
+	r.GET("/api/pipeline/reports/:id", GetPipelineReportByID)
+	r.GET("/api/pipeline/config/kinds", SearchConfigKinds)
+	r.GET("/api/pipeline/config/sources", ListConfigSources)
+	r.POST("/api/pipeline/config/sources/search", SearchConfigSources)
+	r.GET("/api/pipeline/config/conditions", ListConfigConditions)
+	r.POST("/api/pipeline/config/conditions/search", SearchConfigConditions)
+	r.GET("/api/pipeline/config/targets", ListConfigTargets)
+	r.POST("/api/pipeline/config/targets/search", SearchConfigTargets)
 	if !s.Options.DryRun {
-		r.POST("/api/alpha/pipeline/reports", CreatePipelineReport)
-		r.PUT("/api/alpha/pipeline/reports/:id", UpdatePipelineReport)
-		r.DELETE("/api/alpha/pipeline/reports/:id", DeletePipelineReport)
+		r.POST("/api/pipeline/reports", CreatePipelineReport)
+		r.PUT("/api/pipeline/reports/:id", UpdatePipelineReport)
+		r.DELETE("/api/pipeline/reports/:id", DeletePipelineReport)
 	}
 
 	// listen and server on 0.0.0.0:8080
