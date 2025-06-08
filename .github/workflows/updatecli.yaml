@@ -25,7 +25,7 @@ jobs:
       - name: Install Swagger
         run: "go install github.com/swaggo/swag/cmd/swag@$SWAGGER_VERSION"
         env:
-          SWAGGER_VERSION: "v1.16.4"
+          SWAGGER_VERSION: v1.16.4
 
       - name: "Run updatecli in dryrun"
         run: "updatecli compose diff"
