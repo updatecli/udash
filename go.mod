@@ -16,7 +16,7 @@ require (
 	github.com/swaggo/files v1.0.1
 	github.com/swaggo/gin-swagger v1.6.0
 	github.com/swaggo/swag v1.16.4
-	github.com/updatecli/updatecli v0.101.0
+	github.com/updatecli/updatecli v0.102.0
 )
 
 require (
