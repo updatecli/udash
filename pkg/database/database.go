@@ -36,7 +36,6 @@ type Options struct {
 }
 
 func Connect(o Options) error {
-
 	var err error
 
 	if o.URI != "" {
@@ -65,7 +64,7 @@ func RunMigrationUp() error {
 	logrus.Debugln("Running Database migration")
 	d, err := iofs.New(fs, "migrations")
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("reading migrations: %w", err)
 	}
 
 	m, err := migrate.NewWithSourceInstance(

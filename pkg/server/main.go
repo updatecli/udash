@@ -2,7 +2,6 @@ package server
 
 import (
 	"net/http"
-	"os"
 	"strings"
 
 	_ "github.com/updatecli/udash/docs"
@@ -74,7 +73,7 @@ func About(c *gin.Context) {
 // @version 1.0
 // @description API for managing Updatecli pipeline reports.
 // @BasePath /api/
-func (s *Server) Run() {
+func (s *Server) Run() error {
 	r := gin.Default()
 
 	// Init Server Option
@@ -110,8 +109,5 @@ func (s *Server) Run() {
 	}
 
 	// listen and server on 0.0.0.0:8080
-	if err := r.Run(); err != nil {
-		logrus.Errorln(err)
-		os.Exit(1)
-	}
+	return r.Run()
 }
