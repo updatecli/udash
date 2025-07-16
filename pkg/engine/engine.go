@@ -1,15 +1,10 @@
 package engine
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/updatecli/udash/pkg/database"
 	"github.com/updatecli/udash/pkg/server"
-)
-
-var (
-	ErrEngineRunFailed error = errors.New("something went wrong in server engine")
 )
 
 type Options struct {
