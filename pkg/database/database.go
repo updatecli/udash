@@ -3,7 +3,6 @@ package database
 import (
 	"embed"
 	"fmt"
-	"log"
 	"os"
 
 	"context"
@@ -47,12 +46,12 @@ func Connect(o Options) error {
 
 	poolConfig, err := pgxpool.ParseConfig(URI)
 	if err != nil {
-		log.Fatalln("Unable to parse DATABASE_URL:", err)
+		return fmt.Errorf("failed to parse database URI: %w", err)
 	}
 
 	DB, err = pgxpool.NewWithConfig(context.Background(), poolConfig)
 	if err != nil {
-		log.Fatalln("Unable to create connection pool:", err)
+		return fmt.Errorf("failed to create pgx pool: %w", err)
 	}
 
 	logrus.Infoln("database connected")

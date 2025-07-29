@@ -29,13 +29,12 @@ type ListSCMsResponse struct {
 // @Failure 500 {object} DefaultResponseModel
 // @Router /api/scms [get]
 func ListSCMs(c *gin.Context) {
-
 	scmid := c.Request.URL.Query().Get("scmid")
 	url := c.Request.URL.Query().Get("url")
 	branch := c.Request.URL.Query().Get("branch")
 	summary := c.Request.URL.Query().Get("summary")
 
-	rows, err := dbGetScm(scmid, url, branch)
+	rows, err := database.GetScm(scmid, url, branch)
 	if err != nil {
 		logrus.Errorf("searching for scms: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{

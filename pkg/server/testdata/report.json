@@ -1,0 +1,166 @@
+{
+  "Name": "ci: bump Venom version",
+  "Err": "",
+  "Result": "✔",
+  "ID": "1de1797bbc925e08e473178425b11eb16fc547291f4b45274da24c2b00e2afc3",
+  "PipelineID": "venom",
+  "Actions": {
+    "default": {
+      "id": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    }
+  },
+  "Sources": {
+    "latestVersion": {
+      "Name": "Get latest Venom release",
+      "Result": "✔",
+      "Information": "v1.2.0",
+      "Description": "GitHub release version \"v1.2.0\" found matching pattern \"*\" of kind \"semver\"",
+      "Scm": {
+        "URL": "",
+        "Branch": {
+          "Source": "",
+          "Working": "",
+          "Target": ""
+        },
+        "ID": "91b8b7624574159cc04a5566f8abe32a2bf181144a5eeac8b0c60182fffe525c",
+        "BranchReset": false
+      },
+      "ID": "8b752274da82c13b5d1d259aa512d38d298aaec2b17d1c0474b6f1fbba4112a4",
+      "ConsoleOutput": "Searching for version matching pattern \"*\"\n✔ GitHub release version \"v1.2.0\" found matching pattern \"*\" of kind \"semver\"\n",
+      "Config": {
+        "DependsOn": null,
+        "Name": "Get latest Venom release",
+        "Kind": "githubrelease",
+        "Transformers": null,
+        "Spec": {
+          "Owner": "ovh",
+          "Repository": "venom",
+          "Token": "",
+          "URL": "",
+          "Username": "",
+          "VersionFilter": {
+            "Kind": "semver",
+            "Pattern": "",
+            "Strict": false,
+            "Regex": ""
+          },
+          "TypeFilter": {
+            "Draft": false,
+            "PreRelease": false,
+            "Release": false,
+            "Latest": false
+          },
+          "Tag": "",
+          "Key": "tagname"
+        },
+        "SCMID": "",
+        "DeprecatedSCMID": "",
+        "DeprecatedDependsOn": null
+      }
+    }
+  },
+  "Conditions": {},
+  "Targets": {
+    "contributing-doc": {
+      "Name": "CONTRIBUTING documentation: update Venom version to v1.2.0",
+      "DryRun": false,
+      "Result": "✔",
+      "Information": "unknown",
+      "NewInformation": "v1.2.0",
+      "Description": "all contents from 'file' and 'files' combined already up to date",
+      "Files": null,
+      "Changed": false,
+      "Scm": {
+        "URL": "https://github.com/updatecli/updatecli.git",
+        "Branch": {
+          "Source": "main",
+          "Working": "updatecli_main_venom",
+          "Target": "main"
+        },
+        "ID": "e821939c64ca5d2d113bd6b429ee02fcb458eb3246a415944a6fc26b92be38e6",
+        "BranchReset": false
+      },
+      "ID": "59d1136fbff867bacf8a55a9d6432ab3b21b351b1094dffc3c1695c6f3f16e6e",
+      "ConsoleOutput": "\n**Dry Run enabled**\n\n✔ - all contents from 'file' and 'files' combined already up to date\n",
+      "Changelogs": [
+        {
+          "Title": "v1.2.0",
+          "Body": "## Major update\r\n\r\n### Executors\r\n\r\n- New mongo executor : https://github.com/ovh/venom/tree/master/executors/mongo\r\n- Executors [dbfixtures](https://github.com/ovh/venom/tree/master/executors/dbfixtures), [exec](https://github.com/ovh/venom/tree/master/executors/exec), [http](https://github.com/ovh/venom/tree/master/executors/http), [kafka](https://github.com/ovh/venom/tree/master/executors/kafka), [web](https://github.com/ovh/venom/tree/master/executors/web) updated.\r\n- Manage secret variables: https://github.com/ovh/venom?tab=readme-ov-file#secrets-variables\r\n\r\n### Case sensitive\r\n\r\nvenom 1.2.x\r\n```\r\nVENOM_PRESERVE_CASE=\"AUTO\" is equals to VENOM_PRESERVE_CASE=\"ON\"\r\n```\r\n\r\ncf. https://github.com/ovh/venom/pull/570\r\n\r\n### Variable usage\r\n\r\nIt's no more possible to reuse `result.systemout` from a previous testcase without exporting vars.\r\n\r\nExample\r\n\r\nbefore:\r\n```yaml\r\nname: A testsuite\r\n\r\ntestcases:\r\n- name: testA\r\n  steps:\r\n  - type: exec\r\n    script: echo 'foo'\r\n    assertions:\r\n    - result.systemout ShouldEqual foo\r\n\r\n- name: testB\r\n  steps:\r\n  - type: exec\r\n    script: echo '__{{.testA.result.systemout}}__'\r\n    assertions:\r\n    - result.systemout ShouldEqual __foo__\r\n```\r\n\r\nafter:\r\n```yaml\r\nname: A testsuite\r\n\r\ntestcases:\r\n- name: testA\r\n  steps:\r\n  - type: exec\r\n    script: echo 'foo'\r\n    assertions:\r\n    - result.systemout ShouldEqual foo\r\n    vars:\r\n      systemout:\r\n        from: result.systemout\r\n\r\n- name: testB\r\n  steps:\r\n  - type: exec\r\n    script: echo '__{{.testA.systemout}}__'\r\n    assertions:\r\n    - result.systemout ShouldEqual __foo__\r\n```\r\n\r\n## What's Changed\r\n* doc: add an example for a post using a raw body by @moutyque in https://github.com/ovh/venom/pull/677\r\n* doc: LICENSES by @yesnault in https://github.com/ovh/venom/pull/716\r\n* doc: remove trailing slash on README example by @floriancazals in https://github.com/ovh/venom/pull/693\r\n* doc: Update examples for queries length assert #763 by @miklosbagi in https://github.com/ovh/venom/pull/765\r\n* doc: update README.md with 1.1.0 release version of Venom by @nicolaslacroux in https://github.com/ovh/venom/pull/679\r\n* feat: add a 'description' property by @cdevienne in https://github.com/ovh/venom/pull/770\r\n* feat: add an assertion to check if every element of an array are equal to a value associated to a field by @floriancazals in https://github.com/ovh/venom/pull/756\r\n* feat: add natural language datetime assertion by @rhzs in https://github.com/ovh/venom/pull/711\r\n* feat: add ShouldJSONContain and ShouldJSONContainWithKey and negations (#746) by @floriancazals in https://github.com/ovh/venom/pull/747\r\n* feat: add ShouldJSONEqual assertion by @philippgille in https://github.com/ovh/venom/pull/676\r\n* feat: adding secrets field and refactoring the logging process.  by @fokion in https://github.com/ovh/venom/pull/667\r\n* feat: adding test in the root package in order to test the run command by @fokion in https://github.com/ovh/venom/pull/733\r\n* feat: improve junit output by @ivan-velasco in https://github.com/ovh/venom/pull/772\r\n* feat: improve verbose flag behavior by @yesnault in https://github.com/ovh/venom/pull/675\r\n* feat: removed result from testcase variables and removed errors warning and info from non verbose runs by @kilianpaquier in https://github.com/ovh/venom/pull/617\r\n* feat: removed result from testcase variables and removed errors warning and info from non verbose runs by @kilianpaquier in https://github.com/ovh/venom/pull/670\r\n* feat: ShouldMatchRegex by @fokion in https://github.com/ovh/venom/pull/674\r\n* feat: show latest assertions errors in case of retry + added number of retries when success by @kilianpaquier in https://github.com/ovh/venom/pull/616\r\n* feat: VENOM_PRESERVE_CASE default ON by @yesnault in https://github.com/ovh/venom/pull/570\r\n* feat: xmlreport test id by @ivan-velasco in https://github.com/ovh/venom/pull/688\r\n* feat(executor/dbfixtures): add support for sqlite3 to dbfixtures executor by @etandel in https://github.com/ovh/venom/pull/613\r\n* feat(executor/exec): 'command' property by @yesnault in https://github.com/ovh/venom/pull/782\r\n* feat(executor/exec): add a 'stdin' attribute by @cdevienne in https://github.com/ovh/venom/pull/767\r\n* feat(executor/http): allow specifying query parameters by @guoweis-work in https://github.com/ovh/venom/pull/629\r\n* feat(executor/http): feature/xml systemout by @ivan-velasco in https://github.com/ovh/venom/pull/720\r\n* feat(executor/kafka) Added an option to allow self-signed certs by @Armadindon in https://github.com/ovh/venom/pull/648\r\n* feat(executor/kafka): add kafka headers for producer by @rhzs in https://github.com/ovh/venom/pull/710\r\n* feat(executor/mongo): add \"loadFixtures\" action by @Thiht in https://github.com/ovh/venom/pull/653\r\n* feat(executor/mongo): add mongo executor by @Thiht in https://github.com/ovh/venom/pull/601\r\n* fix: avoid `nil` pointer dereference in `ShouldContain` assertions by @iamleot in https://github.com/ovh/venom/pull/615\r\n* fix: env variables with equal sign by @bramca in https://github.com/ovh/venom/pull/721\r\n* fix: godump formatter by @yesnault in https://github.com/ovh/venom/pull/709\r\n* fix: html output color status by @yesnault in https://github.com/ovh/venom/pull/758\r\n* fix: integration tests by @yesnault in https://github.com/ovh/venom/pull/749\r\n* fix: minor improvements by @fsamin in https://github.com/ovh/venom/pull/744\r\n* fix: output dump file by @yesnault in https://github.com/ovh/venom/pull/729\r\n* fix: panic on failure by @yesnault in https://github.com/ovh/venom/pull/731\r\n* fix: parse yaml files in the readfile by @fokion in https://github.com/ovh/venom/pull/689\r\n* fix: prevent err EOF if .venomrc is all commented or empty by @yesnault in https://github.com/ovh/venom/pull/678\r\n* fix: replace backslashes with forward slashes for Windows by @ivan-velasco in https://github.com/ovh/venom/pull/753\r\n* fix: revert #617 by @yesnault in https://github.com/ovh/venom/pull/636\r\n* fix: secrets in dump.json and venom.log files by @yesnault in https://github.com/ovh/venom/pull/715\r\n* fix: string interpolation by @fokion in https://github.com/ovh/venom/pull/656\r\n* fix: TestSuiteXML is missing the Time property by @ivan-velasco in https://github.com/ovh/venom/pull/627\r\n* fix(executor/exec): panic on cmd.Start error by @fehrnah in https://github.com/ovh/venom/pull/623\r\n* fix(executor/http): preserve BodyFile absolute path by @fsamin in https://github.com/ovh/venom/pull/635\r\n* fix(testsuite): when \"stop_on_failure\" is enabled the skip test cases did not get counted and reported by @ivan-velasco in https://github.com/ovh/venom/pull/771\r\n* refactor(executor): rewrite whole imap executor to add new commands by @tomadele in https://github.com/ovh/venom/pull/611\r\n* refactor(executor/web): Refactoring by @kevinramage in https://github.com/ovh/venom/pull/551\r\n* chore(deps): bump go.mod by @yesnault in https://github.com/ovh/venom/pull/730\r\n* chore(deps): bump golang.org/x/crypto from 0.16.0 to 0.17.0 by @dependabot in https://github.com/ovh/venom/pull/761\r\n* chore(deps): bump google.golang.org/grpc from 1.53.0 to 1.56.3 by @dependabot in https://github.com/ovh/venom/pull/739\r\n* chore(deps): bump google.golang.org/grpc from 1.53.0 to 1.56.3 in /tests/grpc by @dependabot in https://github.com/ovh/venom/pull/738\r\n* chore(deps): bump google.golang.org/protobuf from 1.29.0 to 1.29.1 by @dependabot in https://github.com/ovh/venom/pull/647\r\n* chore(deps): bump google.golang.org/protobuf from 1.29.0 to 1.29.1 in /tests/grpc by @dependabot in https://github.com/ovh/venom/pull/646\r\n* chore(deps): bump libs by @yesnault in https://github.com/ovh/venom/pull/644\r\n* chore(deps): bump some libs by @yesnault in https://github.com/ovh/venom/pull/781\r\n\r\n## New Contributors\r\n* @etandel made their first contribution in https://github.com/ovh/venom/pull/613\r\n* @tomadele made their first contribution in https://github.com/ovh/venom/pull/611\r\n* @fehrnah made their first contribution in https://github.com/ovh/venom/pull/623\r\n* @iamleot made their first contribution in https://github.com/ovh/venom/pull/615\r\n* @ivan-velasco made their first contribution in https://github.com/ovh/venom/pull/627\r\n* @kilianpaquier made their first contribution in https://github.com/ovh/venom/pull/617\r\n* @dependabot made their first contribution in https://github.com/ovh/venom/pull/647\r\n* @Armadindon made their first contribution in https://github.com/ovh/venom/pull/648\r\n* @fokion made their first contribution in https://github.com/ovh/venom/pull/656\r\n* @moutyque made their first contribution in https://github.com/ovh/venom/pull/677\r\n* @nicolaslacroux made their first contribution in https://github.com/ovh/venom/pull/679\r\n* @floriancazals made their first contribution in https://github.com/ovh/venom/pull/693\r\n* @rhzs made their first contribution in https://github.com/ovh/venom/pull/710\r\n* @bramca made their first contribution in https://github.com/ovh/venom/pull/721\r\n* @miklosbagi made their first contribution in https://github.com/ovh/venom/pull/765\r\n* @cdevienne made their first contribution in https://github.com/ovh/venom/pull/767\r\n\r\n**Full Changelog**: https://github.com/ovh/venom/compare/v1.1.0...v1.2.0",
+          "PublishedAt": "2024-03-29 08:27:17 +0000 UTC",
+          "URL": "https://github.com/ovh/venom/releases/tag/v1.2.0"
+        }
+      ],
+      "Config": {
+        "DependsOn": null,
+        "Name": "CONTRIBUTING documentation: update Venom version to v1.2.0",
+        "Kind": "file",
+        "Transformers": null,
+        "Spec": {
+          "File": "CONTRIBUTING.adoc",
+          "Files": null,
+          "Line": 0,
+          "Content": "",
+          "ForceCreate": false,
+          "MatchPattern": "venom version # expect .*",
+          "ReplacePattern": "venom version # expect v1.2.0",
+          "SearchPattern": false
+        },
+        "SCMID": "default",
+        "DeprecatedSCMID": "",
+        "DeprecatedDependsOn": null
+      },
+      "SourceID": "latestVersion"
+    },
+    "goWorkflow": {
+      "Name": "ci: update Venom version to v1.2.0",
+      "DryRun": false,
+      "Result": "✔",
+      "Information": "unknown",
+      "NewInformation": "VENOM_VERSION: v1.2.0",
+      "Description": "all contents from 'file' and 'files' combined already up to date",
+      "Files": null,
+      "Changed": false,
+      "Scm": {
+        "URL": "https://github.com/updatecli/updatecli.git",
+        "Branch": {
+          "Source": "main",
+          "Working": "updatecli_main_venom",
+          "Target": "main"
+        },
+        "ID": "e821939c64ca5d2d113bd6b429ee02fcb458eb3246a415944a6fc26b92be38e6",
+        "BranchReset": false
+      },
+      "ID": "5ad2ac789d6e78f33bffb5c06c4fcf85d72e1e33d91809911ce616b7fb3beeff",
+      "ConsoleOutput": "\n**Dry Run enabled**\n\n✔ - all contents from 'file' and 'files' combined already up to date\n",
+      "Changelogs": [
+        {
+          "Title": "v1.2.0",
+          "Body": "## Major update\r\n\r\n### Executors\r\n\r\n- New mongo executor : https://github.com/ovh/venom/tree/master/executors/mongo\r\n- Executors [dbfixtures](https://github.com/ovh/venom/tree/master/executors/dbfixtures), [exec](https://github.com/ovh/venom/tree/master/executors/exec), [http](https://github.com/ovh/venom/tree/master/executors/http), [kafka](https://github.com/ovh/venom/tree/master/executors/kafka), [web](https://github.com/ovh/venom/tree/master/executors/web) updated.\r\n- Manage secret variables: https://github.com/ovh/venom?tab=readme-ov-file#secrets-variables\r\n\r\n### Case sensitive\r\n\r\nvenom 1.2.x\r\n```\r\nVENOM_PRESERVE_CASE=\"AUTO\" is equals to VENOM_PRESERVE_CASE=\"ON\"\r\n```\r\n\r\ncf. https://github.com/ovh/venom/pull/570\r\n\r\n### Variable usage\r\n\r\nIt's no more possible to reuse `result.systemout` from a previous testcase without exporting vars.\r\n\r\nExample\r\n\r\nbefore:\r\n```yaml\r\nname: A testsuite\r\n\r\ntestcases:\r\n- name: testA\r\n  steps:\r\n  - type: exec\r\n    script: echo 'foo'\r\n    assertions:\r\n    - result.systemout ShouldEqual foo\r\n\r\n- name: testB\r\n  steps:\r\n  - type: exec\r\n    script: echo '__{{.testA.result.systemout}}__'\r\n    assertions:\r\n    - result.systemout ShouldEqual __foo__\r\n```\r\n\r\nafter:\r\n```yaml\r\nname: A testsuite\r\n\r\ntestcases:\r\n- name: testA\r\n  steps:\r\n  - type: exec\r\n    script: echo 'foo'\r\n    assertions:\r\n    - result.systemout ShouldEqual foo\r\n    vars:\r\n      systemout:\r\n        from: result.systemout\r\n\r\n- name: testB\r\n  steps:\r\n  - type: exec\r\n    script: echo '__{{.testA.systemout}}__'\r\n    assertions:\r\n    - result.systemout ShouldEqual __foo__\r\n```\r\n\r\n## What's Changed\r\n* doc: add an example for a post using a raw body by @moutyque in https://github.com/ovh/venom/pull/677\r\n* doc: LICENSES by @yesnault in https://github.com/ovh/venom/pull/716\r\n* doc: remove trailing slash on README example by @floriancazals in https://github.com/ovh/venom/pull/693\r\n* doc: Update examples for queries length assert #763 by @miklosbagi in https://github.com/ovh/venom/pull/765\r\n* doc: update README.md with 1.1.0 release version of Venom by @nicolaslacroux in https://github.com/ovh/venom/pull/679\r\n* feat: add a 'description' property by @cdevienne in https://github.com/ovh/venom/pull/770\r\n* feat: add an assertion to check if every element of an array are equal to a value associated to a field by @floriancazals in https://github.com/ovh/venom/pull/756\r\n* feat: add natural language datetime assertion by @rhzs in https://github.com/ovh/venom/pull/711\r\n* feat: add ShouldJSONContain and ShouldJSONContainWithKey and negations (#746) by @floriancazals in https://github.com/ovh/venom/pull/747\r\n* feat: add ShouldJSONEqual assertion by @philippgille in https://github.com/ovh/venom/pull/676\r\n* feat: adding secrets field and refactoring the logging process.  by @fokion in https://github.com/ovh/venom/pull/667\r\n* feat: adding test in the root package in order to test the run command by @fokion in https://github.com/ovh/venom/pull/733\r\n* feat: improve junit output by @ivan-velasco in https://github.com/ovh/venom/pull/772\r\n* feat: improve verbose flag behavior by @yesnault in https://github.com/ovh/venom/pull/675\r\n* feat: removed result from testcase variables and removed errors warning and info from non verbose runs by @kilianpaquier in https://github.com/ovh/venom/pull/617\r\n* feat: removed result from testcase variables and removed errors warning and info from non verbose runs by @kilianpaquier in https://github.com/ovh/venom/pull/670\r\n* feat: ShouldMatchRegex by @fokion in https://github.com/ovh/venom/pull/674\r\n* feat: show latest assertions errors in case of retry + added number of retries when success by @kilianpaquier in https://github.com/ovh/venom/pull/616\r\n* feat: VENOM_PRESERVE_CASE default ON by @yesnault in https://github.com/ovh/venom/pull/570\r\n* feat: xmlreport test id by @ivan-velasco in https://github.com/ovh/venom/pull/688\r\n* feat(executor/dbfixtures): add support for sqlite3 to dbfixtures executor by @etandel in https://github.com/ovh/venom/pull/613\r\n* feat(executor/exec): 'command' property by @yesnault in https://github.com/ovh/venom/pull/782\r\n* feat(executor/exec): add a 'stdin' attribute by @cdevienne in https://github.com/ovh/venom/pull/767\r\n* feat(executor/http): allow specifying query parameters by @guoweis-work in https://github.com/ovh/venom/pull/629\r\n* feat(executor/http): feature/xml systemout by @ivan-velasco in https://github.com/ovh/venom/pull/720\r\n* feat(executor/kafka) Added an option to allow self-signed certs by @Armadindon in https://github.com/ovh/venom/pull/648\r\n* feat(executor/kafka): add kafka headers for producer by @rhzs in https://github.com/ovh/venom/pull/710\r\n* feat(executor/mongo): add \"loadFixtures\" action by @Thiht in https://github.com/ovh/venom/pull/653\r\n* feat(executor/mongo): add mongo executor by @Thiht in https://github.com/ovh/venom/pull/601\r\n* fix: avoid `nil` pointer dereference in `ShouldContain` assertions by @iamleot in https://github.com/ovh/venom/pull/615\r\n* fix: env variables with equal sign by @bramca in https://github.com/ovh/venom/pull/721\r\n* fix: godump formatter by @yesnault in https://github.com/ovh/venom/pull/709\r\n* fix: html output color status by @yesnault in https://github.com/ovh/venom/pull/758\r\n* fix: integration tests by @yesnault in https://github.com/ovh/venom/pull/749\r\n* fix: minor improvements by @fsamin in https://github.com/ovh/venom/pull/744\r\n* fix: output dump file by @yesnault in https://github.com/ovh/venom/pull/729\r\n* fix: panic on failure by @yesnault in https://github.com/ovh/venom/pull/731\r\n* fix: parse yaml files in the readfile by @fokion in https://github.com/ovh/venom/pull/689\r\n* fix: prevent err EOF if .venomrc is all commented or empty by @yesnault in https://github.com/ovh/venom/pull/678\r\n* fix: replace backslashes with forward slashes for Windows by @ivan-velasco in https://github.com/ovh/venom/pull/753\r\n* fix: revert #617 by @yesnault in https://github.com/ovh/venom/pull/636\r\n* fix: secrets in dump.json and venom.log files by @yesnault in https://github.com/ovh/venom/pull/715\r\n* fix: string interpolation by @fokion in https://github.com/ovh/venom/pull/656\r\n* fix: TestSuiteXML is missing the Time property by @ivan-velasco in https://github.com/ovh/venom/pull/627\r\n* fix(executor/exec): panic on cmd.Start error by @fehrnah in https://github.com/ovh/venom/pull/623\r\n* fix(executor/http): preserve BodyFile absolute path by @fsamin in https://github.com/ovh/venom/pull/635\r\n* fix(testsuite): when \"stop_on_failure\" is enabled the skip test cases did not get counted and reported by @ivan-velasco in https://github.com/ovh/venom/pull/771\r\n* refactor(executor): rewrite whole imap executor to add new commands by @tomadele in https://github.com/ovh/venom/pull/611\r\n* refactor(executor/web): Refactoring by @kevinramage in https://github.com/ovh/venom/pull/551\r\n* chore(deps): bump go.mod by @yesnault in https://github.com/ovh/venom/pull/730\r\n* chore(deps): bump golang.org/x/crypto from 0.16.0 to 0.17.0 by @dependabot in https://github.com/ovh/venom/pull/761\r\n* chore(deps): bump google.golang.org/grpc from 1.53.0 to 1.56.3 by @dependabot in https://github.com/ovh/venom/pull/739\r\n* chore(deps): bump google.golang.org/grpc from 1.53.0 to 1.56.3 in /tests/grpc by @dependabot in https://github.com/ovh/venom/pull/738\r\n* chore(deps): bump google.golang.org/protobuf from 1.29.0 to 1.29.1 by @dependabot in https://github.com/ovh/venom/pull/647\r\n* chore(deps): bump google.golang.org/protobuf from 1.29.0 to 1.29.1 in /tests/grpc by @dependabot in https://github.com/ovh/venom/pull/646\r\n* chore(deps): bump libs by @yesnault in https://github.com/ovh/venom/pull/644\r\n* chore(deps): bump some libs by @yesnault in https://github.com/ovh/venom/pull/781\r\n\r\n## New Contributors\r\n* @etandel made their first contribution in https://github.com/ovh/venom/pull/613\r\n* @tomadele made their first contribution in https://github.com/ovh/venom/pull/611\r\n* @fehrnah made their first contribution in https://github.com/ovh/venom/pull/623\r\n* @iamleot made their first contribution in https://github.com/ovh/venom/pull/615\r\n* @ivan-velasco made their first contribution in https://github.com/ovh/venom/pull/627\r\n* @kilianpaquier made their first contribution in https://github.com/ovh/venom/pull/617\r\n* @dependabot made their first contribution in https://github.com/ovh/venom/pull/647\r\n* @Armadindon made their first contribution in https://github.com/ovh/venom/pull/648\r\n* @fokion made their first contribution in https://github.com/ovh/venom/pull/656\r\n* @moutyque made their first contribution in https://github.com/ovh/venom/pull/677\r\n* @nicolaslacroux made their first contribution in https://github.com/ovh/venom/pull/679\r\n* @floriancazals made their first contribution in https://github.com/ovh/venom/pull/693\r\n* @rhzs made their first contribution in https://github.com/ovh/venom/pull/710\r\n* @bramca made their first contribution in https://github.com/ovh/venom/pull/721\r\n* @miklosbagi made their first contribution in https://github.com/ovh/venom/pull/765\r\n* @cdevienne made their first contribution in https://github.com/ovh/venom/pull/767\r\n\r\n**Full Changelog**: https://github.com/ovh/venom/compare/v1.1.0...v1.2.0",
+          "PublishedAt": "2024-03-29 08:27:17 +0000 UTC",
+          "URL": "https://github.com/ovh/venom/releases/tag/v1.2.0"
+        }
+      ],
+      "Config": {
+        "DependsOn": null,
+        "Name": "ci: update Venom version to v1.2.0",
+        "Kind": "file",
+        "Transformers": null,
+        "Spec": {
+          "File": ".github/workflows/go.yaml",
+          "Files": null,
+          "Line": 0,
+          "Content": "VENOM_VERSION: v1.2.0",
+          "ForceCreate": false,
+          "MatchPattern": "VENOM_VERSION: .*",
+          "ReplacePattern": "",
+          "SearchPattern": false
+        },
+        "SCMID": "default",
+        "DeprecatedSCMID": "",
+        "DeprecatedDependsOn": null
+      },
+      "SourceID": "latestVersion"
+    }
+  },
+  "ReportURL": ""
+}

@@ -23,68 +23,14 @@ func stringPtr(s string) *string {
 }
 
 // dbInsertReport inserts a new report into the database.
-//
-//nolint:funlen
 func dbInsertReport(report reports.Report) (string, error) {
 	var ID uuid.UUID
 	var targetDBScmIDs []uuid.UUID
 
 	configTargetIDs := pgtype.Hstore{}
 	configConditionIDs := pgtype.Hstore{}
-	configSourceIDs := pgtype.Hstore{}
 
-	for sourceID, source := range report.Sources {
-
-		if source.Config == nil {
-			continue
-		}
-
-		s, ok := source.Config.(map[string]interface{})
-		if !ok {
-			logrus.Errorf("wrong config source:\n\t%s:\n%v", sourceID, source.Config)
-			continue
-		}
-
-		data, err := json.Marshal(s)
-		if err != nil {
-			logrus.Errorf("marshaling source config: %s", err)
-			continue
-		}
-
-		kind, ok := s["Kind"].(string)
-		if !ok || kind == "" {
-			continue
-		}
-
-		results, err := dbGetConfigSource(kind, "", string(data))
-		if err != nil {
-			logrus.Errorf("failed: %s", err)
-			continue
-		}
-
-		switch len(results) {
-		case 0:
-			id, err := dbInsertConfigResource("source", kind, string(data))
-			if err != nil {
-				logrus.Errorf("insert config source data: %s", err)
-				continue
-			}
-
-			parsedID, err := uuid.Parse(id)
-			if err != nil {
-				logrus.Errorf("parsing id: %s", err)
-			}
-
-			configSourceIDs[parsedID.String()] = stringPtr(sourceID)
-		case 1:
-			configSourceIDs[results[0].ID.String()] = stringPtr(sourceID)
-		default:
-			logrus.Warningf("multiple config source found for %s", sourceID)
-			for _, result := range results {
-				logrus.Warningf("config source %s", result.ID)
-			}
-		}
-	}
+	configSourceIDs := buildConfigSources(report)
 
 	for conditionID, condition := range report.Conditions {
 		if condition.Config == nil {
@@ -143,7 +89,7 @@ func dbInsertReport(report reports.Report) (string, error) {
 			url := target.Scm.URL
 			branch := target.Scm.Branch.Target
 
-			ids, err := dbGetScm("", url, branch)
+			ids, err := database.GetScm("", url, branch)
 			if err != nil {
 				logrus.Errorf("query failed: %s", err)
 				return "", err
@@ -152,7 +98,7 @@ func dbInsertReport(report reports.Report) (string, error) {
 			switch len(ids) {
 			// If no scm is found, we insert it
 			case 0:
-				id, err := dbInsertSCM(target.Scm.URL, target.Scm.Branch.Source)
+				id, err := database.InsertSCM(target.Scm.URL, target.Scm.Branch.Source)
 				if err != nil {
 					logrus.Errorf("insert scm data: %s", err)
 					continue
@@ -174,7 +120,6 @@ func dbInsertReport(report reports.Report) (string, error) {
 		}
 
 		if target.Config != nil {
-
 			t, ok := target.Config.(map[string]interface{})
 			if !ok {
 				logrus.Errorf("wrong config target:\n\t%s:\n%v", targetID, target.Config)
@@ -270,6 +215,63 @@ func dbInsertReport(report reports.Report) (string, error) {
 	}
 
 	return ID.String(), nil
+}
+
+func buildConfigSources(report reports.Report) pgtype.Hstore {
+	configSourceIDs := pgtype.Hstore{}
+	for sourceID, source := range report.Sources {
+		if source.Config == nil {
+			continue
+		}
+
+		s, ok := source.Config.(map[string]interface{})
+		if !ok {
+			logrus.Errorf("wrong config source:\n\t%s:\n%v", sourceID, source.Config)
+			continue
+		}
+
+		data, err := json.Marshal(s)
+		if err != nil {
+			logrus.Errorf("marshaling source config: %s", err)
+			continue
+		}
+
+		kind, ok := s["Kind"].(string)
+		if !ok || kind == "" {
+			continue
+		}
+
+		results, err := dbGetConfigSource(kind, "", string(data))
+		if err != nil {
+			logrus.Errorf("failed: %s", err)
+			continue
+		}
+
+		switch len(results) {
+		case 0:
+			id, err := dbInsertConfigResource("source", kind, string(data))
+			if err != nil {
+				logrus.Errorf("insert config source data: %s", err)
+				continue
+			}
+
+			parsedID, err := uuid.Parse(id)
+			if err != nil {
+				logrus.Errorf("parsing id: %s", err)
+			}
+
+			configSourceIDs[parsedID.String()] = stringPtr(sourceID)
+		case 1:
+			configSourceIDs[results[0].ID.String()] = stringPtr(sourceID)
+		default:
+			logrus.Warningf("multiple config source found for %s", sourceID)
+			for _, result := range results {
+				logrus.Warningf("config source %s", result.ID)
+			}
+		}
+	}
+
+	return configSourceIDs
 }
 
 // dbDeleteReport deletes a report from the database.
@@ -529,7 +531,7 @@ func dbSearchLatestReport(scmID, sourceID, conditionID, targetID string) ([]resp
 		)
 
 	default:
-		scm, err := dbGetScm(scmID, "", "")
+		scm, err := database.GetScm(scmID, "", "")
 		if err != nil {
 			logrus.Errorf("get scm data: %s", err)
 			return nil, err

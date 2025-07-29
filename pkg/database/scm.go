@@ -1,11 +1,10 @@
-package server
+package database
 
 import (
 	"context"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
-	"github.com/updatecli/udash/pkg/database"
 	"github.com/updatecli/udash/pkg/model"
 
 	"github.com/stephenafamo/bob/dialect/psql"
@@ -13,10 +12,11 @@ import (
 	"github.com/stephenafamo/bob/dialect/psql/sm"
 )
 
-func dbInsertSCM(url, branch string) (string, error) {
-
-	var ID uuid.UUID
-
+// InsertSCM creates a new SCM and inserts it into the database.
+//
+// It returns the ID of the newly created SCM.
+func InsertSCM(url, branch string) (string, error) {
+	var id uuid.UUID
 	//"INSERT INTO scms (url, branch) VALUES ($1, $2) RETURNING id"
 	query := psql.Insert(
 		im.Into("scms", "url", "branch"),
@@ -32,8 +32,8 @@ func dbInsertSCM(url, branch string) (string, error) {
 		return "", err
 	}
 
-	err = database.DB.QueryRow(context.Background(), queryString, args...).Scan(
-		&ID,
+	err = DB.QueryRow(context.Background(), queryString, args...).Scan(
+		&id,
 	)
 
 	if err != nil {
@@ -41,12 +41,11 @@ func dbInsertSCM(url, branch string) (string, error) {
 		return "", err
 	}
 
-	return ID.String(), nil
+	return id.String(), nil
 }
 
-// dbGetSCM returns a list of scms from the scm database table.
-func dbGetScm(id, url, branch string) ([]model.SCM, error) {
-
+// GetSCM returns a list of scms from the scm database table.
+func GetScm(id, url, branch string) ([]model.SCM, error) {
 	query := psql.Select(
 		sm.Columns("id", "branch", "url", "created_at", "updated_at"),
 		sm.From("scms"),
@@ -78,7 +77,7 @@ func dbGetScm(id, url, branch string) ([]model.SCM, error) {
 		return nil, err
 	}
 
-	rows, err := database.DB.Query(ctx, queryString, args...)
+	rows, err := DB.Query(ctx, queryString, args...)
 	if err != nil {
 		logrus.Errorf("query failed: %s\n\t%s", queryString, err)
 		return nil, err
