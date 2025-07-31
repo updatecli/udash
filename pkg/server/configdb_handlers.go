@@ -114,13 +114,21 @@ func SearchConfigSources(c *gin.Context) {
 // @Failure 500 {object} DefaultResponseModel
 // @Router /api/pipeline/config/kinds [post]
 func SearchConfigKinds(c *gin.Context) {
-
 	resourceType := c.Request.URL.Query().Get("type")
+	if resourceType == "" {
+		c.JSON(
+			http.StatusBadRequest,
+			DefaultResponseModel{
+				Err: "no type provided",
+			},
+		)
+		return
+	}
 
-	kinds, err := database.GetConfigKind(resourceType)
+	kinds, err := database.GetConfigKind(c, resourceType)
 	if err != nil {
 		logrus.Errorf("searching for config source kind: %s", err)
-		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
+		c.JSON(http.StatusBadRequest, DefaultResponseModel{
 			Err: err.Error(),
 		})
 		return
@@ -142,7 +150,7 @@ func SearchConfigKinds(c *gin.Context) {
 func DeleteConfigSource(c *gin.Context) {
 	id := c.Request.URL.Query().Get("id")
 
-	err := database.DeleteConfigResource("source", id)
+	err := database.DeleteConfigResource(c, "source", id)
 	if err != nil {
 		logrus.Errorf("deleting config source: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -234,7 +242,7 @@ func SearchConfigConditions(c *gin.Context) {
 func DeleteConfigCondition(c *gin.Context) {
 	id := c.Request.URL.Query().Get("id")
 
-	err := database.DeleteConfigResource("condition", id)
+	err := database.DeleteConfigResource(c, "condition", id)
 	if err != nil {
 		logrus.Errorf("deleting config condition: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -326,7 +334,7 @@ func SearchConfigTargets(c *gin.Context) {
 func DeleteConfigTarget(c *gin.Context) {
 	id := c.Request.URL.Query().Get("id")
 
-	err := database.DeleteConfigResource("target", id)
+	err := database.DeleteConfigResource(c, "target", id)
 	if err != nil {
 		logrus.Errorf("deleting config target: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{

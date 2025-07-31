@@ -1,6 +1,8 @@
 package server
 
 import (
+	"database/sql"
+	"errors"
 	"log"
 	"net/http"
 
@@ -177,12 +179,15 @@ type GetPipelineReportByIDResponse struct {
 // @Router /api/pipeline/reports/{id} [get]
 func GetPipelineReportByID(c *gin.Context) {
 	id := c.Param("id")
-
 	data, err := database.SearchReport(c, id)
 	if err != nil {
 		logrus.Errorf("parsing result: %s", err)
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, sql.ErrNoRows) {
+			statusCode = http.StatusNotFound
+		}
 		c.JSON(
-			http.StatusInternalServerError,
+			statusCode,
 			DefaultResponseModel{
 				Err: err.Error(),
 			})
@@ -202,7 +207,7 @@ func GetPipelineReportByID(c *gin.Context) {
 	switch err {
 	case nil:
 		c.JSON(
-			http.StatusCreated,
+			http.StatusOK,
 			GetPipelineReportByIDResponse{
 				Message:          "success!",
 				Data:             *data,
