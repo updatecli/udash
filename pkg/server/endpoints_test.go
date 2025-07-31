@@ -1,9 +1,11 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/updatecli/udash/pkg/database"
 	"github.com/updatecli/udash/test"
+	"github.com/updatecli/updatecli/pkg/core/reports"
 )
 
 func TestEndpoints(t *testing.T) {
@@ -42,24 +45,72 @@ func TestEndpoints(t *testing.T) {
 		}, assert.Equal)
 	})
 
+	// TODO: Test query parameters:
+	// scmid, url, branch, summary
 	t.Run("GET /api/pipeline/scms", func(t *testing.T) {
 		resp := doGetRequest(t, srv, "/api/pipeline/scms")
 		assertJSONResponse(t, resp, map[string]any{
 			"scms": []any{},
 		}, assert.Equal)
 
-		id, err := database.InsertSCM("https://example.com/testing.git", "main")
+		id, err := database.InsertSCM(context.TODO(), "https://example.com/testing.git", "main")
 		require.NoError(t, err)
 		resp = doGetRequest(t, srv, "/api/pipeline/scms")
+		assertJSONResponse(t, resp, []map[string]any{
+			{
+				"Branch": "main",
+				"ID":     id,
+				"URL":    "https://example.com/testing.git",
+			},
+		}, removeFieldsAsserter("scms", "Created_at", "Updated_at"))
+	})
+
+	// TODO: Test query parameters:
+	// scmid
+	t.Run("GET /api/pipeline/reports", func(t *testing.T) {
+		resp := doGetRequest(t, srv, "/api/pipeline/reports")
 		assertJSONResponse(t, resp, map[string]any{
-			"scms": []any{
-				map[string]any{
-					"Branch": "main",
-					"ID":     id,
-					"URL":    "https://example.com/testing.git",
+			"data": []any{},
+		}, assert.Equal)
+
+		reportID, err := database.InsertReport(context.TODO(), reports.Report{
+			Name:       "ci: bump Venom version",
+			Result:     "✔",
+			ID:         "1de1797bbc925e08e473178425b11eb16fc547291f4b45274da24c2b00e2afc3",
+			PipelineID: "venom",
+			Actions: map[string]*reports.Action{
+				"default": {
+					ID: "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
 				},
 			},
-		}, assert.Equal)
+		})
+		require.NoError(t, err)
+
+		resp = doGetRequest(t, srv, "/api/pipeline/reports")
+		assertJSONResponse(t, resp, []map[string]any{
+			{
+				"ID":     reportID,
+				"Name":   "ci: bump Venom version",
+				"Result": "✔",
+				"Report": map[string]any{
+					"Name":       "ci: bump Venom version",
+					"Err":        "",
+					"Result":     "✔",
+					"ID":         "1de1797bbc925e08e473178425b11eb16fc547291f4b45274da24c2b00e2afc3",
+					"PipelineID": "venom",
+					"Actions": map[string]any{
+						"default": map[string]any{
+							"id": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+						},
+					},
+					"Sources":    nil,
+					"Conditions": nil,
+					"Targets":    nil,
+					"ReportURL":  "",
+				},
+				"FilteredResourceID": "",
+			},
+		}, removeFieldsAsserter("data", "CreatedAt", "UpdatedAt"))
 	})
 }
 
@@ -78,7 +129,9 @@ func doGetRequest(t *testing.T, ts *httptest.Server, path string, opts ...func(*
 	return resp
 }
 
-func assertJSONResponse(t *testing.T, res *http.Response, want map[string]any, asserter func(t assert.TestingT, expected, actual interface{}, msgAndArgs ...interface{}) bool) {
+type assertionFunc func(t assert.TestingT, expected, actual interface{}, msgAndArgs ...interface{}) bool
+
+func assertJSONResponse(t *testing.T, res *http.Response, want any, asserter assertionFunc) {
 	t.Helper()
 
 	require.Equal(t, res.StatusCode, http.StatusOK)
@@ -90,5 +143,27 @@ func assertJSONResponse(t *testing.T, res *http.Response, want map[string]any, a
 
 	got := map[string]any{}
 	require.NoError(t, json.Unmarshal(b, &got))
-	asserter(t, got, want)
+
+	asserter(t, want, got)
+}
+
+func deleteKeys(source map[string]any, keys ...string) map[string]any {
+	updated := maps.Clone(source)
+	for _, key := range keys {
+		delete(updated, key)
+	}
+
+	return updated
+}
+
+func removeFieldsAsserter(key string, fields ...string) assertionFunc {
+	return func(t assert.TestingT, expected, actual interface{}, msgAndArgs ...interface{}) bool {
+		blob := actual.(map[string]any)
+
+		var cleaned []map[string]any
+		for _, data := range blob[key].([]any) {
+			cleaned = append(cleaned, deleteKeys(data.(map[string]any), fields...))
+		}
+		return assert.Equal(t, expected, cleaned)
+	}
 }

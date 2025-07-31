@@ -82,3 +82,7 @@ func RunMigrationUp() error {
 
 	return nil
 }
+
+func stringPtr(s string) *string {
+	return &s
+}

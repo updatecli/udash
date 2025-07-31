@@ -34,7 +34,7 @@ func ListSCMs(c *gin.Context) {
 	branch := c.Request.URL.Query().Get("branch")
 	summary := c.Request.URL.Query().Get("summary")
 
-	rows, err := database.GetScm(scmid, url, branch)
+	rows, err := database.GetScm(c, scmid, url, branch)
 	if err != nil {
 		logrus.Errorf("searching for scms: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{

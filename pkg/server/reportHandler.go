@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
+	"github.com/updatecli/udash/pkg/database"
 	"github.com/updatecli/udash/pkg/model"
 	"github.com/updatecli/updatecli/pkg/core/reports"
 )
@@ -26,8 +27,6 @@ type CreatePipelineReportResponse struct {
 // @Failure 500 {object} DefaultResponseModel
 // @Router /api/pipeline/reports [post]
 func CreatePipelineReport(c *gin.Context) {
-
-	var err error
 	var p reports.Report
 
 	if err := c.BindJSON(&p); err != nil {
@@ -36,7 +35,7 @@ func CreatePipelineReport(c *gin.Context) {
 		return
 	}
 
-	newReportID, err := dbInsertReport(p)
+	newReportID, err := database.InsertReport(c, p)
 	if err != nil {
 		logrus.Errorf("insert reports: %s", err)
 		c.JSON(
@@ -64,7 +63,7 @@ func CreatePipelineReport(c *gin.Context) {
 func DeletePipelineReport(c *gin.Context) {
 	id := c.Param("id")
 
-	if err := dbDeleteReport(id); err != nil {
+	if err := database.DeleteReport(c, id); err != nil {
 		logrus.Errorf("query failed: %s", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err})
 		return
@@ -76,7 +75,7 @@ func DeletePipelineReport(c *gin.Context) {
 }
 
 type GetPipelineReportsResponse struct {
-	Data []respSearchLatestReportData `json:"data"`
+	Data []database.SearchLatestReportData `json:"data"`
 }
 
 // SearchPipelineReports returns all pipeline reports from the database using advanced filtering
@@ -116,8 +115,9 @@ func SearchPipelineReports(c *gin.Context) {
 		return
 	}
 
-	dataset, err := dbSearchLatestReport(queryParams.ScmID, queryParams.SourceID, queryParams.ConditionID, queryParams.TargetID)
-
+	dataset, err := database.SearchLatestReport(
+		c, queryParams.ScmID, queryParams.SourceID, queryParams.ConditionID,
+		queryParams.TargetID, database.ReportSearchOptions{Days: monitoringDurationDays})
 	if err != nil {
 		logrus.Errorf("searching for latest report: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -140,12 +140,11 @@ func SearchPipelineReports(c *gin.Context) {
 // @Failure 500 {object} DefaultResponseModel
 // @Router /api/pipeline/reports [get]
 func ListPipelineReports(c *gin.Context) {
-
 	queryParams := c.Request.URL.Query()
-
 	scmID := queryParams.Get("scmid")
 
-	dataset, err := dbSearchLatestReport(scmID, "", "", "")
+	dataset, err := database.SearchLatestReport(c, scmID, "", "", "",
+		database.ReportSearchOptions{Days: monitoringDurationDays})
 
 	if err != nil {
 		logrus.Errorf("searching for latest report: %s", err)
@@ -179,7 +178,7 @@ type GetPipelineReportByIDResponse struct {
 func GetPipelineReportByID(c *gin.Context) {
 	id := c.Param("id")
 
-	data, err := dbSearchReport(id)
+	data, err := database.SearchReport(c, id)
 	if err != nil {
 		logrus.Errorf("parsing result: %s", err)
 		c.JSON(
@@ -190,12 +189,12 @@ func GetPipelineReportByID(c *gin.Context) {
 		return
 	}
 
-	nbReportsByID, err := dbSearchNumberOfReportsByPipelineID(data.Pipeline.ID)
+	nbReportsByID, err := database.SearchNumberOfReportsByPipelineID(c, data.Pipeline.ID)
 	if err != nil {
 		logrus.Errorf("getting number of reports by name: %s", err)
 	}
 
-	latestReportByID, err := dbSearchLatestReportByPipelineID(data.Pipeline.ID)
+	latestReportByID, err := database.SearchLatestReportByPipelineID(c, data.Pipeline.ID)
 	if err != nil {
 		logrus.Errorf("getting latest report by name: %s", err)
 	}

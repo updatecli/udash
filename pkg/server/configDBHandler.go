@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+	"github.com/updatecli/udash/pkg/database"
 	"github.com/updatecli/udash/pkg/model"
 )
 
@@ -47,7 +48,7 @@ func ListConfigSources(c *gin.Context) {
 	kind := c.Request.URL.Query().Get("kind")
 	config := c.Request.URL.Query().Get("config")
 
-	rows, err := dbGetConfigSource(kind, id, config)
+	rows, err := database.GetConfigSource(c, kind, id, config)
 	if err != nil {
 		logrus.Errorf("searching for config source: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -88,7 +89,7 @@ func SearchConfigSources(c *gin.Context) {
 		return
 	}
 
-	rows, err := dbGetConfigSource(queryConfig.Kind, queryConfig.ID, string(queryConfig.Config))
+	rows, err := database.GetConfigSource(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config))
 	if err != nil {
 		logrus.Errorf("searching for config source: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -116,7 +117,7 @@ func SearchConfigKinds(c *gin.Context) {
 
 	resourceType := c.Request.URL.Query().Get("type")
 
-	kinds, err := dbGetConfigKind(resourceType)
+	kinds, err := database.GetConfigKind(resourceType)
 	if err != nil {
 		logrus.Errorf("searching for config source kind: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -141,7 +142,7 @@ func SearchConfigKinds(c *gin.Context) {
 func DeleteConfigSource(c *gin.Context) {
 	id := c.Request.URL.Query().Get("id")
 
-	err := dbDeleteConfigResource("source", id)
+	err := database.DeleteConfigResource("source", id)
 	if err != nil {
 		logrus.Errorf("deleting config source: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -169,7 +170,7 @@ func ListConfigConditions(c *gin.Context) {
 	kind := c.Request.URL.Query().Get("kind")
 	config := c.Request.URL.Query().Get("config")
 
-	rows, err := dbGetConfigCondition(kind, id, config)
+	rows, err := database.GetConfigCondition(c, kind, id, config)
 	if err != nil {
 		logrus.Errorf("searching for config condition: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -209,7 +210,7 @@ func SearchConfigConditions(c *gin.Context) {
 		return
 	}
 
-	rows, err := dbGetConfigCondition(queryConfig.Kind, queryConfig.ID, string(queryConfig.Config))
+	rows, err := database.GetConfigCondition(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config))
 	if err != nil {
 		logrus.Errorf("searching for config condition: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -233,7 +234,7 @@ func SearchConfigConditions(c *gin.Context) {
 func DeleteConfigCondition(c *gin.Context) {
 	id := c.Request.URL.Query().Get("id")
 
-	err := dbDeleteConfigResource("condition", id)
+	err := database.DeleteConfigResource("condition", id)
 	if err != nil {
 		logrus.Errorf("deleting config condition: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -261,7 +262,7 @@ func ListConfigTargets(c *gin.Context) {
 	kind := c.Request.URL.Query().Get("kind")
 	config := c.Request.URL.Query().Get("config")
 
-	rows, err := dbGetConfigTarget(kind, id, config)
+	rows, err := database.GetConfigTarget(c, kind, id, config)
 	if err != nil {
 		logrus.Errorf("searching for config target: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -301,7 +302,7 @@ func SearchConfigTargets(c *gin.Context) {
 		return
 	}
 
-	rows, err := dbGetConfigTarget(queryConfig.Kind, queryConfig.ID, string(queryConfig.Config))
+	rows, err := database.GetConfigTarget(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config))
 	if err != nil {
 		logrus.Errorf("searching for config target: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -325,7 +326,7 @@ func SearchConfigTargets(c *gin.Context) {
 func DeleteConfigTarget(c *gin.Context) {
 	id := c.Request.URL.Query().Get("id")
 
-	err := dbDeleteConfigResource("target", id)
+	err := database.DeleteConfigResource("target", id)
 	if err != nil {
 		logrus.Errorf("deleting config target: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{

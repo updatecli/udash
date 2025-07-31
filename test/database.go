@@ -10,8 +10,11 @@ import (
 	"github.com/updatecli/udash/pkg/database"
 )
 
-// SetupDatabase starts PostgreSQL with a "udash" user and return a connection
-// URL.
+// SetupDatabase starts PostgreSQL with a "udash" user.
+//
+// The Migrations are applied to the database.
+//
+// The running container will be terminated when the test is cleaned up.
 func SetupDatabase(t *testing.T) {
 	t.Helper()
 

@@ -15,7 +15,7 @@ import (
 // InsertSCM creates a new SCM and inserts it into the database.
 //
 // It returns the ID of the newly created SCM.
-func InsertSCM(url, branch string) (string, error) {
+func InsertSCM(ctx context.Context, url, branch string) (string, error) {
 	var id uuid.UUID
 	//"INSERT INTO scms (url, branch) VALUES ($1, $2) RETURNING id"
 	query := psql.Insert(
@@ -24,7 +24,6 @@ func InsertSCM(url, branch string) (string, error) {
 		im.Returning("id"),
 	)
 
-	ctx := context.Background()
 	queryString, args, err := query.Build(ctx)
 
 	if err != nil {
@@ -32,7 +31,7 @@ func InsertSCM(url, branch string) (string, error) {
 		return "", err
 	}
 
-	err = DB.QueryRow(context.Background(), queryString, args...).Scan(
+	err = DB.QueryRow(ctx, queryString, args...).Scan(
 		&id,
 	)
 
@@ -45,7 +44,7 @@ func InsertSCM(url, branch string) (string, error) {
 }
 
 // GetSCM returns a list of scms from the scm database table.
-func GetScm(id, url, branch string) ([]model.SCM, error) {
+func GetScm(ctx context.Context, id, url, branch string) ([]model.SCM, error) {
 	query := psql.Select(
 		sm.Columns("id", "branch", "url", "created_at", "updated_at"),
 		sm.From("scms"),
@@ -69,7 +68,6 @@ func GetScm(id, url, branch string) ([]model.SCM, error) {
 		)
 	}
 
-	ctx := context.Background()
 	queryString, args, err := query.Build(ctx)
 
 	if err != nil {
