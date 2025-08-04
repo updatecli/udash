@@ -22,7 +22,19 @@ func TestEndpoints(t *testing.T) {
 	srv := httptest.NewServer(eng)
 	defer srv.Close()
 
-	test.SetupDatabase(t)
+	ctx := context.Background()
+
+	postgresContainer, err := test.SetupDatabase(t, ctx)
+	require.NoError(t, err)
+
+	dbURL, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
+	require.NoError(t, err)
+
+	// Connect to the database and run migrations
+	require.NoError(t, database.Connect(database.Options{URI: dbURL}))
+	t.Log("Postgres Container connected")
+	require.NoError(t, database.RunMigrationUp())
+	t.Log("Postgres Container migrations run")
 
 	t.Run("GET /api", func(t *testing.T) {
 		resp := doGetRequest(t, srv, "/api")
@@ -114,6 +126,9 @@ func TestEndpoints(t *testing.T) {
 	})
 }
 
+// Disabling unparam linter as I am planning to extend the test to use the ops
+//
+//nolint:unparam
 func doGetRequest(t *testing.T, ts *httptest.Server, path string, opts ...func(*http.Request)) *http.Response {
 	t.Helper()
 	r, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s%s", ts.URL, path), nil)
