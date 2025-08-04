@@ -751,6 +751,43 @@ const docTemplate = `{
                 }
             }
         },
+        "database.SearchLatestReportData": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "description": "CreatedAt represents the creation date of the report.",
+                    "type": "string"
+                },
+                "filteredResourceID": {
+                    "description": "FilteredResourceID contains the resource config ID that was filtered\nIt allows to identify in the report which resource was used to filter the report.",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "ID represents the unique identifier of the report.",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name represents the name of the report.",
+                    "type": "string"
+                },
+                "report": {
+                    "description": "Report contains the report data.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reports.Report"
+                        }
+                    ]
+                },
+                "result": {
+                    "description": "Result represents the result of the report.",
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "description": "UpdatedAt represents the last update date of the report.",
+                    "type": "string"
+                }
+            }
+        },
         "model.ConfigCondition": {
             "type": "object",
             "properties": {
@@ -1335,7 +1372,7 @@ const docTemplate = `{
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/server.respSearchLatestReportData"
+                        "$ref": "#/definitions/database.SearchLatestReportData"
                     }
                 }
             }
@@ -1387,43 +1424,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/model.ConfigTarget"
                     }
-                }
-            }
-        },
-        "server.respSearchLatestReportData": {
-            "type": "object",
-            "properties": {
-                "createdAt": {
-                    "description": "CreatedAt represents the creation date of the report.",
-                    "type": "string"
-                },
-                "filteredResourceID": {
-                    "description": "FilteredResourceID contains the resource config ID that was filtered\nIt allows to identify in the report which resource was used to filter the report.",
-                    "type": "string"
-                },
-                "id": {
-                    "description": "ID represents the unique identifier of the report.",
-                    "type": "string"
-                },
-                "name": {
-                    "description": "Name represents the name of the report.",
-                    "type": "string"
-                },
-                "report": {
-                    "description": "Report contains the report data.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/reports.Report"
-                        }
-                    ]
-                },
-                "result": {
-                    "description": "Result represents the result of the report.",
-                    "type": "string"
-                },
-                "updatedAt": {
-                    "description": "UpdatedAt represents the last update date of the report.",
-                    "type": "string"
                 }
             }
         },
