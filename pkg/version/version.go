@@ -2,8 +2,6 @@ package version
 
 import (
 	"strings"
-
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -15,11 +13,13 @@ var (
 	GoVersion string
 )
 
+type printer interface {
+	Printf(format string, i ...interface{})
+}
+
 // Show displays various version information
-func Show() {
-	logrus.Infof("")
-	logrus.Infof("Version:\t%s", Version)
-	logrus.Infof("%s", strings.ReplaceAll(GoVersion, "go version go", "Golang     :\t"))
-	logrus.Infof("Build Time :\t%s", BuildTime)
-	logrus.Infof("")
+func Show(out printer) {
+	out.Printf("Version:\t%s\n", Version)
+	out.Printf("%s\n", strings.ReplaceAll(GoVersion, "go version go", "Golang     :\t"))
+	out.Printf("Build Time :\t%s\n", BuildTime)
 }

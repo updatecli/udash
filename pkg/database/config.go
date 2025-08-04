@@ -1,4 +1,4 @@
-package server
+package database
 
 import (
 	"context"
@@ -12,7 +12,6 @@ import (
 	"github.com/stephenafamo/bob/dialect/psql/dm"
 	"github.com/stephenafamo/bob/dialect/psql/im"
 	"github.com/stephenafamo/bob/dialect/psql/sm"
-	"github.com/updatecli/udash/pkg/database"
 	"github.com/updatecli/udash/pkg/model"
 )
 
@@ -32,10 +31,8 @@ const (
 	configTargetType = "target"
 )
 
-// dbInsertConfigResource inserts a new resource configuration into the database.
-func dbInsertConfigResource(resourceType string, resourceKind string, resourceConfig interface{}) (string, error) {
-	var ID uuid.UUID
-
+// InsertConfigResource inserts a new resource configuration into the database.
+func InsertConfigResource(ctx context.Context, resourceType string, resourceKind string, resourceConfig interface{}) (string, error) {
 	table := ""
 	switch resourceType {
 	case configSourceType:
@@ -55,7 +52,6 @@ func dbInsertConfigResource(resourceType string, resourceKind string, resourceCo
 		im.Returning("id"),
 	)
 
-	ctx := context.Background()
 	queryString, args, err := query.Build(ctx)
 
 	if err != nil {
@@ -63,8 +59,9 @@ func dbInsertConfigResource(resourceType string, resourceKind string, resourceCo
 		return "", err
 	}
 
-	err = database.DB.QueryRow(context.Background(), queryString, args...).Scan(
-		&ID,
+	var configID uuid.UUID
+	err = DB.QueryRow(context.Background(), queryString, args...).Scan(
+		&configID,
 	)
 
 	if err != nil {
@@ -72,12 +69,11 @@ func dbInsertConfigResource(resourceType string, resourceKind string, resourceCo
 		return "", err
 	}
 
-	return ID.String(), nil
+	return configID.String(), nil
 }
 
-// dbDeleteConfigResource deletes a resource configuration from the database.
-func dbDeleteConfigResource(resourceType string, id string) error {
-
+// DeleteConfigResource deletes a resource configuration from the database.
+func DeleteConfigResource(resourceType string, id string) error {
 	table := ""
 	switch resourceType {
 	case configSourceType:
@@ -103,7 +99,7 @@ func dbDeleteConfigResource(resourceType string, id string) error {
 		return err
 	}
 
-	_, err = database.DB.Exec(context.Background(), queryString, args...)
+	_, err = DB.Exec(context.Background(), queryString, args...)
 	if err != nil {
 		logrus.Errorf("query failed: %q\n\t%s", queryString, err)
 		return err
@@ -112,9 +108,8 @@ func dbDeleteConfigResource(resourceType string, id string) error {
 	return nil
 }
 
-// dbGetConfigKind returns a list of resource configurations from the database filtered by kind.
-func dbGetConfigKind(resourceType string) ([]string, error) {
-
+// GetConfigKind returns a list of resource configurations from the database filtered by kind.
+func GetConfigKind(resourceType string) ([]string, error) {
 	table := ""
 	switch resourceType {
 	case configSourceType:
@@ -142,7 +137,7 @@ func dbGetConfigKind(resourceType string) ([]string, error) {
 		return nil, err
 	}
 
-	rows, err := database.DB.Query(context.Background(), queryString, args...)
+	rows, err := DB.Query(context.Background(), queryString, args...)
 	if err != nil {
 		logrus.Errorf("query failed: %q\n\t%s", queryString, err)
 		return nil, err
@@ -162,9 +157,8 @@ func dbGetConfigKind(resourceType string) ([]string, error) {
 	return results, nil
 }
 
-// dbGetConfigSource returns a list of resource configurations from the database.
-func dbGetConfigSource(kind, id, config string) ([]model.ConfigSource, error) {
-
+// GetConfigSource returns a list of resource configurations from the database.
+func GetConfigSource(ctx context.Context, kind, id, config string) ([]model.ConfigSource, error) {
 	table := configSourceTableName
 
 	// SELECT id, kind, created_at, updated_at, config FROM " + table
@@ -191,14 +185,13 @@ func dbGetConfigSource(kind, id, config string) ([]model.ConfigSource, error) {
 		)
 	}
 
-	ctx := context.Background()
 	queryString, args, err := query.Build(ctx)
 	if err != nil {
 		logrus.Errorf("building query failed: %s\n\t%s", queryString, err)
 		return nil, err
 	}
 
-	rows, err := database.DB.Query(context.Background(), queryString, args...)
+	rows, err := DB.Query(context.Background(), queryString, args...)
 
 	if err != nil {
 		logrus.Errorf("query failed: %q\n\t%s", queryString, err)
@@ -231,9 +224,8 @@ func dbGetConfigSource(kind, id, config string) ([]model.ConfigSource, error) {
 	return results, nil
 }
 
-// dbGetConfigCondition returns a list of resource configurations from the database.
-func dbGetConfigCondition(kind, id, config string) ([]model.ConfigCondition, error) {
-
+// GetConfigCondition returns a list of resource configurations from the database.
+func GetConfigCondition(ctx context.Context, kind, id, config string) ([]model.ConfigCondition, error) {
 	table := configConditionTableName
 
 	// SELECT id, kind, created_at, updated_at, config FROM " + table
@@ -260,14 +252,13 @@ func dbGetConfigCondition(kind, id, config string) ([]model.ConfigCondition, err
 		)
 	}
 
-	ctx := context.Background()
 	queryString, args, err := query.Build(ctx)
 	if err != nil {
 		logrus.Errorf("building query failed: %s\n\t%s", queryString, err)
 		return nil, err
 	}
 
-	rows, err := database.DB.Query(context.Background(), queryString, args...)
+	rows, err := DB.Query(context.Background(), queryString, args...)
 
 	if err != nil {
 		logrus.Errorf("query failed: %q\n\t%s", queryString, err)
@@ -302,9 +293,8 @@ func dbGetConfigCondition(kind, id, config string) ([]model.ConfigCondition, err
 	return results, nil
 }
 
-// dbGetConfigTarget returns a list of resource configurations from the database.
-func dbGetConfigTarget(kind, id, config string) ([]model.ConfigTarget, error) {
-
+// GetConfigTarget returns a list of resource configurations from the database.
+func GetConfigTarget(ctx context.Context, kind, id, config string) ([]model.ConfigTarget, error) {
 	table := configTargetTableName
 
 	// SELECT id, kind, created_at, updated_at, config FROM " + table
@@ -331,14 +321,13 @@ func dbGetConfigTarget(kind, id, config string) ([]model.ConfigTarget, error) {
 		)
 	}
 
-	ctx := context.Background()
 	queryString, args, err := query.Build(ctx)
 	if err != nil {
 		logrus.Errorf("building query failed: %s\n\t%s", queryString, err)
 		return nil, err
 	}
 
-	rows, err := database.DB.Query(context.Background(), queryString, args...)
+	rows, err := DB.Query(context.Background(), queryString, args...)
 
 	if err != nil {
 		logrus.Errorf("query failed: %q\n\t%s", queryString, err)

@@ -3,7 +3,6 @@ package database
 import (
 	"embed"
 	"fmt"
-	"log"
 	"os"
 
 	"context"
@@ -36,7 +35,6 @@ type Options struct {
 }
 
 func Connect(o Options) error {
-
 	var err error
 
 	if o.URI != "" {
@@ -48,12 +46,12 @@ func Connect(o Options) error {
 
 	poolConfig, err := pgxpool.ParseConfig(URI)
 	if err != nil {
-		log.Fatalln("Unable to parse DATABASE_URL:", err)
+		return fmt.Errorf("failed to parse database URI: %w", err)
 	}
 
 	DB, err = pgxpool.NewWithConfig(context.Background(), poolConfig)
 	if err != nil {
-		log.Fatalln("Unable to create connection pool:", err)
+		return fmt.Errorf("failed to create pgx pool: %w", err)
 	}
 
 	logrus.Infoln("database connected")
@@ -65,7 +63,7 @@ func RunMigrationUp() error {
 	logrus.Debugln("Running Database migration")
 	d, err := iofs.New(fs, "migrations")
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("reading migrations: %w", err)
 	}
 
 	m, err := migrate.NewWithSourceInstance(
@@ -83,4 +81,8 @@ func RunMigrationUp() error {
 	}
 
 	return nil
+}
+
+func stringPtr(s string) *string {
+	return &s
 }

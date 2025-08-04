@@ -2,7 +2,6 @@ package server
 
 import (
 	"net/http"
-	"os"
 	"strings"
 
 	_ "github.com/updatecli/udash/docs"
@@ -74,11 +73,18 @@ func About(c *gin.Context) {
 // @version 1.0
 // @description API for managing Updatecli pipeline reports.
 // @BasePath /api/
-func (s *Server) Run() {
-	r := gin.Default()
-
+func (s *Server) Run() error {
 	// Init Server Option
 	s.Options.Init()
+
+	r := newGinEngine(s.Options)
+
+	// listen and server on 0.0.0.0:8080
+	return r.Run()
+}
+
+func newGinEngine(opts Options) *gin.Engine {
+	r := gin.Default()
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
@@ -87,8 +93,8 @@ func (s *Server) Run() {
 	r.GET("/api/about", About)
 
 	api := r.Group("/api/pipeline")
-	if strings.ToLower(s.Options.Auth.Mode) == "oauth" {
-		logrus.Debugf("Using OAuth authentication mode: %s", s.Options.Auth.Mode)
+	if strings.ToLower(opts.Auth.Mode) == "oauth" {
+		logrus.Debugf("Using OAuth authentication mode: %s", opts.Auth.Mode)
 		api.Use(checkJWT())
 	}
 
@@ -103,15 +109,11 @@ func (s *Server) Run() {
 	r.POST("/api/pipeline/config/conditions/search", SearchConfigConditions)
 	r.GET("/api/pipeline/config/targets", ListConfigTargets)
 	r.POST("/api/pipeline/config/targets/search", SearchConfigTargets)
-	if !s.Options.DryRun {
+	if !opts.DryRun {
 		r.POST("/api/pipeline/reports", CreatePipelineReport)
 		r.PUT("/api/pipeline/reports/:id", UpdatePipelineReport)
 		r.DELETE("/api/pipeline/reports/:id", DeletePipelineReport)
 	}
 
-	// listen and server on 0.0.0.0:8080
-	if err := r.Run(); err != nil {
-		logrus.Errorln(err)
-		os.Exit(1)
-	}
+	return r
 }
