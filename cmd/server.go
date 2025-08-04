@@ -25,11 +25,11 @@ var (
 			cobra.CheckErr(viper.ReadInConfig())
 
 			viper.OnConfigChange(func(e fsnotify.Event) {
-				logrus.Infof("Config file changed:", e.Name)
+				logrus.Infof("Config file changed: %q", e.Name)
 			})
 			viper.WatchConfig()
 
-			cobra.CheckErr(run("start"))
+			cobra.CheckErr(run())
 		},
 	}
 )
@@ -41,7 +41,7 @@ func init() {
 	)
 }
 
-func run(command string) error {
+func run() error {
 	var o engine.Options
 
 	if err := viper.Unmarshal(&o); err != nil {
