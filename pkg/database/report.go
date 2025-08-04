@@ -73,7 +73,7 @@ func SearchReport(ctx context.Context, id string) (*model.PipelineReport, error)
 }
 
 // SearchLatestReport searches the latest reports according some parameters.
-func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targetID string, options ReportSearchOptions) ([]SearchLatestReportData, error) {
+func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targetID string, options ReportSearchOptions, limit, page int) ([]SearchLatestReportData, int, error) {
 	queryString := ""
 	var args []any
 
@@ -101,7 +101,7 @@ func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targe
 	if sourceID != "" {
 		// Ensure sourceID is a valid UUID
 		if _, err := uuid.Parse(sourceID); err != nil {
-			return nil, fmt.Errorf("parsing sourceID: %w", err)
+			return nil, 0, fmt.Errorf("parsing sourceID: %w", err)
 		}
 
 		filteredReportsQuery.Apply(
@@ -118,7 +118,7 @@ func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targe
 	if conditionID != "" {
 		// Ensure conditionID is a valid UUID
 		if _, err := uuid.Parse(conditionID); err != nil {
-			return nil, fmt.Errorf("parsing conditionID: %w", err)
+			return nil, 0, fmt.Errorf("parsing conditionID: %w", err)
 		}
 
 		filteredReportsQuery.Apply(
@@ -135,7 +135,7 @@ func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targe
 	if targetID != "" {
 		// Ensure targetID is a valid UUID
 		if _, err := uuid.Parse(targetID); err != nil {
-			return nil, fmt.Errorf("parsing targetID: %w", err)
+			return nil, 0, fmt.Errorf("parsing targetID: %w", err)
 		}
 
 		filteredReportsQuery.Apply(
@@ -189,7 +189,7 @@ func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targe
 		scm, err := GetSCM(ctx, scmID, "", "")
 		if err != nil {
 			logrus.Errorf("get scm data: %s", err)
-			return nil, err
+			return nil, 0, err
 		}
 
 		switch len(scm) {
@@ -226,14 +226,39 @@ func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targe
 		}
 	}
 
-	queryString, args, err := query.Build(ctx)
+	// Total counter query must be built before applying pagination
+	// because it needs to count all the reports matching the query.
+	totalCountQuery := psql.Select(sm.From(query), sm.Columns("count(*)"))
+
+	totalCountQueryString, totalCountArgs, err := totalCountQuery.Build(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("building query failed: %s\n\t%s", queryString, err)
+		return nil, 0, fmt.Errorf("building total count query failed: %s\n\t%s",
+			totalCountQueryString, err)
+	}
+
+	totalCount := 0
+	if err = DB.QueryRow(ctx, totalCountQueryString, totalCountArgs...).Scan(
+		&totalCount,
+	); err != nil {
+		logrus.Errorf("parsing total count result: %s", err)
+	}
+
+	// If limit and page are not set, we do not apply pagination.
+	if limit < totalCount {
+		query.Apply(
+			sm.Limit(limit),
+			sm.Offset((page-1)*limit),
+		)
+	}
+
+	queryString, args, err = query.Build(ctx)
+	if err != nil {
+		return nil, 0, fmt.Errorf("building query failed: %s\n\t%s", queryString, err)
 	}
 
 	rows, err := DB.Query(ctx, queryString, args...)
 	if err != nil {
-		return nil, fmt.Errorf("query failed: %q\n\t%s", queryString, err)
+		return nil, 0, fmt.Errorf("query failed: %q\n\t%s", queryString, err)
 	}
 
 	dataset := []SearchLatestReportData{}
@@ -246,13 +271,13 @@ func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targe
 		if sourceID != "" || conditionID != "" || targetID != "" {
 			err = rows.Scan(&p.ID, &p.Pipeline, &p.Created_at, &p.Updated_at, &filteredResources)
 			if err != nil {
-				return nil, fmt.Errorf("parsing result: %s", err)
+				return nil, 0, fmt.Errorf("parsing result: %s", err)
 			}
 
 		} else {
 			err = rows.Scan(&p.ID, &p.Pipeline, &p.Created_at, &p.Updated_at)
 			if err != nil {
-				return nil, fmt.Errorf("parsing result: %s", err)
+				return nil, 0, fmt.Errorf("parsing result: %s", err)
 			}
 		}
 
@@ -267,21 +292,21 @@ func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targe
 
 		if sourceID != "" {
 			if _, ok := filteredResources[sourceID]; !ok {
-				return nil, fmt.Errorf("sourceID %s not found in pipeline report", sourceID)
+				return nil, 0, fmt.Errorf("sourceID %s not found in pipeline report", sourceID)
 			}
 			data.FilteredResourceID = *filteredResources[sourceID]
 		}
 
 		if conditionID != "" {
 			if _, ok := filteredResources[conditionID]; !ok {
-				return nil, fmt.Errorf("conditionID %s not found in pipeline report", conditionID)
+				return nil, 0, fmt.Errorf("conditionID %s not found in pipeline report", conditionID)
 			}
 			data.FilteredResourceID = *filteredResources[conditionID]
 		}
 
 		if targetID != "" {
 			if _, ok := filteredResources[targetID]; !ok {
-				return nil, fmt.Errorf("targetID %s not found in pipeline report", targetID)
+				return nil, 0, fmt.Errorf("targetID %s not found in pipeline report", targetID)
 			}
 			data.FilteredResourceID = *filteredResources[targetID]
 		}
@@ -289,7 +314,7 @@ func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targe
 		dataset = append(dataset, data)
 	}
 
-	return dataset, nil
+	return dataset, totalCount, nil
 }
 
 // InsertReport inserts a new report into the database.
@@ -321,7 +346,7 @@ func InsertReport(ctx context.Context, report reports.Report) (string, error) {
 			continue
 		}
 
-		results, err := GetConfigTarget(ctx, kind, "", string(data))
+		results, _, err := GetTargetConfigs(ctx, kind, "", string(data), 0, 1)
 		if err != nil {
 			logrus.Errorf("failed: %s", err)
 			continue
@@ -406,7 +431,7 @@ func InsertReport(ctx context.Context, report reports.Report) (string, error) {
 				continue
 			}
 
-			results, err := GetConfigTarget(ctx, kind, "", string(data))
+			results, _, err := GetTargetConfigs(ctx, kind, "", string(data), 0, 1)
 			if err != nil {
 				logrus.Errorf("failed: %s", err)
 				continue
@@ -509,7 +534,7 @@ func buildConfigSources(ctx context.Context, report reports.Report) pgtype.Hstor
 			continue
 		}
 
-		results, err := GetConfigSource(ctx, kind, "", string(data))
+		results, _, err := GetSourceConfigs(ctx, kind, "", string(data), 0, 1)
 		if err != nil {
 			logrus.Errorf("failed: %s", err)
 			continue
