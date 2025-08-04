@@ -66,6 +66,33 @@ definitions:
           $ref: '#/definitions/transformer.Transformer'
         type: array
     type: object
+  database.SearchLatestReportData:
+    properties:
+      createdAt:
+        description: CreatedAt represents the creation date of the report.
+        type: string
+      filteredResourceID:
+        description: |-
+          FilteredResourceID contains the resource config ID that was filtered
+          It allows to identify in the report which resource was used to filter the report.
+        type: string
+      id:
+        description: ID represents the unique identifier of the report.
+        type: string
+      name:
+        description: Name represents the name of the report.
+        type: string
+      report:
+        allOf:
+        - $ref: '#/definitions/reports.Report'
+        description: Report contains the report data.
+      result:
+        description: Result represents the result of the report.
+        type: string
+      updatedAt:
+        description: UpdatedAt represents the last update date of the report.
+        type: string
+    type: object
   model.ConfigCondition:
     properties:
       config:
@@ -478,7 +505,7 @@ definitions:
     properties:
       data:
         items:
-          $ref: '#/definitions/server.respSearchLatestReportData'
+          $ref: '#/definitions/database.SearchLatestReportData'
         type: array
     type: object
   server.ScmBranchData:
@@ -514,33 +541,6 @@ definitions:
         items:
           $ref: '#/definitions/model.ConfigTarget'
         type: array
-    type: object
-  server.respSearchLatestReportData:
-    properties:
-      createdAt:
-        description: CreatedAt represents the creation date of the report.
-        type: string
-      filteredResourceID:
-        description: |-
-          FilteredResourceID contains the resource config ID that was filtered
-          It allows to identify in the report which resource was used to filter the report.
-        type: string
-      id:
-        description: ID represents the unique identifier of the report.
-        type: string
-      name:
-        description: Name represents the name of the report.
-        type: string
-      report:
-        allOf:
-        - $ref: '#/definitions/reports.Report'
-        description: Report contains the report data.
-      result:
-        description: Result represents the result of the report.
-        type: string
-      updatedAt:
-        description: UpdatedAt represents the last update date of the report.
-        type: string
     type: object
   source.Config:
     properties:
