@@ -246,7 +246,7 @@ func TestEndpoints(t *testing.T) {
 				resp := doGetRequest(t, srv, "/api/pipeline/config/sources")
 
 				assertJSONResponse(t, resp, []map[string]any{
-					map[string]any{
+					{
 						"Config": map[string]any{
 							"DependsOn":           nil,
 							"DeprecatedDependsOn": nil,
@@ -260,7 +260,7 @@ func TestEndpoints(t *testing.T) {
 						"ID":   config1,
 						"Kind": "testing-1",
 					},
-					map[string]any{
+					{
 						"Config": map[string]any{
 							"DependsOn":           nil,
 							"DeprecatedDependsOn": nil,
@@ -288,7 +288,7 @@ func TestEndpoints(t *testing.T) {
 				resp := doGetRequest(t, srv, "/api/pipeline/config/sources?kind=testing-1")
 
 				assertJSONResponse(t, resp, []map[string]any{
-					map[string]any{
+					{
 						"Config": map[string]any{
 							"DependsOn":           nil,
 							"DeprecatedDependsOn": nil,
