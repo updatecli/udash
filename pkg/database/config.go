@@ -32,7 +32,7 @@ const (
 )
 
 // InsertConfigResource inserts a new resource configuration into the database.
-func InsertConfigResource(ctx context.Context, resourceType string, resourceKind string, resourceConfig interface{}) (string, error) {
+func InsertConfigResource(ctx context.Context, resourceType, resourceKind string, resourceConfig interface{}) (string, error) {
 	table := ""
 	switch resourceType {
 	case configSourceType:
@@ -73,7 +73,7 @@ func InsertConfigResource(ctx context.Context, resourceType string, resourceKind
 }
 
 // DeleteConfigResource deletes a resource configuration from the database.
-func DeleteConfigResource(resourceType string, id string) error {
+func DeleteConfigResource(ctx context.Context, resourceType string, id string) error {
 	table := ""
 	switch resourceType {
 	case configSourceType:
@@ -91,7 +91,6 @@ func DeleteConfigResource(resourceType string, id string) error {
 		dm.From(table),
 		dm.Where(psql.Quote("id").EQ(psql.Arg(id))),
 	)
-	ctx := context.Background()
 	queryString, args, err := query.Build(ctx)
 
 	if err != nil {
@@ -99,7 +98,7 @@ func DeleteConfigResource(resourceType string, id string) error {
 		return err
 	}
 
-	_, err = DB.Exec(context.Background(), queryString, args...)
+	_, err = DB.Exec(ctx, queryString, args...)
 	if err != nil {
 		logrus.Errorf("query failed: %q\n\t%s", queryString, err)
 		return err
@@ -109,7 +108,7 @@ func DeleteConfigResource(resourceType string, id string) error {
 }
 
 // GetConfigKind returns a list of resource configurations from the database filtered by kind.
-func GetConfigKind(resourceType string) ([]string, error) {
+func GetConfigKind(ctx context.Context, resourceType string) ([]string, error) {
 	table := ""
 	switch resourceType {
 	case configSourceType:
@@ -129,7 +128,6 @@ func GetConfigKind(resourceType string) ([]string, error) {
 		sm.GroupBy("kind"),
 	)
 
-	ctx := context.Background()
 	queryString, args, err := query.Build(ctx)
 
 	if err != nil {
@@ -201,7 +199,6 @@ func GetConfigSource(ctx context.Context, kind, id, config string) ([]model.Conf
 	results := []model.ConfigSource{}
 
 	for rows.Next() {
-
 		r := model.ConfigSource{}
 
 		var config string

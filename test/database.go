@@ -11,8 +11,6 @@ import (
 
 // SetupDatabase starts PostgreSQL with a "udash" user.
 //
-// The Migrations are applied to the database.
-//
 // The running container will be terminated when the test is cleaned up.
 func SetupDatabase(t *testing.T, ctx context.Context) (*postgres.PostgresContainer, error) {
 	t.Helper()
