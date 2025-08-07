@@ -64,9 +64,8 @@ func SearchReport(ctx context.Context, id string) (*model.PipelineReport, error)
 		&report.Created_at,
 		&report.Updated_at,
 	)
-
 	if err != nil {
-		logrus.Errorf("parsing result: %s", err)
+		logrus.Errorf("querying for report: %s", err)
 		return nil, err
 	}
 
@@ -187,7 +186,7 @@ func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targe
 		)
 
 	default:
-		scm, err := GetScm(ctx, scmID, "", "")
+		scm, err := GetSCM(ctx, scmID, "", "")
 		if err != nil {
 			logrus.Errorf("get scm data: %s", err)
 			return nil, err
@@ -358,7 +357,7 @@ func InsertReport(ctx context.Context, report reports.Report) (string, error) {
 			url := target.Scm.URL
 			branch := target.Scm.Branch.Target
 
-			ids, err := GetScm(ctx, "", url, branch)
+			ids, err := GetSCM(ctx, "", url, branch)
 			if err != nil {
 				logrus.Errorf("query failed: %s", err)
 				return "", err
