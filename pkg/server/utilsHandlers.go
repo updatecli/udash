@@ -7,9 +7,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// getPaginationParams sanitizes and retrieves pagination parameters from the request context.
+// getPaginationParamFromURLQuery sanitizes and retrieves pagination parameters from the request context.
 // It returns the limit and page values, or an error if the parameters are invalid.
-func getPaginationParams(c *gin.Context) (int, int, error) {
+func getPaginationParamFromURLQuery(c *gin.Context) (int, int, error) {
 	limitStr := c.Request.URL.Query().Get("limit")
 	pageStr := c.Request.URL.Query().Get("page")
 

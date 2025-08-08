@@ -159,7 +159,7 @@ func ListPipelineReports(c *gin.Context) {
 	queryParams := c.Request.URL.Query()
 	scmID := queryParams.Get("scmid")
 
-	limit, page, err := getPaginationParams(c)
+	limit, page, err := getPaginationParamFromURLQuery(c)
 	if err != nil {
 		logrus.Errorf("getting pagination params: %s", err)
 		c.JSON(http.StatusBadRequest, DefaultResponseModel{

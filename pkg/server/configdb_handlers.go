@@ -56,7 +56,7 @@ func ListConfigSources(c *gin.Context) {
 	kind := c.Request.URL.Query().Get("kind")
 	config := c.Request.URL.Query().Get("config")
 
-	limit, page, err := getPaginationParams(c)
+	limit, page, err := getPaginationParamFromURLQuery(c)
 
 	if err != nil {
 		logrus.Errorf("invalid pagination parameters: %s", err)
@@ -202,7 +202,7 @@ func ListConfigConditions(c *gin.Context) {
 	kind := c.Request.URL.Query().Get("kind")
 	config := c.Request.URL.Query().Get("config")
 
-	limit, page, err := getPaginationParams(c)
+	limit, page, err := getPaginationParamFromURLQuery(c)
 	if err != nil {
 		logrus.Errorf("invalid pagination parameters: %s", err)
 		c.JSON(http.StatusBadRequest, DefaultResponseModel{
@@ -314,7 +314,7 @@ func ListConfigTargets(c *gin.Context) {
 	kind := c.Request.URL.Query().Get("kind")
 	config := c.Request.URL.Query().Get("config")
 
-	limit, page, err := getPaginationParams(c)
+	limit, page, err := getPaginationParamFromURLQuery(c)
 	if err != nil {
 		logrus.Errorf("invalid pagination parameters: %s", err)
 		c.JSON(http.StatusBadRequest, DefaultResponseModel{
