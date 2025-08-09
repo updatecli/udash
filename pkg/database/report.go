@@ -186,7 +186,7 @@ func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targe
 		)
 
 	default:
-		scm, err := GetSCM(ctx, scmID, "", "")
+		scm, _, err := GetSCM(ctx, scmID, "", "", 0, 1)
 		if err != nil {
 			logrus.Errorf("get scm data: %s", err)
 			return nil, 0, err
@@ -244,7 +244,7 @@ func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targe
 	}
 
 	// If limit and page are not set, we do not apply pagination.
-	if limit < totalCount {
+	if limit < totalCount && limit > 0 {
 		query.Apply(
 			sm.Limit(limit),
 			sm.Offset((page-1)*limit),
@@ -382,7 +382,7 @@ func InsertReport(ctx context.Context, report reports.Report) (string, error) {
 			url := target.Scm.URL
 			branch := target.Scm.Branch.Target
 
-			ids, err := GetSCM(ctx, "", url, branch)
+			ids, _, err := GetSCM(ctx, "", url, branch, 0, 1)
 			if err != nil {
 				logrus.Errorf("query failed: %s", err)
 				return "", err

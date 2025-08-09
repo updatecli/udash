@@ -14,24 +14,24 @@ import (
 type SourceConfigResponse struct {
 	// Configs is a list of configuration sources.
 	Configs []model.ConfigSource `json:"configs"`
-	// TotalCounts is the total number of sources for pagination.
-	TotalCounts int `json:"total_count"`
+	// TotalCount is the total number of sources for pagination.
+	TotalCount int `json:"total_count"`
 }
 
 // ConditionConfigResponse represents a response containing configuration conditions.
 type ConditionConfigResponse struct {
 	// Configs is a list of configuration conditions.
 	Configs []model.ConfigCondition `json:"configs"`
-	// TotalCounts is the total number of conditions for pagination.
-	TotalCounts int `json:"total_count"`
+	// TotalCount is the total number of conditions for pagination.
+	TotalCount int `json:"total_count"`
 }
 
 // TargetConfigResponse represents a response containing configuration targets.
 type TargetConfigResponse struct {
 	// Configs is a list of configuration targets.
 	Configs []model.ConfigTarget `json:"configs"`
-	// TotalCounts is the total number of targets for pagination.
-	TotalCounts int `json:"total_count"`
+	// TotalCount is the total number of targets for pagination.
+	TotalCount int `json:"total_count"`
 }
 
 // ConfigKindResponse represents a response containing configuration kinds.
@@ -66,7 +66,7 @@ func ListConfigSources(c *gin.Context) {
 		return
 	}
 
-	rows, totalCounts, err := database.GetSourceConfigs(c, kind, id, config, limit, page)
+	rows, totalCount, err := database.GetSourceConfigs(c, kind, id, config, limit, page)
 	if err != nil {
 		logrus.Errorf("searching for config source: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -76,8 +76,8 @@ func ListConfigSources(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, SourceConfigResponse{
-		Configs:     rows,
-		TotalCounts: totalCounts,
+		Configs:    rows,
+		TotalCount: totalCount,
 	})
 }
 
@@ -110,7 +110,7 @@ func SearchConfigSources(c *gin.Context) {
 		return
 	}
 
-	rows, totalCounts, err := database.GetSourceConfigs(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config), queryConfig.Limit, queryConfig.Page)
+	rows, totalCount, err := database.GetSourceConfigs(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config), queryConfig.Limit, queryConfig.Page)
 	if err != nil {
 		logrus.Errorf("searching for config source: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -120,8 +120,8 @@ func SearchConfigSources(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, SourceConfigResponse{
-		Configs:     rows,
-		TotalCounts: totalCounts,
+		Configs:    rows,
+		TotalCount: totalCount,
 	})
 }
 
@@ -211,7 +211,7 @@ func ListConfigConditions(c *gin.Context) {
 		return
 	}
 
-	rows, totalCounts, err := database.GetConditionConfigs(c, kind, id, config, limit, page)
+	rows, totalCount, err := database.GetConditionConfigs(c, kind, id, config, limit, page)
 	if err != nil {
 		logrus.Errorf("searching for config condition: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -220,8 +220,8 @@ func ListConfigConditions(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, ConditionConfigResponse{
-		Configs:     rows,
-		TotalCounts: totalCounts,
+		Configs:    rows,
+		TotalCount: totalCount,
 	})
 }
 
@@ -259,7 +259,7 @@ func SearchConfigConditions(c *gin.Context) {
 		return
 	}
 
-	configs, totalCounts, err := database.GetConditionConfigs(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config), queryConfig.Limit, queryConfig.Page)
+	configs, totalCount, err := database.GetConditionConfigs(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config), queryConfig.Limit, queryConfig.Page)
 	if err != nil {
 		logrus.Errorf("searching for config condition: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -268,8 +268,8 @@ func SearchConfigConditions(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, ConditionConfigResponse{
-		Configs:     configs,
-		TotalCounts: totalCounts,
+		Configs:    configs,
+		TotalCount: totalCount,
 	})
 }
 
@@ -323,7 +323,7 @@ func ListConfigTargets(c *gin.Context) {
 		return
 	}
 
-	rows, totalCounts, err := database.GetTargetConfigs(c, kind, id, config, limit, page)
+	rows, totalCount, err := database.GetTargetConfigs(c, kind, id, config, limit, page)
 	if err != nil {
 		logrus.Errorf("searching for config target: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -332,8 +332,8 @@ func ListConfigTargets(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, TargetConfigResponse{
-		Configs:     rows,
-		TotalCounts: totalCounts,
+		Configs:    rows,
+		TotalCount: totalCount,
 	})
 }
 
@@ -366,7 +366,7 @@ func SearchConfigTargets(c *gin.Context) {
 		return
 	}
 
-	configs, totalCounts, err := database.GetTargetConfigs(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config), queryConfig.Limit, queryConfig.Page)
+	configs, totalCount, err := database.GetTargetConfigs(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config), queryConfig.Limit, queryConfig.Page)
 	if err != nil {
 		logrus.Errorf("searching for config target: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -375,8 +375,8 @@ func SearchConfigTargets(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, TargetConfigResponse{
-		Configs:     configs,
-		TotalCounts: totalCounts,
+		Configs:    configs,
+		TotalCount: totalCount,
 	})
 }
 

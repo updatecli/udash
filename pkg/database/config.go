@@ -184,7 +184,7 @@ func GetSourceConfigs(ctx context.Context, kind, id, config string, limit, page 
 	}
 
 	// Get total count of results
-	totalCounts := 0
+	totalCount := 0
 	totalQuery := psql.Select(sm.From(query), sm.Columns("count(*)"))
 	totalQueryString, totalArgs, err := totalQuery.Build(ctx)
 	if err != nil {
@@ -193,12 +193,12 @@ func GetSourceConfigs(ctx context.Context, kind, id, config string, limit, page 
 	}
 
 	if err = DB.QueryRow(ctx, totalQueryString, totalArgs...).Scan(
-		&totalCounts,
+		&totalCount,
 	); err != nil {
 		logrus.Errorf("parsing total count result: %s", err)
 	}
 
-	if limit < totalCounts {
+	if limit < totalCount && limit > 0 {
 		query.Apply(
 			sm.Limit(limit),
 			sm.Offset((page-1)*limit),
@@ -240,7 +240,7 @@ func GetSourceConfigs(ctx context.Context, kind, id, config string, limit, page 
 		results = append(results, r)
 	}
 
-	return results, totalCounts, nil
+	return results, totalCount, nil
 }
 
 // GetConditionConfigs returns a list of resource configurations from the database.
@@ -271,7 +271,7 @@ func GetConditionConfigs(ctx context.Context, kind, id, config string, limit, pa
 		)
 	}
 
-	totalCounts := 0
+	totalCount := 0
 	totalQuery := psql.Select(sm.From(query), sm.Columns("count(*)"))
 	totalQueryString, totalArgs, err := totalQuery.Build(ctx)
 	if err != nil {
@@ -280,13 +280,13 @@ func GetConditionConfigs(ctx context.Context, kind, id, config string, limit, pa
 	}
 
 	if err = DB.QueryRow(ctx, totalQueryString, totalArgs...).Scan(
-		&totalCounts,
+		&totalCount,
 	); err != nil {
 		logrus.Errorf("parsing total count result: %s", err)
 	}
 
 	// Apply pagination if limit and page are set
-	if limit < totalCounts {
+	if limit < totalCount && limit > 0 {
 		query.Apply(
 			sm.Limit(limit),
 			sm.Offset((page-1)*limit),
@@ -331,7 +331,7 @@ func GetConditionConfigs(ctx context.Context, kind, id, config string, limit, pa
 		results = append(results, r)
 	}
 
-	return results, totalCounts, nil
+	return results, totalCount, nil
 }
 
 // GetTargetConfigs returns a list of resource configurations from the database.
@@ -362,7 +362,7 @@ func GetTargetConfigs(ctx context.Context, kind, id, config string, limit, page 
 		)
 	}
 
-	totalCounts := 0
+	totalCount := 0
 	totalQuery := psql.Select(sm.From(query), sm.Columns("count(*)"))
 	totalQueryString, totalArgs, err := totalQuery.Build(ctx)
 	if err != nil {
@@ -371,13 +371,13 @@ func GetTargetConfigs(ctx context.Context, kind, id, config string, limit, page 
 	}
 
 	if err = DB.QueryRow(ctx, totalQueryString, totalArgs...).Scan(
-		&totalCounts,
+		&totalCount,
 	); err != nil {
 		logrus.Errorf("parsing total count result: %s", err)
 	}
 
 	// Apply pagination if limit and page are set
-	if limit < totalCounts {
+	if limit < totalCount && limit > 0 {
 		query.Apply(
 			sm.Limit(limit),
 			sm.Offset((page-1)*limit),
@@ -420,5 +420,5 @@ func GetTargetConfigs(ctx context.Context, kind, id, config string, limit, page 
 		results = append(results, r)
 	}
 
-	return results, totalCounts, nil
+	return results, totalCount, nil
 }
