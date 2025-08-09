@@ -71,6 +71,18 @@ const docTemplate = `{
                         "description": "Configuration of the condition",
                         "name": "config",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Limit the number of reports returned, default is 100",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page number for pagination, default is 1",
+                        "name": "page",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -214,6 +226,18 @@ const docTemplate = `{
                         "description": "Configuration of the source",
                         "name": "config",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Limit the number of reports returned, default is 100",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page number for pagination, default is 1",
+                        "name": "page",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -322,6 +346,18 @@ const docTemplate = `{
                         "description": "Configuration of the target",
                         "name": "config",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Limit the number of reports returned, default is 100",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page number for pagination, default is 1",
+                        "name": "page",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -418,6 +454,18 @@ const docTemplate = `{
                         "description": "SCM ID",
                         "name": "scmid",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Limit the number of reports returned, default is 100",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page number for pagination, default is 1",
+                        "name": "page",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -476,6 +524,20 @@ const docTemplate = `{
                     "Pipeline Reports"
                 ],
                 "summary": "Search pipeline reports",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Limit the number of reports returned, default is 100",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page number for pagination, default is 1",
+                        "name": "page",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -596,7 +658,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/scms": {
+        "/api/pipeline/scms": {
             "get": {
                 "description": "List SCMs data from the database",
                 "tags": [
@@ -627,48 +689,17 @@ const docTemplate = `{
                         "description": "Return a summary of the SCMs",
                         "name": "summary",
                         "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/server.DefaultResponseModel"
-                        }
                     },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/server.DefaultResponseModel"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/scms/summary": {
-            "get": {
-                "description": "Find SCM Summary of all git repositories detected",
-                "tags": [
-                    "SCMs"
-                ],
-                "summary": "Find SCM Summary",
-                "parameters": [
                     {
                         "type": "string",
-                        "description": "ID of the SCM",
-                        "name": "scmid",
+                        "description": "Limit the number of reports returned, default is 100",
+                        "name": "limit",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "URL of the SCM",
-                        "name": "url",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Branch of the SCM",
-                        "name": "branch",
+                        "description": "Page number for pagination, default is 1",
+                        "name": "page",
                         "in": "query"
                     }
                 ],
@@ -676,7 +707,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/server.FindSCMSummaryResponse"
+                            "$ref": "#/definitions/server.DefaultResponseModel"
                         }
                     },
                     "500": {
@@ -1302,6 +1333,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/model.ConfigCondition"
                     }
+                },
+                "total_count": {
+                    "description": "TotalCount is the total number of conditions for pagination.",
+                    "type": "integer"
                 }
             }
         },
@@ -1338,17 +1373,6 @@ const docTemplate = `{
                 }
             }
         },
-        "server.FindSCMSummaryResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "$ref": "#/definitions/server.ScmBranchData"
-                    }
-                }
-            }
-        },
         "server.GetPipelineReportByIDResponse": {
             "type": "object",
             "properties": {
@@ -1374,32 +1398,9 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/database.SearchLatestReportData"
                     }
-                }
-            }
-        },
-        "server.ScmBranchData": {
-            "type": "object",
-            "additionalProperties": {
-                "$ref": "#/definitions/server.ScmSummaryData"
-            }
-        },
-        "server.ScmSummaryData": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "description": "ID is the unique identifier of the SCM.",
-                    "type": "string"
                 },
-                "total_result": {
-                    "description": "TotalResult is the total number of results for this SCM.",
+                "total_count": {
                     "type": "integer"
-                },
-                "total_result_by_type": {
-                    "description": "TotalResultByType is a map of result types and their counts.",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "integer"
-                    }
                 }
             }
         },
@@ -1412,6 +1413,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/model.ConfigSource"
                     }
+                },
+                "total_count": {
+                    "description": "TotalCount is the total number of sources for pagination.",
+                    "type": "integer"
                 }
             }
         },
@@ -1424,6 +1429,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/model.ConfigTarget"
                     }
+                },
+                "total_count": {
+                    "description": "TotalCount is the total number of targets for pagination.",
+                    "type": "integer"
                 }
             }
         },
