@@ -694,21 +694,21 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "dependsOn": {
-                    "description": "\"dependson\" allows to specify the order of execution of resources\nIt accepts a list of rules like \"(resourceType#)resourceId(:booleanOperator)\"\n\nThe resourceType is optional and can be one of \"condition\", \"source\" or \"target\"\nBy default the resourceType is the current resource type\n\nThe resourceId is the name of the resource to depend on\n\nThe booleanOperator is optional and can be \"AND\" or \"OR\"\n\nexamples:\ndependson:\n  - condition#myCondition:and\n  - source#mySource\n\nremarks:\n  The parameters \"sourceid\" and \"conditionsids\" affect the order of resource execution.\n  To avoid circular dependencies, the depended resource may need to remove any conditionids or set \"disablesourceinput to true\".",
+                    "description": "\"dependson\" allows to specify the order of execution of resources.\nIt accepts a list of rules like \"(resourceType#)resourceId(:booleanOperator)\".\n\nThe resourceType is optional and can be one of \"condition\", \"source\" or \"target\"\nBy default the resourceType is the current resource type\n\nThe resourceId is the name of the resource to depend on\n\nThe booleanOperator is optional and can be \"AND\" or \"OR\"\n\nexamples:\n   dependson:\n     * condition#myCondition:and\n     * source#mySource\n\nremarks:\n * The parameters \"sourceid\" and \"conditionsids\" affect the order of resource execution.\n * To avoid circular dependencies, the depended resource may need to remove any conditionids or set \"disablesourceinput to true\".",
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
                 },
                 "deprecatedDependsOn": {
-                    "description": "!deprecated, please use dependson",
+                    "description": "!deprecated, please use dependson\nDeprecatedDependsOn is kept for backward compatibility",
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
                 },
                 "deprecatedSCMID": {
-                    "description": "!deprecated, please use scmid",
+                    "description": "!deprecated, please use scmid\nDeprecatedSCMID is kept for backward compatibility",
                     "type": "string"
                 },
                 "deprecatedSourceID": {
@@ -1431,21 +1431,21 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "dependsOn": {
-                    "description": "\"dependson\" allows to specify the order of execution of resources\nIt accepts a list of rules like \"(resourceType#)resourceId(:booleanOperator)\"\n\nThe resourceType is optional and can be one of \"condition\", \"source\" or \"target\"\nBy default the resourceType is the current resource type\n\nThe resourceId is the name of the resource to depend on\n\nThe booleanOperator is optional and can be \"AND\" or \"OR\"\n\nexamples:\ndependson:\n  - condition#myCondition:and\n  - source#mySource\n\nremarks:\n  The parameters \"sourceid\" and \"conditionsids\" affect the order of resource execution.\n  To avoid circular dependencies, the depended resource may need to remove any conditionids or set \"disablesourceinput to true\".",
+                    "description": "\"dependson\" allows to specify the order of execution of resources.\nIt accepts a list of rules like \"(resourceType#)resourceId(:booleanOperator)\".\n\nThe resourceType is optional and can be one of \"condition\", \"source\" or \"target\"\nBy default the resourceType is the current resource type\n\nThe resourceId is the name of the resource to depend on\n\nThe booleanOperator is optional and can be \"AND\" or \"OR\"\n\nexamples:\n   dependson:\n     * condition#myCondition:and\n     * source#mySource\n\nremarks:\n * The parameters \"sourceid\" and \"conditionsids\" affect the order of resource execution.\n * To avoid circular dependencies, the depended resource may need to remove any conditionids or set \"disablesourceinput to true\".",
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
                 },
                 "deprecatedDependsOn": {
-                    "description": "!deprecated, please use dependson",
+                    "description": "!deprecated, please use dependson\nDeprecatedDependsOn is kept for backward compatibility",
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
                 },
                 "deprecatedSCMID": {
-                    "description": "!deprecated, please use scmid",
+                    "description": "!deprecated, please use scmid\nDeprecatedSCMID is kept for backward compatibility",
                     "type": "string"
                 },
                 "kind": {
@@ -1476,7 +1476,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "dependsOn": {
-                    "description": "\"dependson\" allows to specify the order of execution of resources\nIt accepts a list of rules like \"(resourceType#)resourceId(:booleanOperator)\"\n\nThe resourceType is optional and can be one of \"condition\", \"source\" or \"target\"\nBy default the resourceType is the current resource type\n\nThe resourceId is the name of the resource to depend on\n\nThe booleanOperator is optional and can be \"AND\" or \"OR\"\n\nexamples:\ndependson:\n  - condition#myCondition:and\n  - source#mySource\n\nremarks:\n  The parameters \"sourceid\" and \"conditionsids\" affect the order of resource execution.\n  To avoid circular dependencies, the depended resource may need to remove any conditionids or set \"disablesourceinput to true\".",
+                    "description": "\"dependson\" allows to specify the order of execution of resources.\nIt accepts a list of rules like \"(resourceType#)resourceId(:booleanOperator)\".\n\nThe resourceType is optional and can be one of \"condition\", \"source\" or \"target\"\nBy default the resourceType is the current resource type\n\nThe resourceId is the name of the resource to depend on\n\nThe booleanOperator is optional and can be \"AND\" or \"OR\"\n\nexamples:\n   dependson:\n     * condition#myCondition:and\n     * source#mySource\n\nremarks:\n * The parameters \"sourceid\" and \"conditionsids\" affect the order of resource execution.\n * To avoid circular dependencies, the depended resource may need to remove any conditionids or set \"disablesourceinput to true\".",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -1494,14 +1494,14 @@ const docTemplate = `{
                     }
                 },
                 "deprecatedDependsOn": {
-                    "description": "!deprecated, please use dependson",
+                    "description": "!deprecated, please use dependson\nDeprecatedDependsOn is kept for backward compatibility",
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
                 },
                 "deprecatedSCMID": {
-                    "description": "!deprecated, please use scmid",
+                    "description": "!deprecated, please use scmid\nDeprecatedSCMID is kept for backward compatibility",
                     "type": "string"
                 },
                 "deprecatedSourceID": {
