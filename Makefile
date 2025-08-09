@@ -25,6 +25,9 @@ build.all: ## Build updatecli for "release" (tag or release and all OS/arch comb
 clean: ## Clean go test cache
 	go clean -testcache
 
+test:
+	go test ./...
+
 .PHONY: release ## Create a new updatecli release including packages
 release: ## release.snapshot generate a snapshot release but do not published it (no tag, but all OS/arch combinations)
 	goreleaser --clean --timeout=2h
