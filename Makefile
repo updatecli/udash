@@ -11,6 +11,7 @@ app.build: ## Build application locally
 	go build -o bin/udash \
 		-ldflags='-w -s -X "github.com/updatecli/udash/pkg/version.BuildTime=$(shell date)" -X "github.com/updatecli/udash/pkg/version.GoVersion=$(shell go version)" -X "github.com/updatecli/udash/pkg/version.Version=42"'
 
+.PHONY: server.start
 server.start: app.build ## Start application locally
 	./bin/udash server start --debug
 
@@ -22,6 +23,7 @@ build: ## Build updatecli as a "dirty snapshot" (no tag, no release, but all OS/
 build.all: ## Build updatecli for "release" (tag or release and all OS/arch combinations)
 	goreleaser --clean --skip=publish,sign
 
+.PHONY: clean
 clean: ## Clean go test cache
 	go clean -testcache
 
@@ -51,7 +53,6 @@ db.delete: ## Delete development database
 .PHONY: help
 help: ## Show this Makefile's help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
-
 
 .PHONY: lint
 lint: ## Execute the Golang's linters on updatecli's source code

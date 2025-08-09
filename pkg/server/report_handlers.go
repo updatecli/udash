@@ -77,12 +77,15 @@ func DeletePipelineReport(c *gin.Context) {
 }
 
 type GetPipelineReportsResponse struct {
-	Data []database.SearchLatestReportData `json:"data"`
+	Data       []database.SearchLatestReportData `json:"data"`
+	TotalCount int                               `json:"total_count"`
 }
 
 // SearchPipelineReports returns all pipeline reports from the database using advanced filtering
 // @Summary Search pipeline reports
 // @Description Search pipeline reports in the database using advanced filtering
+// @Param limit query string false "Limit the number of reports returned, default is 100"
+// @Param page query string false "Page number for pagination, default is 1"
 // @Tags Pipeline Reports
 // @Accept json
 // @Produce json
@@ -105,6 +108,12 @@ func SearchPipelineReports(c *gin.Context) {
 		// TargetID is the ID of the target to filter reports by
 		// This is optional and can be used to filter reports by a specific target
 		TargetID string `json:"targetid"`
+		// Limit is the maximum number of reports to return
+		// This is optional and can be used to limit the number of reports returned
+		Limit int `json:"limit"`
+		// Page is the page number for pagination
+		// This is optional and can be used to paginate the results
+		Page int `json:"page"`
 	}
 
 	queryParams := queryData{}
@@ -117,9 +126,11 @@ func SearchPipelineReports(c *gin.Context) {
 		return
 	}
 
-	dataset, err := database.SearchLatestReport(
+	dataset, totalCount, err := database.SearchLatestReport(
 		c, queryParams.ScmID, queryParams.SourceID, queryParams.ConditionID,
-		queryParams.TargetID, database.ReportSearchOptions{Days: monitoringDurationDays})
+		queryParams.TargetID, database.ReportSearchOptions{Days: monitoringDurationDays},
+		queryParams.Limit, queryParams.Page,
+	)
 	if err != nil {
 		logrus.Errorf("searching for latest report: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -129,7 +140,8 @@ func SearchPipelineReports(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, GetPipelineReportsResponse{
-		Data: dataset,
+		Data:       dataset,
+		TotalCount: totalCount,
 	})
 }
 
@@ -138,6 +150,8 @@ func SearchPipelineReports(c *gin.Context) {
 // @Description List all pipeline reports from the database
 // @Tags Pipeline Reports
 // @Param scmid query string false "SCM ID"
+// @Param limit query string false "Limit the number of reports returned, default is 100"
+// @Param page query string false "Page number for pagination, default is 1"
 // @Success 200 {object} GetPipelineReportsResponse
 // @Failure 500 {object} DefaultResponseModel
 // @Router /api/pipeline/reports [get]
@@ -145,8 +159,21 @@ func ListPipelineReports(c *gin.Context) {
 	queryParams := c.Request.URL.Query()
 	scmID := queryParams.Get("scmid")
 
-	dataset, err := database.SearchLatestReport(c, scmID, "", "", "",
-		database.ReportSearchOptions{Days: monitoringDurationDays})
+	limit, page, err := getPaginationParamFromURLQuery(c)
+	if err != nil {
+		logrus.Errorf("getting pagination params: %s", err)
+		c.JSON(http.StatusBadRequest, DefaultResponseModel{
+			Err: "invalid pagination parameters",
+		})
+		return
+	}
+
+	dataset, totalCount, err := database.SearchLatestReport(
+		c, scmID, "", "", "",
+		database.ReportSearchOptions{Days: monitoringDurationDays},
+		limit,
+		page,
+	)
 
 	if err != nil {
 		logrus.Errorf("searching for latest report: %s", err)
@@ -157,7 +184,8 @@ func ListPipelineReports(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, GetPipelineReportsResponse{
-		Data: dataset,
+		Data:       dataset,
+		TotalCount: totalCount,
 	})
 }
 
