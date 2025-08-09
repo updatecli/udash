@@ -155,8 +155,8 @@ func GetConfigKind(ctx context.Context, resourceType string) ([]string, error) {
 	return results, nil
 }
 
-// GetConfigSource returns a list of resource configurations from the database.
-func GetConfigSource(ctx context.Context, kind, id, config string) ([]model.ConfigSource, error) {
+// GetSourceConfigs returns a list of resource configurations from the database.
+func GetSourceConfigs(ctx context.Context, kind, id, config string, limit, page int) ([]model.ConfigSource, int, error) {
 	table := configSourceTableName
 
 	// SELECT id, kind, created_at, updated_at, config FROM " + table
@@ -183,17 +183,39 @@ func GetConfigSource(ctx context.Context, kind, id, config string) ([]model.Conf
 		)
 	}
 
+	// Get total count of results
+	totalCount := 0
+	totalQuery := psql.Select(sm.From(query), sm.Columns("count(*)"))
+	totalQueryString, totalArgs, err := totalQuery.Build(ctx)
+	if err != nil {
+		logrus.Errorf("building total count query failed: %s\n\t%s", totalQueryString, err)
+		return nil, 0, err
+	}
+
+	if err = DB.QueryRow(ctx, totalQueryString, totalArgs...).Scan(
+		&totalCount,
+	); err != nil {
+		logrus.Errorf("parsing total count result: %s", err)
+	}
+
+	if limit < totalCount && limit > 0 {
+		query.Apply(
+			sm.Limit(limit),
+			sm.Offset((page-1)*limit),
+		)
+	}
+
 	queryString, args, err := query.Build(ctx)
 	if err != nil {
 		logrus.Errorf("building query failed: %s\n\t%s", queryString, err)
-		return nil, err
+		return nil, 0, err
 	}
 
 	rows, err := DB.Query(context.Background(), queryString, args...)
 
 	if err != nil {
 		logrus.Errorf("query failed: %q\n\t%s", queryString, err)
-		return nil, err
+		return nil, 0, err
 	}
 
 	results := []model.ConfigSource{}
@@ -206,7 +228,7 @@ func GetConfigSource(ctx context.Context, kind, id, config string) ([]model.Conf
 		err := rows.Scan(&r.ID, &r.Kind, &r.Created_at, &r.Updated_at, &config)
 		if err != nil {
 			logrus.Errorf("parsing Source result: %s", err)
-			return nil, err
+			return nil, 0, err
 		}
 
 		err = json.Unmarshal([]byte(config), &r.Config)
@@ -218,11 +240,11 @@ func GetConfigSource(ctx context.Context, kind, id, config string) ([]model.Conf
 		results = append(results, r)
 	}
 
-	return results, nil
+	return results, totalCount, nil
 }
 
-// GetConfigCondition returns a list of resource configurations from the database.
-func GetConfigCondition(ctx context.Context, kind, id, config string) ([]model.ConfigCondition, error) {
+// GetConditionConfigs returns a list of resource configurations from the database.
+func GetConditionConfigs(ctx context.Context, kind, id, config string, limit, page int) ([]model.ConfigCondition, int, error) {
 	table := configConditionTableName
 
 	// SELECT id, kind, created_at, updated_at, config FROM " + table
@@ -249,17 +271,39 @@ func GetConfigCondition(ctx context.Context, kind, id, config string) ([]model.C
 		)
 	}
 
+	totalCount := 0
+	totalQuery := psql.Select(sm.From(query), sm.Columns("count(*)"))
+	totalQueryString, totalArgs, err := totalQuery.Build(ctx)
+	if err != nil {
+		logrus.Errorf("building total count query failed: %s\n\t%s", totalQueryString, err)
+		return nil, 0, err
+	}
+
+	if err = DB.QueryRow(ctx, totalQueryString, totalArgs...).Scan(
+		&totalCount,
+	); err != nil {
+		logrus.Errorf("parsing total count result: %s", err)
+	}
+
+	// Apply pagination if limit and page are set
+	if limit < totalCount && limit > 0 {
+		query.Apply(
+			sm.Limit(limit),
+			sm.Offset((page-1)*limit),
+		)
+	}
+
 	queryString, args, err := query.Build(ctx)
 	if err != nil {
 		logrus.Errorf("building query failed: %s\n\t%s", queryString, err)
-		return nil, err
+		return nil, 0, err
 	}
 
 	rows, err := DB.Query(context.Background(), queryString, args...)
 
 	if err != nil {
 		logrus.Errorf("query failed: %q\n\t%s", queryString, err)
-		return nil, err
+		return nil, 0, err
 	}
 
 	results := []model.ConfigCondition{}
@@ -275,7 +319,7 @@ func GetConfigCondition(ctx context.Context, kind, id, config string) ([]model.C
 
 			logrus.Errorf("Query: %q\n\t%s", queryString, err)
 			logrus.Errorf("parsing  condition result: %s", err)
-			return nil, err
+			return nil, 0, err
 		}
 
 		err = json.Unmarshal([]byte(config), &r.Config)
@@ -287,11 +331,11 @@ func GetConfigCondition(ctx context.Context, kind, id, config string) ([]model.C
 		results = append(results, r)
 	}
 
-	return results, nil
+	return results, totalCount, nil
 }
 
-// GetConfigTarget returns a list of resource configurations from the database.
-func GetConfigTarget(ctx context.Context, kind, id, config string) ([]model.ConfigTarget, error) {
+// GetTargetConfigs returns a list of resource configurations from the database.
+func GetTargetConfigs(ctx context.Context, kind, id, config string, limit, page int) ([]model.ConfigTarget, int, error) {
 	table := configTargetTableName
 
 	// SELECT id, kind, created_at, updated_at, config FROM " + table
@@ -318,17 +362,39 @@ func GetConfigTarget(ctx context.Context, kind, id, config string) ([]model.Conf
 		)
 	}
 
+	totalCount := 0
+	totalQuery := psql.Select(sm.From(query), sm.Columns("count(*)"))
+	totalQueryString, totalArgs, err := totalQuery.Build(ctx)
+	if err != nil {
+		logrus.Errorf("building total count query failed: %s\n\t%s", totalQueryString, err)
+		return nil, 0, err
+	}
+
+	if err = DB.QueryRow(ctx, totalQueryString, totalArgs...).Scan(
+		&totalCount,
+	); err != nil {
+		logrus.Errorf("parsing total count result: %s", err)
+	}
+
+	// Apply pagination if limit and page are set
+	if limit < totalCount && limit > 0 {
+		query.Apply(
+			sm.Limit(limit),
+			sm.Offset((page-1)*limit),
+		)
+	}
+
 	queryString, args, err := query.Build(ctx)
 	if err != nil {
 		logrus.Errorf("building query failed: %s\n\t%s", queryString, err)
-		return nil, err
+		return nil, 0, err
 	}
 
 	rows, err := DB.Query(context.Background(), queryString, args...)
 
 	if err != nil {
 		logrus.Errorf("query failed: %q\n\t%s", queryString, err)
-		return nil, err
+		return nil, 0, err
 	}
 
 	results := []model.ConfigTarget{}
@@ -342,7 +408,7 @@ func GetConfigTarget(ctx context.Context, kind, id, config string) ([]model.Conf
 		if err != nil {
 			logrus.Errorf("Query: %q\n\t%s", queryString, err)
 			logrus.Errorf("parsing target result: %s", err)
-			return nil, err
+			return nil, 0, err
 		}
 
 		err = json.Unmarshal([]byte(config), &r.Config)
@@ -354,5 +420,5 @@ func GetConfigTarget(ctx context.Context, kind, id, config string) ([]model.Conf
 		results = append(results, r)
 	}
 
-	return results, nil
+	return results, totalCount, nil
 }

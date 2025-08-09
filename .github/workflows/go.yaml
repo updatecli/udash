@@ -37,6 +37,8 @@ jobs:
           install-only: true
       - name: Show GoReleaser version
         run: goreleaser --version
+      - name: Test
+        run: make test
       - name: Build
         run: make build
     # Codecov should only be updated if make test is executed

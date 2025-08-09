@@ -64,7 +64,8 @@ func TestEndpoints(t *testing.T) {
 	t.Run("GET /api/pipeline/scms", func(t *testing.T) {
 		resp := doGetRequest(t, srv, "/api/pipeline/scms")
 		assertJSONResponse(t, resp, map[string]any{
-			"scms": []any{},
+			"scms":        []any{},
+			"total_count": float64(0),
 		}, assert.Equal)
 
 		id, err := database.InsertSCM(context.TODO(), "https://example.com/testing.git", "main")
@@ -79,7 +80,36 @@ func TestEndpoints(t *testing.T) {
 				"ID":     id,
 				"URL":    "https://example.com/testing.git",
 			},
-		}, removeFieldsAsserter("scms", "Created_at", "Updated_at"))
+		}, removeFieldsAsserter("scms", "total_count", "Created_at", "Updated_at"))
+	})
+
+	// Test pagination on scms
+	t.Run("GET /api/pipeline/scms?limit=1", func(t *testing.T) {
+		resp := doGetRequest(t, srv, "/api/pipeline/scms?limit=1")
+		assertJSONResponse(t, resp, map[string]any{
+			"scms":        []any{},
+			"total_count": float64(0),
+		}, assert.Equal)
+
+		v1ID, v2ID := "", ""
+		v1ID, err = database.InsertSCM(context.TODO(), "https://example.com/testing.git", "v1")
+		t.Cleanup(func() {
+			deleteSCM(t, v1ID)
+		})
+		v2ID, err = database.InsertSCM(context.TODO(), "https://example.com/testing.git", "v2")
+		t.Cleanup(func() {
+			deleteSCM(t, v2ID)
+		})
+
+		require.NoError(t, err)
+		resp = doGetRequest(t, srv, "/api/pipeline/scms?limit=1")
+		assertJSONResponse(t, resp, []map[string]any{
+			{
+				"Branch": "v1",
+				"ID":     v1ID,
+				"URL":    "https://example.com/testing.git",
+			},
+		}, removeFieldsAsserter("scms", "total_count", "Created_at", "Updated_at"))
 	})
 
 	// TODO: Test query parameters:
@@ -88,7 +118,8 @@ func TestEndpoints(t *testing.T) {
 		t.Run("with no reports", func(t *testing.T) {
 			resp := doGetRequest(t, srv, "/api/pipeline/reports")
 			assertJSONResponse(t, resp, map[string]any{
-				"data": []any{},
+				"data":        []any{},
+				"total_count": float64(0),
 			}, assert.Equal)
 		})
 
@@ -110,6 +141,63 @@ func TestEndpoints(t *testing.T) {
 			assertJSONResponse(t, resp, []map[string]any{
 				{
 					"ID":     reportID,
+					"Name":   "ci: bump Venom version",
+					"Result": "✔",
+					"Report": map[string]any{
+						"Name":       "ci: bump Venom version",
+						"Err":        "",
+						"Result":     "✔",
+						"ID":         "1de1797bbc925e08e473178425b11eb16fc547291f4b45274da24c2b00e2afc3",
+						"PipelineID": "venom",
+						"Actions": map[string]any{
+							"default": map[string]any{
+								"id": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+							},
+						},
+						"Sources":    nil,
+						"Conditions": nil,
+						"Targets":    nil,
+						"ReportURL":  "",
+					},
+					"FilteredResourceID": "",
+				},
+			}, removeFieldsAsserter("data", "CreatedAt", "UpdatedAt"))
+		})
+	})
+
+	t.Run("GET /api/pipeline/reports?limit=1", func(t *testing.T) {
+		t.Run("with two reports", func(t *testing.T) {
+			report2ID := ""
+			_, err = database.InsertReport(context.TODO(), reports.Report{
+				Name:       "ci: bump Venom version",
+				Result:     "✔",
+				ID:         "1de1797bbc925e08e473178425b11eb16fc547291f4b45274da24c2b00e2afc3",
+				PipelineID: "venom",
+				Actions: map[string]*reports.Action{
+					"default": {
+						ID: "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+					},
+				},
+			})
+			require.NoError(t, err)
+
+			report2ID, err = database.InsertReport(context.TODO(), reports.Report{
+				Name:       "ci: bump Venom version",
+				Result:     "✔",
+				ID:         "1de1797bbc925e08e473178425b11eb16fc547291f4b45274da24c2b00e2afc3",
+				PipelineID: "venom",
+				Actions: map[string]*reports.Action{
+					"default": {
+						ID: "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+					},
+				},
+			})
+			require.NoError(t, err)
+
+			resp := doGetRequest(t, srv, "/api/pipeline/reports?limit=1")
+			assertJSONResponse(t, resp, []map[string]any{
+				{
+					"ID":     report2ID,
 					"Name":   "ci: bump Venom version",
 					"Result": "✔",
 					"Report": map[string]any{
@@ -225,7 +313,8 @@ func TestEndpoints(t *testing.T) {
 			resp := doGetRequest(t, srv, "/api/pipeline/config/sources")
 
 			assertJSONResponse(t, resp, map[string]any{
-				"configs": []any{},
+				"configs":     []any{},
+				"total_count": float64(0),
 			}, assert.Equal)
 		})
 
@@ -281,7 +370,8 @@ func TestEndpoints(t *testing.T) {
 				resp := doGetRequest(t, srv, "/api/pipeline/config/sources?kind=test")
 
 				assertJSONResponse(t, resp, map[string]any{
-					"configs": []any{},
+					"configs":     []any{},
+					"total_count": float64(0),
 				}, assert.Equal)
 			})
 			t.Run("with sources matching kind", func(t *testing.T) {

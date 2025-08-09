@@ -1,8 +1,6 @@
 package server
 
 import (
-	"context"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -12,9 +10,12 @@ import (
 	"github.com/updatecli/udash/pkg/model"
 )
 
+// ListSCMsResponse represents the response for the ListSCMs endpoint.
 type ListSCMsResponse struct {
 	// SCMs is a list of SCMs.
 	SCMs []model.SCM `json:"scms"`
+	// TotalCount is the total number of SCMs matching the query.
+	TotalCount int `json:"total_count"`
 }
 
 // ListSCMs returns a list of SCMs from the database.
@@ -25,16 +26,27 @@ type ListSCMsResponse struct {
 // @Param url query string false "URL of the SCM"
 // @Param branch query string false "Branch of the SCM"
 // @Param summary query bool false "Return a summary of the SCMs"
+// @Param limit query string false "Limit the number of reports returned, default is 100"
+// @Param page query string false "Page number for pagination, default is 1"
 // @Success 200 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/scms [get]
+// @Router /api/pipeline/scms [get]
 func ListSCMs(c *gin.Context) {
 	scmid := c.Request.URL.Query().Get("scmid")
 	url := c.Request.URL.Query().Get("url")
 	branch := c.Request.URL.Query().Get("branch")
 	summary := c.Request.URL.Query().Get("summary")
 
-	rows, err := database.GetSCM(c, scmid, url, branch)
+	limit, page, err := getPaginationParamFromURLQuery(c)
+	if err != nil {
+		logrus.Errorf("getting pagination params: %s", err)
+		c.JSON(http.StatusBadRequest, DefaultResponseModel{
+			Err: "invalid pagination parameters",
+		})
+		return
+	}
+
+	rows, totalCount, err := database.GetSCM(c, scmid, url, branch, limit, page)
 	if err != nil {
 		logrus.Errorf("searching for scms: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -45,136 +57,42 @@ func ListSCMs(c *gin.Context) {
 	}
 
 	if strings.ToUpper(summary) == "TRUE" {
-		FindSCMSummary(c, rows)
+		findSCMSummary(c, rows, totalCount)
 		return
 	}
 
 	c.JSON(http.StatusOK, ListSCMsResponse{
-		SCMs: rows,
+		SCMs:       rows,
+		TotalCount: totalCount,
 	})
 }
 
-// ScmSummaryData represents the summary data for a single SCM.
-type ScmSummaryData struct {
-	// ID is the unique identifier of the SCM.
-	ID string `json:"id"`
-	// TotalResultByType is a map of result types and their counts.
-	TotalResultByType map[string]int `json:"total_result_by_type"`
-	// TotalResult is the total number of results for this SCM.
-	TotalResult int `json:"total_result"`
-}
-
-// ScmBranchData represents a map of branches and their summary data for a single SCM URL.
-type ScmBranchData map[string]ScmSummaryData
-
 // FindSCMSummaryResponse represents the response for the FindSCMSummary endpoint.
 type FindSCMSummaryResponse struct {
-	Data map[string]ScmBranchData `json:"data"`
+	TotalCount int                                  `json:"total_count"`
+	Data       map[string]database.SCMBranchDataset `json:"data"`
 }
 
-// FindSCMSummary returns a summary of all git repositories detected.
-// @Summary Find SCM Summary
-// @Description Find SCM Summary of all git repositories detected
-// @Tags SCMs
-// @Param scmid query string false "ID of the SCM"
-// @Param url query string false "URL of the SCM"
-// @Param branch query string false "Branch of the SCM"
-// @Success 200 {object} FindSCMSummaryResponse
-// @Failure 500 {object} DefaultResponseModel
-// @Router /api/scms/summary [get]
-func FindSCMSummary(c *gin.Context, scmRows []model.SCM) {
+// findSCMSummary returns a summary of all git repositories detected.
+func findSCMSummary(c *gin.Context, scmRows []model.SCM, totalCount int) {
 
-	dataset := FindSCMSummaryResponse{}
+	var data map[string]database.SCMBranchDataset
 
-	query := ""
-	for _, row := range scmRows {
+	dataset, err := database.GetSCMSummary(c, scmRows, totalCount, monitoringDurationDays) // Assuming 30 days as the default monitoring duration
+	if err != nil {
+		logrus.Errorf("getting scm summary failed: %s", err)
+		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
+			Err: err.Error(),
+		})
+		return
+	}
 
-		scmID := row.ID
-		scmURL := row.URL
-		scmBranch := row.Branch
-
-		if scmBranch == "" || scmURL == "" {
-			logrus.Debugf("skipping scm %s, missing branch or url", row.ID)
-			continue
-		}
-
-		query = `
-WITH filtered_reports AS (
-	SELECT id, data, updated_at
-	FROM pipelineReports
-	WHERE 
-		( target_db_scm_ids && '{ %q }' ) AND 
-		( updated_at >  current_date - interval '%d day' )
-)
-SELECT DISTINCT ON (data ->> 'ID')
-	id,
-	(data ->> 'Result')
-
-FROM filtered_reports
-ORDER BY (data ->> 'ID'), updated_at DESC;
-`
-
-		query = fmt.Sprintf(query, scmID, monitoringDurationDays)
-
-		rows, err := database.DB.Query(context.Background(), query)
-		if err != nil {
-			logrus.Errorf("query failed: %s", err)
-			c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-				Err: err.Error(),
-			})
-			return
-		}
-
-		if dataset.Data == nil {
-			dataset.Data = make(map[string]ScmBranchData)
-		}
-
-		if dataset.Data[scmURL] == nil {
-			dataset.Data[scmURL] = make(map[string]ScmSummaryData)
-		}
-
-		d := ScmSummaryData{
-			ID:                scmID.String(),
-			TotalResultByType: make(map[string]int),
-		}
-
-		dataset.Data[scmURL][scmBranch] = d
-
-		for rows.Next() {
-
-			id := ""
-			result := ""
-
-			err = rows.Scan(&id, &result)
-			if err != nil {
-				logrus.Errorf("parsing result: %s", err)
-				c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-					Err: err.Error(),
-				})
-				return
-			}
-
-			resultFound := false
-			for r := range dataset.Data[scmURL][scmBranch].TotalResultByType {
-				if r == result {
-					dataset.Data[scmURL][scmBranch].TotalResultByType[r]++
-					resultFound = true
-				}
-			}
-
-			if !resultFound {
-				dataset.Data[scmURL][scmBranch].TotalResultByType[result] = 1
-			}
-		}
-
-		scmData := dataset.Data[scmURL][scmBranch]
-		for r := range scmData.TotalResultByType {
-			scmData.TotalResult += scmData.TotalResultByType[r]
-		}
-		dataset.Data[scmURL][scmBranch] = scmData
+	if dataset != nil {
+		data = dataset.Data
 	}
 
 	c.JSON(http.StatusOK, FindSCMSummaryResponse{
-		Data: dataset.Data,
+		Data:       data,
+		TotalCount: totalCount,
 	})
 }

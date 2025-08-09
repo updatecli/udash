@@ -93,26 +93,27 @@ func newGinEngine(opts Options) *gin.Engine {
 	r.GET("/api/about", About)
 
 	api := r.Group("/api/pipeline")
+
 	if strings.ToLower(opts.Auth.Mode) == "oauth" {
 		logrus.Debugf("Using OAuth authentication mode: %s", opts.Auth.Mode)
 		api.Use(checkJWT())
 	}
 
-	r.GET("/api/pipeline/scms", ListSCMs)
-	r.GET("/api/pipeline/reports", ListPipelineReports)
-	r.POST("/api/pipeline/reports/search", SearchPipelineReports)
-	r.GET("/api/pipeline/reports/:id", GetPipelineReportByID)
-	r.GET("/api/pipeline/config/kinds", SearchConfigKinds)
-	r.GET("/api/pipeline/config/sources", ListConfigSources)
-	r.POST("/api/pipeline/config/sources/search", SearchConfigSources)
-	r.GET("/api/pipeline/config/conditions", ListConfigConditions)
-	r.POST("/api/pipeline/config/conditions/search", SearchConfigConditions)
-	r.GET("/api/pipeline/config/targets", ListConfigTargets)
-	r.POST("/api/pipeline/config/targets/search", SearchConfigTargets)
+	api.GET("/scms", ListSCMs)
+	api.GET("/reports", ListPipelineReports)
+	api.POST("/reports/search", SearchPipelineReports)
+	api.GET("/reports/:id", GetPipelineReportByID)
+	api.GET("/config/kinds", SearchConfigKinds)
+	api.GET("/config/sources", ListConfigSources)
+	api.POST("/config/sources/search", SearchConfigSources)
+	api.GET("/config/conditions", ListConfigConditions)
+	api.POST("/config/conditions/search", SearchConfigConditions)
+	api.GET("/config/targets", ListConfigTargets)
+	api.POST("/config/targets/search", SearchConfigTargets)
 	if !opts.DryRun {
-		r.POST("/api/pipeline/reports", CreatePipelineReport)
-		r.PUT("/api/pipeline/reports/:id", UpdatePipelineReport)
-		r.DELETE("/api/pipeline/reports/:id", DeletePipelineReport)
+		api.POST("/reports", CreatePipelineReport)
+		api.PUT("/reports/:id", UpdatePipelineReport)
+		api.DELETE("/reports/:id", DeletePipelineReport)
 	}
 
 	return r
