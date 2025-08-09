@@ -23,7 +23,7 @@ build: ## Build updatecli as a "dirty snapshot" (no tag, no release, but all OS/
 build.all: ## Build updatecli for "release" (tag or release and all OS/arch combinations)
 	goreleaser --clean --skip=publish,sign
 
-.PHONY
+.PHONY: clean
 clean: ## Clean go test cache
 	go clean -testcache
 
