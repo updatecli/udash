@@ -17,6 +17,33 @@ Insight reuse pipeline report to provide a visualization per theme such as the s
 
 __Still work in progress__
 
+== Demo
+
+The best way to discover Udash is to try it yourself. There is a docker compose example available in the demo directory.
+
+Deploy Udash with the following steps:
+
+1. Make sure you have Docker and Docker Compose installed.
+2. Run `docker compose up -d` in the directory `demo`.
+3. Configure your browser to access Udash at `http://localhost:8080`.
+4. Run `updatecli udash login "http://localhost" --experimental` to configure Updatecli to upload reports to Udash.
+5. Then you can run any updatecli command (apply/diff) to start publishing reports to Udash
+
+INFO: You may have to run `docker compose restart server` if the postgresql database
+ wasn't ready in time to receive connections when the Udash server started.
+
+Don't worry if you don't have any Updatecli manifest yet, you can still try the demo by using the Updatecli policies used by this Git repository.
+For that you need Updatecli and GitHub access token to interact with the GitHub API.
+
+You can run the following commands to configure Updatecli to use the policies defined in this repository:
+
+1. `export GITHUB_TOKEN=<your-github-token>`
+2. `export GITHUB_ACTOR=<your-github-username>`
+3. `docker login ghcr.io` to authenticate on the GitHub Container Registry for pullling Updatecli policies
+4. `updatecli compose diff --experimental` to execute Updatecli policies  defined in the file `updatecli-compose.yaml`
+
+
+
 == Architecture
 
 === Requirements
