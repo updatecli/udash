@@ -1,0 +1,72 @@
+## How to run this example
+#
+# 1. Make sure you have Docker and Docker Compose installed.
+# 2. Run `docker compose up -d` in the directory containing this file.
+# 3. Configure your browser to access the Updatecli dashboard at `http://localhost:8080`.
+# 4. Run `updatecli udash login "http://localhost" --experimental`
+# 5. Run any updatecli command to publish reports to Udash
+#
+# INFO: You may have to run `docker compose restart server` if the postgresql database
+#  wasn't ready to receive connection
+# 
+# For example from the root of this repository, you can run:
+# 1. `export GITHUB_TOKEN=<your-github-token>`
+# 2. `export GITHUB_ACTOR=<your-github-username>`
+# 3. `docker login ghcr.io` to authenticate on the GitHub Container Registry for pullling Updatecli policies
+# 4. `updatecli compose diff --experimental` to execute Updatecli policies  defined in the file `updatecli-compose.yaml`
+
+version: '3'
+services:
+  db:
+    image: postgres:17@sha256:8d3be35b184e70d81e54cbcbd3df3c0b47f37d06482c0dd1c140db5dbcc6a808
+    restart: always
+    environment:
+      - POSTGRES_USER=udash
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=udash
+    ports:
+      - 5432
+
+  server:
+    image: ghcr.io/updatecli/udash:v0.10.0
+    command: server start
+    environment:
+      - GIN_MODE=release
+    volumes:
+      - "./udash/config.yaml:/home/udash/.udash/config.yaml"
+    expose:
+      - 8080
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik-server.service=server"
+      - "traefik.http.services.server.loadbalancer.server.port=8080"
+      - "traefik.http.routers.traefik-server.rule=PathPrefix(`/api/`)"
+
+  front:
+    image: ghcr.io/updatecli/udash-front:v0.10.1
+    expose:
+      - 80
+    environment:
+      - VUE_APP_AUTH_ENABLED=false
+    volumes:
+      - "./udash-front/config.js:/usr/share/nginx/html/config.js"
+      - "./udash-front/config.json:/usr/share/nginx/html/config.json"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.front.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.front.service=front"
+      - "traefik.http.services.front.loadbalancer.server.port=80"
+
+  traefik:
+    image: "traefik:v3.0"
+    container_name: "traefik"
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"

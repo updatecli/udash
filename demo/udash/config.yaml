@@ -1,0 +1,10 @@
+server:
+  auth:
+    mode: "none"
+  # mode: "oauth"
+  # issuer: "oauth2 provider"
+  # audience: "http://udash.localhost"
+
+database:
+  migrationdisabled: false
+  uri: postgres://udash:password@db:5432/udash?sslmode=disable
