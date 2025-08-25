@@ -77,25 +77,13 @@ func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targe
 	queryString := ""
 	var args []any
 
-	filteredReportsQuery := psql.Select(
+	query := psql.Select(
 		sm.From("pipelineReports"),
-		sm.Columns("id", "data", "config_source_ids", "config_condition_ids", "config_target_ids", "target_db_scm_ids", "created_at", "updated_at"),
+		sm.Columns("id", "data", "created_at", "updated_at"),
+		sm.OrderBy(psql.Quote("updated_at")).Desc(),
 		sm.Where(
 			psql.Raw(fmt.Sprintf("updated_at > current_date - interval '%d day'", options.Days)),
 		),
-	)
-
-	query := psql.Select(
-		sm.Distinct(
-			"data -> 'ID'",
-			"target_db_scm_ids",
-		),
-		sm.With("filtered_reports").As(filteredReportsQuery),
-		sm.Columns("id", "data", "created_at", "updated_at"),
-		sm.From("filtered_reports"),
-		sm.OrderBy("data -> 'ID'"),
-		sm.OrderBy("target_db_scm_ids"),
-		sm.OrderBy(psql.Quote("updated_at")).Desc(),
 	)
 
 	if sourceID != "" {
@@ -104,13 +92,10 @@ func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targe
 			return nil, 0, fmt.Errorf("parsing sourceID: %w", err)
 		}
 
-		filteredReportsQuery.Apply(
+		query.Apply(
 			sm.Where(
 				psql.Raw(`config_source_ids \? ?`, sourceID),
 			),
-		)
-
-		query.Apply(
 			sm.Columns("config_source_ids"),
 		)
 	}
@@ -121,14 +106,11 @@ func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targe
 			return nil, 0, fmt.Errorf("parsing conditionID: %w", err)
 		}
 
-		filteredReportsQuery.Apply(
+		query.Apply(
+			sm.Columns("config_condition_ids"),
 			sm.Where(
 				psql.Raw(`config_condition_ids \? ?`, conditionID),
 			),
-		)
-
-		query.Apply(
-			sm.Columns("config_condition_ids"),
 		)
 	}
 
@@ -138,13 +120,11 @@ func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targe
 			return nil, 0, fmt.Errorf("parsing targetID: %w", err)
 		}
 
-		filteredReportsQuery.Apply(
+		query.Apply(
+			sm.Columns("config_target_ids"),
 			sm.Where(
 				psql.Raw(`config_target_ids \? ?`, targetID),
 			),
-		)
-		query.Apply(
-			sm.Columns("config_target_ids"),
 		)
 	}
 
@@ -176,7 +156,7 @@ func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targe
 		// FROM filtered_reports
 		// ORDER BY (data ->> 'Name'), updated_at DESC;`
 
-		filteredReportsQuery.Apply(
+		query.Apply(
 			sm.Where(
 				psql.Or(
 					psql.Quote("cardinality(target_db_scm_ids) = 0"),
@@ -213,7 +193,7 @@ func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targe
 			// FROM filtered_reports
 			// ORDER BY (data ->> 'Name'), updated_at DESC;
 
-			filteredReportsQuery.Apply(
+			query.Apply(
 				sm.Where(
 					psql.Raw(`target_db_scm_ids && ?`, fmt.Sprintf("{%s}", scm[0].ID.String())),
 				),
