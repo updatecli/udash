@@ -146,6 +146,7 @@ func TestEndpoints(t *testing.T) {
 					"Report": map[string]any{
 						"Name":       "ci: bump Venom version",
 						"Err":        "",
+						"Graph":      "",
 						"Result":     "✔",
 						"ID":         "1de1797bbc925e08e473178425b11eb16fc547291f4b45274da24c2b00e2afc3",
 						"PipelineID": "venom",
@@ -203,6 +204,7 @@ func TestEndpoints(t *testing.T) {
 					"Report": map[string]any{
 						"Name":       "ci: bump Venom version",
 						"Err":        "",
+						"Graph":      "",
 						"Result":     "✔",
 						"ID":         "1de1797bbc925e08e473178425b11eb16fc547291f4b45274da24c2b00e2afc3",
 						"PipelineID": "venom",
@@ -246,7 +248,7 @@ func TestEndpoints(t *testing.T) {
 			assertJSONResponse(t, resp, map[string]any{
 				"ID": reportID,
 				"Pipeline": map[string]any{
-					"Name": "ci: bump Venom version", "Err": "", "Result": "✔",
+					"Name": "ci: bump Venom version", "Err": "", "Graph": "", "Result": "✔",
 					"ID":         "1de1797bbc925e08e473178425b11eb16fc547291f4b45274da24c2b00e2afc3",
 					"PipelineID": "venom",
 					"Actions": map[string]any{
