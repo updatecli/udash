@@ -1057,6 +1057,9 @@ const docTemplate = `{
                 "err": {
                     "type": "string"
                 },
+                "graph": {
+                    "type": "string"
+                },
                 "id": {
                     "description": "ID defines the report ID",
                     "type": "string"
