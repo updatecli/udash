@@ -3,7 +3,7 @@ module github.com/updatecli/udash
 go 1.25.1
 
 require (
-	github.com/auth0/go-jwt-middleware/v2 v2.3.0
+	github.com/auth0/go-jwt-middleware/v2 v2.3.1
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-gonic/gin v1.10.1
 	github.com/golang-migrate/migrate/v4 v4.19.0
