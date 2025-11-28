@@ -1,10 +1,16 @@
 package server
 
 import (
+	"context"
+	"log/slog"
 	"net/http"
+	"os"
 	"strings"
 
 	_ "github.com/updatecli/udash/docs"
+	"github.com/zitadel/zitadel-go/v3/pkg/authorization"
+	"github.com/zitadel/zitadel-go/v3/pkg/authorization/oauth"
+	"github.com/zitadel/zitadel-go/v3/pkg/zitadel"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -92,29 +98,109 @@ func newGinEngine(opts Options) *gin.Engine {
 	r.GET("/api/ping", Ping)
 	r.GET("/api/about", About)
 
-	api := r.Group("/api/pipeline")
+	apiPipeline := r.Group("/api/pipeline")
 
-	if strings.ToLower(opts.Auth.Mode) == "oauth" {
+	switch strings.ToLower(opts.Auth.Mode) {
+	case "oauth":
 		logrus.Debugf("Using OAuth authentication mode: %s", opts.Auth.Mode)
-		api.Use(checkJWT())
+
+		switch opts.Auth.Visibility {
+		case VisibilityPublic:
+			logrus.Debugf("API visibility set to public, no authentication required for read endpoints")
+
+			apiPipeline.Use(func(c *gin.Context) {
+				switch c.Request.Method {
+				case http.MethodPost, http.MethodPatch, http.MethodDelete:
+					auth := checkJWT()
+					auth(c)
+					// If the auth middleware aborted the request, stop processing.
+					if c.IsAborted() {
+						return
+					}
+					return
+				default:
+					c.Next()
+				}
+			})
+		case VisibilityPrivate:
+			logrus.Debugf("API visibility set to private, authentication required for all endpoints")
+			apiPipeline.Use(checkJWT())
+		}
+
+	case "zitadel":
+		logrus.Debugf("Using ZITADEL authentication mode: %s", opts.Auth.Mode)
+		ctx := context.Background()
+
+		authZ, err := authorization.New(ctx, zitadel.New(opts.Auth.Zitadel.Domain), oauth.DefaultAuthorization(opts.Auth.Zitadel.KeyFile))
+		if err != nil {
+			slog.Error("zitadel sdk could not initialize", "error", err)
+			os.Exit(1)
+		}
+
+		zitadelInterceptor := NewZitadelGin(authZ)
+
+		switch opts.Auth.Visibility {
+		case VisibilityPublic:
+			logrus.Debugf("API visibility set to public, no authentication required for read endpoints")
+			apiPipeline.Use(func(c *gin.Context) {
+				switch c.Request.Method {
+				case http.MethodPost, http.MethodPatch, http.MethodDelete:
+					var auth gin.HandlerFunc
+
+					switch opts.Auth.Zitadel.Role {
+					case "":
+						logrus.Debugf("Requiring role %q to access the API", opts.Auth.Zitadel.Role)
+						auth = zitadelInterceptor.RequireAuthorization(
+							authorization.WithRole(opts.Auth.Zitadel.Role))
+					default:
+						auth = zitadelInterceptor.RequireAuthorization()
+					}
+					auth(c)
+					// If the auth middleware aborted the request, stop processing.
+					if c.IsAborted() {
+						return
+					}
+					return
+				default:
+					c.Next()
+				}
+			})
+		case VisibilityPrivate:
+			logrus.Debugf("API visibility set to private, authentication required for all endpoints")
+			switch opts.Auth.Zitadel.Role {
+			case "":
+				logrus.Debugf("Requiring role %q to access the API", opts.Auth.Zitadel.Role)
+				apiPipeline.Use(zitadelInterceptor.RequireAuthorization(authorization.WithRole(opts.Auth.Zitadel.Role)))
+			default:
+				apiPipeline.Use(zitadelInterceptor.RequireAuthorization(authorization.WithRole(opts.Auth.Zitadel.Role)))
+			}
+		}
 	}
 
-	api.GET("/scms", ListSCMs)
-	api.GET("/reports", ListPipelineReports)
-	api.POST("/reports/search", SearchPipelineReports)
-	api.GET("/reports/:id", GetPipelineReportByID)
-	api.GET("/config/kinds", SearchConfigKinds)
-	api.GET("/config/sources", ListConfigSources)
-	api.POST("/config/sources/search", SearchConfigSources)
-	api.GET("/config/conditions", ListConfigConditions)
-	api.POST("/config/conditions/search", SearchConfigConditions)
-	api.GET("/config/targets", ListConfigTargets)
-	api.POST("/config/targets/search", SearchConfigTargets)
-	if !opts.DryRun {
-		api.POST("/reports", CreatePipelineReport)
-		api.PUT("/reports/:id", UpdatePipelineReport)
-		api.DELETE("/reports/:id", DeletePipelineReport)
+	apiPipeline.GET("/scms", ListSCMs)
+	apiPipeline.GET("/reports", ListPipelineReports)
+	apiPipeline.GET("/reports/:id", GetPipelineReportByID)
+	apiPipeline.GET("/config/kinds", SearchConfigKinds)
+	apiPipeline.GET("/config/sources", ListConfigSources)
+	apiPipeline.GET("/config/conditions", ListConfigConditions)
+	apiPipeline.GET("/config/targets", ListConfigTargets)
+
+	// Public endpoints when API visibility is set to public
+	if opts.Auth.Mode != "" && opts.Auth.Visibility == VisibilityPublic {
+		r.POST("/api/pipeline/reports/search", SearchPipelineReports)
+		r.POST("/api/pipeline/config/sources/search", SearchConfigSources)
+		r.POST("/api/pipeline/config/conditions/search", SearchConfigConditions)
+		r.POST("/api/pipeline/config/targets/search", SearchConfigTargets)
+	} else {
+		apiPipeline.POST("/reports/search", SearchPipelineReports)
+		apiPipeline.POST("/config/sources/search", SearchConfigSources)
+		apiPipeline.POST("/config/conditions/search", SearchConfigConditions)
+		apiPipeline.POST("/config/targets/search", SearchConfigTargets)
 	}
+
+	apiPipeline.POST("/reports", CreatePipelineReport)
+	apiPipeline.PUT("/reports/:id", UpdatePipelineReport)
+	apiPipeline.DELETE("/reports/:id", DeletePipelineReport)
 
 	return r
 }
