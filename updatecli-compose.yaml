@@ -29,7 +29,7 @@ policies:
       - updatecli/values.d/golang_patch.yaml
 
   - name: Update Dockerfilell update
-    policy: ghcr.io/updatecli/policies/autodiscovery/dockerfile:0.7.1
+    policy: ghcr.io/updatecli/policies/autodiscovery/dockerfile:0.8.0@sha256:f89474d48c884b5fba2350d412fb1cadcf31eb38c04e841d1fd6880caf521229
     values:
       - updatecli/values.d/scm.yaml
 
