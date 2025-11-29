@@ -39,7 +39,7 @@ policies:
       - updatecli/values.d/scm.yaml
 
   - name: Sync Updatecli values files from github.com/updatecli/updatecli
-    policy: ghcr.io/updatecli/policies/file:0.2.1@sha256:70497c09068ac243c01c8e0d21ec47d489f2bc136b7398ba719d8ab01d20f022
+    policy: ghcr.io/updatecli/policies/file:0.3.0@sha256:ec1e121905855f2f236aa4dc23cf65f51d9bac9c94a5f6dae72a95a4734323b0
     values:
       - updatecli/values.d/scm.yaml
       - updatecli/values.d/sync.yaml
