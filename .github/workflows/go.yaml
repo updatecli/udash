@@ -10,16 +10,26 @@ on:
       - main
   schedule:
     # Run full test once a day
-    - cron: '0 0 * * *'
+    - cron: "0 0 * * *"
 jobs:
   build:
     name: Build
     runs-on: ubuntu-24.04
     steps:
       # https://github.com/actions/setup-go
+      - name: free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo swapoff -a
+          sudo rm -f /swapfile
+          sudo apt clean
+          sudo docker image prune --all --force
+          sudo docker builder prune -a
+          df -h
       - name: Set up Go
         uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
+          cache: false
           go-version: 1.25.4
         id: go
       - name: Check out code into the Go module directory

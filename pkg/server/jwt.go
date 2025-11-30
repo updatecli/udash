@@ -27,7 +27,7 @@ var (
 // that will check the validity of our JWT.
 func checkJWT() gin.HandlerFunc {
 
-	issuerURL, err := url.Parse("https://" + authOption.Issuer + "/")
+	issuerURL, err := url.Parse("https://" + authOption.Oauth.Issuer + "/")
 	if err != nil {
 		logrus.Errorf("Failed to parse the issuer url: %v", err)
 	}
@@ -38,7 +38,7 @@ func checkJWT() gin.HandlerFunc {
 		provider.KeyFunc,
 		validator.RS256,
 		issuerURL.String(),
-		authOption.Audience,
+		authOption.Oauth.Audience,
 		validator.WithCustomClaims(customClaims),
 		validator.WithAllowedClockSkew(30*time.Second),
 	)
