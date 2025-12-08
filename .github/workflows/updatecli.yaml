@@ -14,7 +14,7 @@ jobs:
       - name: "Checkout"
         uses: "actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8" # v6.0.1
       - name: "Setup updatecli"
-        uses: "updatecli/updatecli-action@bf0b1acd8bfc789a402af219a7035a81ea11d735" # v2
+        uses: "updatecli/updatecli-action@9372b1fa309308586e0459901709a00133ee2b8b" # v2
       - name: Set up Go
         uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
         with:
