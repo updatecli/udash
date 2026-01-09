@@ -23,6 +23,11 @@ jobs:
           go-version-file: "go.mod"
         id: go
 
+      - name: Install Swagger
+        run: "go install github.com/swaggo/swag/cmd/swag@$SWAGGER_VERSION"
+        env:
+          SWAGGER_VERSION: v1.16.6
+
       - name: "Run updatecli only on existing pipelines"
         run: updatecli compose apply --clean-git-branches=true --existing-only=true --experimental
         env:
