@@ -73,7 +73,7 @@ func SearchReport(ctx context.Context, id string) (*model.PipelineReport, error)
 }
 
 // SearchLatestReport searches the latest reports according some parameters.
-func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targetID string, options ReportSearchOptions, limit, page int) ([]SearchLatestReportData, int, error) {
+func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targetID string, options ReportSearchOptions, limit, page int, startTime, endTime string) ([]SearchLatestReportData, int, error) {
 	queryString := ""
 	var args []any
 
@@ -81,10 +81,16 @@ func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targe
 		sm.From("pipelineReports"),
 		sm.Columns("id", "data", "created_at", "updated_at"),
 		sm.OrderBy(psql.Quote("updated_at")).Desc(),
-		sm.Where(
-			psql.Raw(fmt.Sprintf("updated_at > current_date - interval '%d day'", options.Days)),
-		),
 	)
+
+	if err := applyUpdatedAtRangeFilter(DateRangeFilterParams{
+		Query:         &query,
+		DateRangeDays: options.Days,
+		StartTime:     startTime,
+		EndTime:       endTime,
+	}); err != nil {
+		return nil, 0, fmt.Errorf("applying updated_at range filter: %w", err)
+	}
 
 	if sourceID != "" {
 		// Ensure sourceID is a valid UUID
