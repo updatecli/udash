@@ -28,6 +28,8 @@ type ListSCMsResponse struct {
 // @Param summary query bool false "Return a summary of the SCMs"
 // @Param limit query string false "Limit the number of reports returned, default is 100"
 // @Param page query string false "Page number for pagination, default is 1"
+// @Param start_time query string false "Start time for filtering SCMs (RFC3339 format)"
+// @Param end_time query string false "End time for filtering SCMs (RFC3339 format)"
 // @Success 200 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
 // @Router /api/pipeline/scms [get]
@@ -36,6 +38,8 @@ func ListSCMs(c *gin.Context) {
 	url := c.Request.URL.Query().Get("url")
 	branch := c.Request.URL.Query().Get("branch")
 	summary := c.Request.URL.Query().Get("summary")
+	startTime := c.Request.URL.Query().Get("start_time")
+	endTime := c.Request.URL.Query().Get("end_time")
 
 	limit, page, err := getPaginationParamFromURLQuery(c)
 	if err != nil {
@@ -57,7 +61,7 @@ func ListSCMs(c *gin.Context) {
 	}
 
 	if strings.ToUpper(summary) == "TRUE" {
-		findSCMSummary(c, rows, totalCount)
+		findSCMSummary(c, rows, totalCount, startTime, endTime)
 		return
 	}
 
@@ -74,11 +78,11 @@ type FindSCMSummaryResponse struct {
 }
 
 // findSCMSummary returns a summary of all git repositories detected.
-func findSCMSummary(c *gin.Context, scmRows []model.SCM, totalCount int) {
+func findSCMSummary(c *gin.Context, scmRows []model.SCM, totalCount int, startTime, endTime string) {
 
 	var data map[string]database.SCMBranchDataset
 
-	dataset, err := database.GetSCMSummary(c, scmRows, totalCount, monitoringDurationDays) // Assuming 30 days as the default monitoring duration
+	dataset, err := database.GetSCMSummary(c, scmRows, totalCount, monitoringDurationDays, startTime, endTime) // Assuming 30 days as the default monitoring duration
 	if err != nil {
 		logrus.Errorf("getting scm summary failed: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{

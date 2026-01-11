@@ -145,7 +145,7 @@ type SCMDataset struct {
 }
 
 // GetSCMSummary returns a list of scms summary from the scm database table.
-func GetSCMSummary(ctx context.Context, scmRows []model.SCM, totalCount, monitoringDurationDays int) (*SCMDataset, error) {
+func GetSCMSummary(ctx context.Context, scmRows []model.SCM, totalCount, monitoringDurationDays int, startTime, endTime string) (*SCMDataset, error) {
 
 	dataset := SCMDataset{}
 
@@ -167,11 +167,17 @@ func GetSCMSummary(ctx context.Context, scmRows []model.SCM, totalCount, monitor
 					psql.Arg(fmt.Sprintf("{%s}", scmID)),
 				),
 			),
-			sm.Where(
-				psql.Raw(fmt.Sprintf("updated_at > current_date - interval '%d day'", monitoringDurationDays)),
-			),
 			sm.Columns("id", "data", "updated_at"),
 		)
+
+		if err := applyUpdatedAtRangeFilter(DateRangeFilterParams{
+			Query:         &filteredSCMsQuery,
+			DateRangeDays: monitoringDurationDays,
+			StartTime:     startTime,
+			EndTime:       endTime,
+		}); err != nil {
+			return nil, fmt.Errorf("applying updated_at range filter: %w", err)
+		}
 
 		query := psql.Select(
 			sm.Distinct(
