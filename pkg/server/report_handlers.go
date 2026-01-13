@@ -114,6 +114,14 @@ func SearchPipelineReports(c *gin.Context) {
 		// Page is the page number for pagination
 		// This is optional and can be used to paginate the results
 		Page int `json:"page"`
+		// StartTime is the start time for the time range filter
+		// This is optional and can be used to filter reports by a specific start time
+		// Time format is RFC3339: 2006-01-02T15:04:05Z07:00
+		StartTime string `json:"start_time"`
+		// EndTime is the end time for the time range filter
+		// This is optional and can be used to filter reports by a specific end time
+		// Time format is RFC3339: 2006-01-02T15:04:05Z07:00
+		EndTime string `json:"end_time"`
 	}
 
 	queryParams := queryData{}
@@ -130,6 +138,7 @@ func SearchPipelineReports(c *gin.Context) {
 		c, queryParams.ScmID, queryParams.SourceID, queryParams.ConditionID,
 		queryParams.TargetID, database.ReportSearchOptions{Days: monitoringDurationDays},
 		queryParams.Limit, queryParams.Page,
+		queryParams.StartTime, queryParams.EndTime,
 	)
 	if err != nil {
 		logrus.Errorf("searching for latest report: %s", err)
@@ -152,12 +161,18 @@ func SearchPipelineReports(c *gin.Context) {
 // @Param scmid query string false "SCM ID"
 // @Param limit query string false "Limit the number of reports returned, default is 100"
 // @Param page query string false "Page number for pagination, default is 1"
+// @Param start_time query string false "Start time for filtering reports (RFC3339 format)"
+// @Param end_time query string false "End time for filtering reports (RFC3339 format)"
+// @Accept json
+// @Produce json
 // @Success 200 {object} GetPipelineReportsResponse
 // @Failure 500 {object} DefaultResponseModel
 // @Router /api/pipeline/reports [get]
 func ListPipelineReports(c *gin.Context) {
 	queryParams := c.Request.URL.Query()
 	scmID := queryParams.Get("scmid")
+	startTime := queryParams.Get("start_time")
+	endTime := queryParams.Get("end_time")
 
 	limit, page, err := getPaginationParamFromURLQuery(c)
 	if err != nil {
@@ -173,6 +188,7 @@ func ListPipelineReports(c *gin.Context) {
 		database.ReportSearchOptions{Days: monitoringDurationDays},
 		limit,
 		page,
+		startTime, endTime,
 	)
 
 	if err != nil {
