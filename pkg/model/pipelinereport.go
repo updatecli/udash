@@ -11,11 +11,16 @@ import (
 type PipelineReport struct {
 	// ID is the unique identifier of the record in the database.
 	ID uuid.UUID `json:",omitempty"`
+	// Result represent the result of the pipeline execution.
+	Result string `json:",omitempty"`
 	// Pipeline represent the Updatecli pipeline report.
 	Pipeline reports.Report `json:",omitempty"`
-	// PipelineID represent the ID of the pipeline executed by Updatecli.
-	// different execution of the same pipeline will have the same PipelineID.
+	// ReportID represent the ID of the pipeline executed by Updatecli.
+	// different execution of the same pipeline will have the same ReportID.
 	// This value is coming from the pipeline report to improve the search of reports.
+	ReportID string `json:",omitempty"`
+	// PipelineID represent the unique identifier of the pipeline.
+	// Several reports can be associated to the same PipelineID.
 	PipelineID string `json:",omitempty"`
 	// TargetScmIDs is a list of unique identifiers of the scm configuration associated with the database.
 	TargetScmIDs []uuid.UUID `json:",omitempty"`

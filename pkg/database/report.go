@@ -72,14 +72,31 @@ func SearchReport(ctx context.Context, id string) (*model.PipelineReport, error)
 	return &report, nil
 }
 
-// SearchLatestReport searches the latest reports according some parameters.
-func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targetID string, options ReportSearchOptions, limit, page int, startTime, endTime string) ([]SearchLatestReportData, int, error) {
+// SearchLatestReports searches the latest reports according some parameters.
+func SearchLatestReports(ctx context.Context, scmID, sourceID, conditionID, targetID string, options ReportSearchOptions, limit, page int, startTime, endTime string, latest bool) ([]SearchLatestReportData, int, error) {
 	queryString := ""
 	var args []any
 
 	query := psql.Select(
 		sm.From("pipelineReports"),
-		sm.Columns("id", "data", "created_at", "updated_at"),
+		sm.Columns(
+			"data -> 'ID'",
+			"ID",
+			"data -> 'PipelineID'",
+			"data -> 'Result'",
+			"data",
+			"created_at",
+			"updated_at"),
+	)
+
+	if latest {
+		query.Apply(
+			sm.Distinct("data -> 'ID'"),
+			sm.OrderBy("data -> 'ID'"),
+		)
+	}
+
+	query.Apply(
 		sm.OrderBy(psql.Quote("updated_at")).Desc(),
 	)
 
@@ -255,13 +272,30 @@ func SearchLatestReport(ctx context.Context, scmID, sourceID, conditionID, targe
 		filteredResources := pgtype.Hstore{}
 
 		if sourceID != "" || conditionID != "" || targetID != "" {
-			err = rows.Scan(&p.ID, &p.Pipeline, &p.Created_at, &p.Updated_at, &filteredResources)
+			err = rows.Scan(
+				&p.ReportID,
+				&p.ID,
+				&p.PipelineID,
+				&p.Result,
+				&p.Pipeline,
+				&p.Created_at,
+				&p.Updated_at,
+				&filteredResources,
+			)
 			if err != nil {
 				return nil, 0, fmt.Errorf("parsing result: %s", err)
 			}
 
 		} else {
-			err = rows.Scan(&p.ID, &p.Pipeline, &p.Created_at, &p.Updated_at)
+			err = rows.Scan(
+				&p.ReportID,
+				&p.ID,
+				&p.PipelineID,
+				&p.Result,
+				&p.Pipeline,
+				&p.Created_at,
+				&p.Updated_at,
+			)
 			if err != nil {
 				return nil, 0, fmt.Errorf("parsing result: %s", err)
 			}
