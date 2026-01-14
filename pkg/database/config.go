@@ -183,6 +183,10 @@ func GetSourceConfigs(ctx context.Context, kind, id, config string, limit, page 
 		)
 	}
 
+	query.Apply(
+		sm.OrderBy(psql.Quote("updated_at")).Desc(),
+	)
+
 	// Get total count of results
 	totalCount := 0
 	totalQuery := psql.Select(sm.From(query), sm.Columns("count(*)"))
@@ -270,6 +274,10 @@ func GetConditionConfigs(ctx context.Context, kind, id, config string, limit, pa
 			sm.Where(psql.Raw("config @> ?", config)),
 		)
 	}
+
+	query.Apply(
+		sm.OrderBy(psql.Quote("updated_at")).Desc(),
+	)
 
 	totalCount := 0
 	totalQuery := psql.Select(sm.From(query), sm.Columns("count(*)"))
@@ -361,6 +369,10 @@ func GetTargetConfigs(ctx context.Context, kind, id, config string, limit, page 
 			sm.Where(psql.Raw("config @> ?", config)),
 		)
 	}
+
+	query.Apply(
+		sm.OrderBy(psql.Quote("updated_at")).Desc(),
+	)
 
 	totalCount := 0
 	totalQuery := psql.Select(sm.From(query), sm.Columns("count(*)"))
