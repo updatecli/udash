@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
@@ -122,6 +123,9 @@ func SearchPipelineReports(c *gin.Context) {
 		// This is optional and can be used to filter reports by a specific end time
 		// Time format is RFC3339: 2006-01-02T15:04:05Z07:00
 		EndTime string `json:"end_time"`
+		// Latest indicates whether to return only the latest report per pipeline ID
+		// This is optional and defaults to false
+		Latest bool `json:"latest"`
 	}
 
 	queryParams := queryData{}
@@ -134,11 +138,12 @@ func SearchPipelineReports(c *gin.Context) {
 		return
 	}
 
-	dataset, totalCount, err := database.SearchLatestReport(
+	dataset, totalCount, err := database.SearchLatestReports(
 		c, queryParams.ScmID, queryParams.SourceID, queryParams.ConditionID,
 		queryParams.TargetID, database.ReportSearchOptions{Days: monitoringDurationDays},
 		queryParams.Limit, queryParams.Page,
 		queryParams.StartTime, queryParams.EndTime,
+		queryParams.Latest,
 	)
 	if err != nil {
 		logrus.Errorf("searching for latest report: %s", err)
@@ -173,6 +178,12 @@ func ListPipelineReports(c *gin.Context) {
 	scmID := queryParams.Get("scmid")
 	startTime := queryParams.Get("start_time")
 	endTime := queryParams.Get("end_time")
+	lateststr := queryParams.Get("latest")
+
+	latest, err := strconv.ParseBool(lateststr)
+	if err != nil {
+		logrus.Warningf("ignoring latest param due to: %s", err)
+	}
 
 	limit, page, err := getPaginationParamFromURLQuery(c)
 	if err != nil {
@@ -183,12 +194,13 @@ func ListPipelineReports(c *gin.Context) {
 		return
 	}
 
-	dataset, totalCount, err := database.SearchLatestReport(
+	dataset, totalCount, err := database.SearchLatestReports(
 		c, scmID, "", "", "",
 		database.ReportSearchOptions{Days: monitoringDurationDays},
 		limit,
 		page,
 		startTime, endTime,
+		latest,
 	)
 
 	if err != nil {
