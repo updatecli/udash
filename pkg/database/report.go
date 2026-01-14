@@ -9,7 +9,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/sirupsen/logrus"
+	"github.com/stephenafamo/bob"
 	"github.com/stephenafamo/bob/dialect/psql"
+	"github.com/stephenafamo/bob/dialect/psql/dialect"
 	"github.com/stephenafamo/bob/dialect/psql/dm"
 	"github.com/stephenafamo/bob/dialect/psql/im"
 	"github.com/stephenafamo/bob/dialect/psql/sm"
@@ -110,45 +112,21 @@ func SearchLatestReports(ctx context.Context, scmID, sourceID, conditionID, targ
 	}
 
 	if sourceID != "" {
-		// Ensure sourceID is a valid UUID
-		if _, err := uuid.Parse(sourceID); err != nil {
-			return nil, 0, fmt.Errorf("parsing sourceID: %w", err)
+		if err := applyResourceConfigFilter(&query, sourceID, configSourceType); err != nil {
+			return nil, 0, err
 		}
-
-		query.Apply(
-			sm.Where(
-				psql.Raw(`config_source_ids \? ?`, sourceID),
-			),
-			sm.Columns("config_source_ids"),
-		)
 	}
 
 	if conditionID != "" {
-		// Ensure conditionID is a valid UUID
-		if _, err := uuid.Parse(conditionID); err != nil {
-			return nil, 0, fmt.Errorf("parsing conditionID: %w", err)
+		if err := applyResourceConfigFilter(&query, conditionID, configConditionType); err != nil {
+			return nil, 0, err
 		}
-
-		query.Apply(
-			sm.Columns("config_condition_ids"),
-			sm.Where(
-				psql.Raw(`config_condition_ids \? ?`, conditionID),
-			),
-		)
 	}
 
 	if targetID != "" {
-		// Ensure targetID is a valid UUID
-		if _, err := uuid.Parse(targetID); err != nil {
-			return nil, 0, fmt.Errorf("parsing targetID: %w", err)
+		if err := applyResourceConfigFilter(&query, targetID, configTargetType); err != nil {
+			return nil, 0, err
 		}
-
-		query.Apply(
-			sm.Columns("config_target_ids"),
-			sm.Where(
-				psql.Raw(`config_target_ids \? ?`, targetID),
-			),
-		)
 	}
 
 	switch scmID {
@@ -670,4 +648,21 @@ func SearchLatestReportByPipelineID(ctx context.Context, id string) (*model.Pipe
 	}
 
 	return &report, nil
+}
+
+// applyResourceConfigFilters applies resource config filters to the given query.
+func applyResourceConfigFilter(query *bob.BaseQuery[*dialect.SelectQuery], id, kind string) error {
+
+	// Ensure resource id is a valid UUID
+	if _, err := uuid.Parse(id); err != nil {
+		return fmt.Errorf("parsing %sID: %w", kind, err)
+	}
+
+	query.Apply(
+		sm.Where(
+			psql.Raw(fmt.Sprintf(`config_%s_ids \? ?`, kind), id),
+		),
+		sm.Columns(fmt.Sprintf("config_%s_ids", kind)),
+	)
+	return nil
 }
