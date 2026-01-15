@@ -1,3 +1,4 @@
+---
 name: Updatecli - Update
 on:
   workflow_dispatch:
@@ -13,7 +14,7 @@ jobs:
       - name: "Setup updatecli"
         uses: "updatecli/updatecli-action@b846825b298f5351abd80f94c4f9eab63a38a804" # v2.98.0
         with:
-          version: "v0.113.0-rc.1"
+          version: "v0.113.0"
       - name: "Set up Go"
         uses: "actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5" # v6.2.0
         with:
