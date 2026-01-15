@@ -348,8 +348,8 @@ func TestEndpoints(t *testing.T) {
 							"Spec":                nil,
 							"Transformers":        nil,
 						},
-						"ID":   config1,
-						"Kind": "testing-1",
+						"ID":   config2,
+						"Kind": "testing-2",
 					},
 					{
 						"Config": map[string]any{
@@ -362,8 +362,8 @@ func TestEndpoints(t *testing.T) {
 							"Spec":                nil,
 							"Transformers":        nil,
 						},
-						"ID":   config2,
-						"Kind": "testing-2",
+						"ID":   config1,
+						"Kind": "testing-1",
 					},
 				}, removeFieldsAsserter("configs", "Created_at", "Updated_at"))
 			})
