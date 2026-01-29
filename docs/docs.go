@@ -83,6 +83,12 @@ const docTemplate = `{
                         "description": "Page number for pagination, default is 1",
                         "name": "page",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "When true, returns only the Spec field from each Config object",
+                        "name": "spec_only",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -238,6 +244,12 @@ const docTemplate = `{
                         "description": "Page number for pagination, default is 1",
                         "name": "page",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "When true, returns only the Spec field from each Config object",
+                        "name": "spec_only",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -358,6 +370,12 @@ const docTemplate = `{
                         "description": "Page number for pagination, default is 1",
                         "name": "page",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "When true, returns only the Spec field from each Config object",
+                        "name": "spec_only",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -444,6 +462,12 @@ const docTemplate = `{
         "/api/pipeline/reports": {
             "get": {
                 "description": "List all pipeline reports from the database",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "Pipeline Reports"
                 ],
@@ -465,6 +489,18 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Page number for pagination, default is 1",
                         "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start time for filtering reports (RFC3339 format)",
+                        "name": "start_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End time for filtering reports (RFC3339 format)",
+                        "name": "end_time",
                         "in": "query"
                     }
                 ],
@@ -701,6 +737,18 @@ const docTemplate = `{
                         "description": "Page number for pagination, default is 1",
                         "name": "page",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start time for filtering SCMs (RFC3339 format)",
+                        "name": "start_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End time for filtering SCMs (RFC3339 format)",
+                        "name": "end_time",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -923,7 +971,15 @@ const docTemplate = `{
                     ]
                 },
                 "pipelineID": {
-                    "description": "PipelineID represent the ID of the pipeline executed by Updatecli.\ndifferent execution of the same pipeline will have the same PipelineID.\nThis value is coming from the pipeline report to improve the search of reports.",
+                    "description": "PipelineID represent the unique identifier of the pipeline.\nSeveral reports can be associated to the same PipelineID.",
+                    "type": "string"
+                },
+                "reportID": {
+                    "description": "ReportID represent the ID of the pipeline executed by Updatecli.\ndifferent execution of the same pipeline will have the same ReportID.\nThis value is coming from the pipeline report to improve the search of reports.",
+                    "type": "string"
+                },
+                "result": {
+                    "description": "Result represent the result of the pipeline execution.",
                     "type": "string"
                 },
                 "sourceConfigIDs": {
@@ -1563,11 +1619,35 @@ const docTemplate = `{
                     "description": "CaptureIndex defines which substring occurrence to retrieve. Note also that a value of ` + "`" + `0` + "`" + ` for ` + "`" + `captureIndex` + "`" + ` returns all submatches, and individual submatch indexes start at ` + "`" + `1` + "`" + `.",
                     "type": "integer"
                 },
+                "capturePattern": {
+                    "description": "Uses the match group(s) to generate the output using \\0, \\1, \\2, etc",
+                    "type": "string"
+                },
                 "deprecatedCaptureIndex": {
                     "type": "integer"
                 },
                 "pattern": {
                     "description": "Pattern defines regular expression to use for retrieving a submatch",
+                    "type": "string"
+                }
+            }
+        },
+        "transformer.JsonMatch": {
+            "type": "object",
+            "properties": {
+                "joinMultipleMatches": {
+                    "description": "If we find multiple matches, join them by this",
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "multipleMatchSelector": {
+                    "description": "If we find multiple matches, select the \"first\" or the \"last\"",
+                    "type": "string"
+                },
+                "noMatchResult": {
+                    "description": "If we don't find a match then return the following string or the input value",
                     "type": "string"
                 }
             }
@@ -1624,6 +1704,9 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "jsonMatch": {
+                    "$ref": "#/definitions/transformer.JsonMatch"
+                },
                 "quote": {
                     "description": "Quote add quote around the value",
                     "type": "boolean"
@@ -1644,7 +1727,7 @@ const docTemplate = `{
                     }
                 },
                 "semVerInc": {
-                    "description": "SemvVerInc specifies a  comma separated list semantic versioning component that needs to be upgraded.",
+                    "description": "SemvVerInc specifies a comma separated list semantic versioning component that needs to be upgraded.",
                     "type": "string"
                 },
                 "trimPrefix": {
