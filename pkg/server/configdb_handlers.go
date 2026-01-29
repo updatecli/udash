@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -56,7 +57,12 @@ func ListConfigSources(c *gin.Context) {
 	id := c.Request.URL.Query().Get("id")
 	kind := c.Request.URL.Query().Get("kind")
 	config := c.Request.URL.Query().Get("config")
-	specOnly := c.Request.URL.Query().Get("spec_only") == "false"
+
+	specOnlyStr := c.Request.URL.Query().Get("spec_only")
+	specOnly, err := strconv.ParseBool(specOnlyStr)
+	if err != nil {
+		logrus.Warningf("ignoring spec_only param due to: %s", err)
+	}
 
 	limit, page, err := getPaginationParamFromURLQuery(c)
 
@@ -204,7 +210,12 @@ func ListConfigConditions(c *gin.Context) {
 	id := c.Request.URL.Query().Get("id")
 	kind := c.Request.URL.Query().Get("kind")
 	config := c.Request.URL.Query().Get("config")
-	specOnly := c.Request.URL.Query().Get("spec_only") == "false"
+
+	specOnlyStr := c.Request.URL.Query().Get("spec_only")
+	specOnly, err := strconv.ParseBool(specOnlyStr)
+	if err != nil {
+		logrus.Warningf("ignoring spec_only param due to: %s", err)
+	}
 
 	limit, page, err := getPaginationParamFromURLQuery(c)
 	if err != nil {
@@ -319,7 +330,12 @@ func ListConfigTargets(c *gin.Context) {
 	id := c.Request.URL.Query().Get("id")
 	kind := c.Request.URL.Query().Get("kind")
 	config := c.Request.URL.Query().Get("config")
-	specOnly := c.Request.URL.Query().Get("spec_only") == "false"
+
+	specOnlyStr := c.Request.URL.Query().Get("spec_only")
+	specOnly, err := strconv.ParseBool(specOnlyStr)
+	if err != nil {
+		logrus.Warningf("ignoring spec_only param due to: %s", err)
+	}
 
 	limit, page, err := getPaginationParamFromURLQuery(c)
 	if err != nil {

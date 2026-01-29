@@ -137,7 +137,7 @@ func GetConfigKind(ctx context.Context, resourceType string) ([]string, error) {
 		return nil, err
 	}
 
-	rows, err := DB.Query(context.Background(), queryString, args...)
+	rows, err := DB.Query(ctx, queryString, args...)
 	if err != nil {
 		logrus.Errorf("query failed: %q\n\t%s", queryString, err)
 		return nil, err
@@ -231,7 +231,7 @@ func GetSourceConfigs(ctx context.Context, kind, id, config string, limit, page 
 		return nil, 0, err
 	}
 
-	rows, err := DB.Query(context.Background(), queryString, args...)
+	rows, err := DB.Query(ctx, queryString, args...)
 
 	if err != nil {
 		logrus.Errorf("query failed: %q\n\t%s", queryString, err)
@@ -337,7 +337,7 @@ func GetConditionConfigs(ctx context.Context, kind, id, config string, limit, pa
 		return nil, 0, err
 	}
 
-	rows, err := DB.Query(context.Background(), queryString, args...)
+	rows, err := DB.Query(ctx, queryString, args...)
 
 	if err != nil {
 		logrus.Errorf("query failed: %q\n\t%s", queryString, err)
@@ -446,7 +446,7 @@ func GetTargetConfigs(ctx context.Context, kind, id, config string, limit, page 
 		return nil, 0, err
 	}
 
-	rows, err := DB.Query(context.Background(), queryString, args...)
+	rows, err := DB.Query(ctx, queryString, args...)
 
 	if err != nil {
 		logrus.Errorf("query failed: %q\n\t%s", queryString, err)
