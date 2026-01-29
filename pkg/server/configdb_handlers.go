@@ -10,91 +10,6 @@ import (
 	"github.com/updatecli/udash/pkg/model"
 )
 
-// specOnlyConfig represents a Config object with only the Spec field
-type specOnlyConfig struct {
-	Spec interface{} `json:"spec"`
-}
-
-// transformToSpecOnly transforms a Config object to only include the Spec field
-func transformToSpecOnly(configJSON []byte) (json.RawMessage, error) {
-	var configMap map[string]interface{}
-	if err := json.Unmarshal(configJSON, &configMap); err != nil {
-		return nil, err
-	}
-
-	// Extract only the Spec field
-	specOnly := specOnlyConfig{
-		Spec: configMap["spec"],
-	}
-
-	result, err := json.Marshal(specOnly)
-	if err != nil {
-		return nil, err
-	}
-
-	return json.RawMessage(result), nil
-}
-
-// transformSourceConfigsToSpecOnly transforms a slice of ConfigSource to spec-only format
-func transformSourceConfigsToSpecOnly(configs []model.ConfigSource) ([]model.ConfigSource, error) {
-	result := make([]model.ConfigSource, len(configs))
-	for i, config := range configs {
-		result[i] = config
-		configJSON, err := json.Marshal(config.Config)
-		if err != nil {
-			return nil, err
-		}
-		specOnlyJSON, err := transformToSpecOnly(configJSON)
-		if err != nil {
-			return nil, err
-		}
-		if err := json.Unmarshal(specOnlyJSON, &result[i].Config); err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// transformConditionConfigsToSpecOnly transforms a slice of ConfigCondition to spec-only format
-func transformConditionConfigsToSpecOnly(configs []model.ConfigCondition) ([]model.ConfigCondition, error) {
-	result := make([]model.ConfigCondition, len(configs))
-	for i, config := range configs {
-		result[i] = config
-		configJSON, err := json.Marshal(config.Config)
-		if err != nil {
-			return nil, err
-		}
-		specOnlyJSON, err := transformToSpecOnly(configJSON)
-		if err != nil {
-			return nil, err
-		}
-		if err := json.Unmarshal(specOnlyJSON, &result[i].Config); err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// transformTargetConfigsToSpecOnly transforms a slice of ConfigTarget to spec-only format
-func transformTargetConfigsToSpecOnly(configs []model.ConfigTarget) ([]model.ConfigTarget, error) {
-	result := make([]model.ConfigTarget, len(configs))
-	for i, config := range configs {
-		result[i] = config
-		configJSON, err := json.Marshal(config.Config)
-		if err != nil {
-			return nil, err
-		}
-		specOnlyJSON, err := transformToSpecOnly(configJSON)
-		if err != nil {
-			return nil, err
-		}
-		if err := json.Unmarshal(specOnlyJSON, &result[i].Config); err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
 // SourceConfigResponse represents a response containing configuration sources.
 type SourceConfigResponse struct {
 	// Configs is a list of configuration sources.
@@ -141,7 +56,7 @@ func ListConfigSources(c *gin.Context) {
 	id := c.Request.URL.Query().Get("id")
 	kind := c.Request.URL.Query().Get("kind")
 	config := c.Request.URL.Query().Get("config")
-	specOnly := c.Request.URL.Query().Get("spec_only") == "true"
+	specOnly := c.Request.URL.Query().Get("spec_only") == "false"
 
 	limit, page, err := getPaginationParamFromURLQuery(c)
 
@@ -153,24 +68,13 @@ func ListConfigSources(c *gin.Context) {
 		return
 	}
 
-	rows, totalCount, err := database.GetSourceConfigs(c, kind, id, config, limit, page)
+	rows, totalCount, err := database.GetSourceConfigs(c, kind, id, config, limit, page, specOnly)
 	if err != nil {
 		logrus.Errorf("searching for config source: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
 			Err: err.Error(),
 		})
 		return
-	}
-
-	if specOnly {
-		rows, err = transformSourceConfigsToSpecOnly(rows)
-		if err != nil {
-			logrus.Errorf("transforming config sources to spec-only: %s", err)
-			c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-				Err: "failed to transform configs: " + err.Error(),
-			})
-			return
-		}
 	}
 
 	c.JSON(http.StatusOK, SourceConfigResponse{
@@ -208,7 +112,7 @@ func SearchConfigSources(c *gin.Context) {
 		return
 	}
 
-	rows, totalCount, err := database.GetSourceConfigs(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config), queryConfig.Limit, queryConfig.Page)
+	rows, totalCount, err := database.GetSourceConfigs(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config), queryConfig.Limit, queryConfig.Page, false)
 	if err != nil {
 		logrus.Errorf("searching for config source: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -300,7 +204,7 @@ func ListConfigConditions(c *gin.Context) {
 	id := c.Request.URL.Query().Get("id")
 	kind := c.Request.URL.Query().Get("kind")
 	config := c.Request.URL.Query().Get("config")
-	specOnly := c.Request.URL.Query().Get("spec_only") == "true"
+	specOnly := c.Request.URL.Query().Get("spec_only") == "false"
 
 	limit, page, err := getPaginationParamFromURLQuery(c)
 	if err != nil {
@@ -311,24 +215,13 @@ func ListConfigConditions(c *gin.Context) {
 		return
 	}
 
-	rows, totalCount, err := database.GetConditionConfigs(c, kind, id, config, limit, page)
+	rows, totalCount, err := database.GetConditionConfigs(c, kind, id, config, limit, page, specOnly)
 	if err != nil {
 		logrus.Errorf("searching for config condition: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
 			Message: err.Error(),
 		})
 		return
-	}
-
-	if specOnly {
-		rows, err = transformConditionConfigsToSpecOnly(rows)
-		if err != nil {
-			logrus.Errorf("transforming config conditions to spec-only: %s", err)
-			c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-				Err: "failed to transform configs: " + err.Error(),
-			})
-			return
-		}
 	}
 
 	c.JSON(http.StatusOK, ConditionConfigResponse{
@@ -371,7 +264,7 @@ func SearchConfigConditions(c *gin.Context) {
 		return
 	}
 
-	configs, totalCount, err := database.GetConditionConfigs(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config), queryConfig.Limit, queryConfig.Page)
+	configs, totalCount, err := database.GetConditionConfigs(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config), queryConfig.Limit, queryConfig.Page, false)
 	if err != nil {
 		logrus.Errorf("searching for config condition: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -426,7 +319,7 @@ func ListConfigTargets(c *gin.Context) {
 	id := c.Request.URL.Query().Get("id")
 	kind := c.Request.URL.Query().Get("kind")
 	config := c.Request.URL.Query().Get("config")
-	specOnly := c.Request.URL.Query().Get("spec_only") == "true"
+	specOnly := c.Request.URL.Query().Get("spec_only") == "false"
 
 	limit, page, err := getPaginationParamFromURLQuery(c)
 	if err != nil {
@@ -437,24 +330,13 @@ func ListConfigTargets(c *gin.Context) {
 		return
 	}
 
-	rows, totalCount, err := database.GetTargetConfigs(c, kind, id, config, limit, page)
+	rows, totalCount, err := database.GetTargetConfigs(c, kind, id, config, limit, page, specOnly)
 	if err != nil {
 		logrus.Errorf("searching for config target: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
 			Err: err.Error(),
 		})
 		return
-	}
-
-	if specOnly {
-		rows, err = transformTargetConfigsToSpecOnly(rows)
-		if err != nil {
-			logrus.Errorf("transforming config targets to spec-only: %s", err)
-			c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-				Err: "failed to transform configs: " + err.Error(),
-			})
-			return
-		}
 	}
 
 	c.JSON(http.StatusOK, TargetConfigResponse{
@@ -492,7 +374,7 @@ func SearchConfigTargets(c *gin.Context) {
 		return
 	}
 
-	configs, totalCount, err := database.GetTargetConfigs(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config), queryConfig.Limit, queryConfig.Page)
+	configs, totalCount, err := database.GetTargetConfigs(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config), queryConfig.Limit, queryConfig.Page, false)
 	if err != nil {
 		logrus.Errorf("searching for config target: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{

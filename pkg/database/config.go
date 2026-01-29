@@ -8,7 +8,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"github.com/stephenafamo/bob"
 	"github.com/stephenafamo/bob/dialect/psql"
+	"github.com/stephenafamo/bob/dialect/psql/dialect"
 	"github.com/stephenafamo/bob/dialect/psql/dm"
 	"github.com/stephenafamo/bob/dialect/psql/im"
 	"github.com/stephenafamo/bob/dialect/psql/sm"
@@ -156,40 +158,54 @@ func GetConfigKind(ctx context.Context, resourceType string) ([]string, error) {
 }
 
 // GetSourceConfigs returns a list of resource configurations from the database.
-func GetSourceConfigs(ctx context.Context, kind, id, config string, limit, page int) ([]model.ConfigSource, int, error) {
+// If specOnly is true, only the Spec field is extracted from the config JSONB column.
+func GetSourceConfigs(ctx context.Context, kind, id, config string, limit, page int, specOnly bool) ([]model.ConfigSource, int, error) {
 	table := configSourceTableName
 
-	// SELECT id, kind, created_at, updated_at, config FROM " + table
-	query := psql.Select(
-		sm.Columns("id", "kind", "created_at", "updated_at", "config"),
-		sm.From(table),
-	)
+	// When specOnly is true, use PostgreSQL JSONB to extract only the spec field
+	// jsonb_build_object('spec', config->'spec') creates a new JSONB object with only the spec field
+	var query *bob.BaseQuery[*dialect.SelectQuery]
+	if specOnly {
+		// SELECT id, kind, created_at, updated_at, jsonb_build_object('spec', config->'spec') as config FROM " + table
+		q := psql.Select(
+			sm.Columns("id", "kind", "created_at", "updated_at", "jsonb_build_object('spec', config->'spec') as config"),
+			sm.From(table),
+		)
+		query = &q
+	} else {
+		// SELECT id, kind, created_at, updated_at, config FROM " + table
+		q := psql.Select(
+			sm.Columns("id", "kind", "created_at", "updated_at", "config"),
+			sm.From(table),
+		)
+		query = &q
+	}
 
 	if id != "" {
-		query.Apply(
+		(*query).Apply(
 			sm.Where(psql.Quote("id").EQ(psql.Arg(id))),
 		)
 	}
 
 	if kind != "" {
-		query.Apply(
+		(*query).Apply(
 			sm.Where(psql.Quote("kind").EQ(psql.Arg(kind))),
 		)
 	}
 
 	if config != "" {
-		query.Apply(
+		(*query).Apply(
 			sm.Where(psql.Raw("config @> ?", config)),
 		)
 	}
 
-	query.Apply(
+	(*query).Apply(
 		sm.OrderBy(psql.Quote("updated_at")).Desc(),
 	)
 
 	// Get total count of results
 	totalCount := 0
-	totalQuery := psql.Select(sm.From(query), sm.Columns("count(*)"))
+	totalQuery := psql.Select(sm.From(*query), sm.Columns("count(*)"))
 	totalQueryString, totalArgs, err := totalQuery.Build(ctx)
 	if err != nil {
 		logrus.Errorf("building total count query failed: %s\n\t%s", totalQueryString, err)
@@ -203,13 +219,13 @@ func GetSourceConfigs(ctx context.Context, kind, id, config string, limit, page 
 	}
 
 	if limit < totalCount && limit > 0 {
-		query.Apply(
+		(*query).Apply(
 			sm.Limit(limit),
 			sm.Offset((page-1)*limit),
 		)
 	}
 
-	queryString, args, err := query.Build(ctx)
+	queryString, args, err := (*query).Build(ctx)
 	if err != nil {
 		logrus.Errorf("building query failed: %s\n\t%s", queryString, err)
 		return nil, 0, err
@@ -248,34 +264,48 @@ func GetSourceConfigs(ctx context.Context, kind, id, config string, limit, page 
 }
 
 // GetConditionConfigs returns a list of resource configurations from the database.
-func GetConditionConfigs(ctx context.Context, kind, id, config string, limit, page int) ([]model.ConfigCondition, int, error) {
+// If specOnly is true, only the Spec field is extracted from the config JSONB column.
+func GetConditionConfigs(ctx context.Context, kind, id, config string, limit, page int, specOnly bool) ([]model.ConfigCondition, int, error) {
 	table := configConditionTableName
 
-	// SELECT id, kind, created_at, updated_at, config FROM " + table
-	query := psql.Select(
-		sm.Columns("id", "kind", "created_at", "updated_at", "config"),
-		sm.From(table),
-	)
+	// When specOnly is true, use PostgreSQL JSONB to extract only the spec field
+	// jsonb_build_object('spec', config->'spec') creates a new JSONB object with only the spec field
+	var query *bob.BaseQuery[*dialect.SelectQuery]
+	if specOnly {
+		// SELECT id, kind, created_at, updated_at, jsonb_build_object('spec', config->'spec') as config FROM " + table
+		q := psql.Select(
+			sm.Columns("id", "kind", "created_at", "updated_at", "jsonb_build_object('spec', config->'spec') as config"),
+			sm.From(table),
+		)
+		query = &q
+	} else {
+		// SELECT id, kind, created_at, updated_at, config FROM " + table
+		q := psql.Select(
+			sm.Columns("id", "kind", "created_at", "updated_at", "config"),
+			sm.From(table),
+		)
+		query = &q
+	}
 
 	if id != "" {
-		query.Apply(
+		(*query).Apply(
 			sm.Where(psql.Quote("id").EQ(psql.Arg(id))),
 		)
 	}
 
 	if kind != "" {
-		query.Apply(
+		(*query).Apply(
 			sm.Where(psql.Quote("kind").EQ(psql.Arg(kind))),
 		)
 	}
 
 	if config != "" {
-		query.Apply(
+		(*query).Apply(
 			sm.Where(psql.Raw("config @> ?", config)),
 		)
 	}
 
-	query.Apply(
+	(*query).Apply(
 		sm.OrderBy(psql.Quote("updated_at")).Desc(),
 	)
 
@@ -295,13 +325,13 @@ func GetConditionConfigs(ctx context.Context, kind, id, config string, limit, pa
 
 	// Apply pagination if limit and page are set
 	if limit < totalCount && limit > 0 {
-		query.Apply(
+		(*query).Apply(
 			sm.Limit(limit),
 			sm.Offset((page-1)*limit),
 		)
 	}
 
-	queryString, args, err := query.Build(ctx)
+	queryString, args, err := (*query).Build(ctx)
 	if err != nil {
 		logrus.Errorf("building query failed: %s\n\t%s", queryString, err)
 		return nil, 0, err
@@ -343,34 +373,48 @@ func GetConditionConfigs(ctx context.Context, kind, id, config string, limit, pa
 }
 
 // GetTargetConfigs returns a list of resource configurations from the database.
-func GetTargetConfigs(ctx context.Context, kind, id, config string, limit, page int) ([]model.ConfigTarget, int, error) {
+// If specOnly is true, only the Spec field is extracted from the config JSONB column.
+func GetTargetConfigs(ctx context.Context, kind, id, config string, limit, page int, specOnly bool) ([]model.ConfigTarget, int, error) {
 	table := configTargetTableName
 
-	// SELECT id, kind, created_at, updated_at, config FROM " + table
-	query := psql.Select(
-		sm.Columns("id", "kind", "created_at", "updated_at", "config"),
-		sm.From(table),
-	)
+	// When specOnly is true, use PostgreSQL JSONB to extract only the spec field
+	// jsonb_build_object('spec', config->'spec') creates a new JSONB object with only the spec field
+	var query *bob.BaseQuery[*dialect.SelectQuery]
+	if specOnly {
+		// SELECT id, kind, created_at, updated_at, jsonb_build_object('spec', config->'spec') as config FROM " + table
+		q := psql.Select(
+			sm.Columns("id", "kind", "created_at", "updated_at", "jsonb_build_object('spec', config->'spec') as config"),
+			sm.From(table),
+		)
+		query = &q
+	} else {
+		// SELECT id, kind, created_at, updated_at, config FROM " + table
+		q := psql.Select(
+			sm.Columns("id", "kind", "created_at", "updated_at", "config"),
+			sm.From(table),
+		)
+		query = &q
+	}
 
 	if id != "" {
-		query.Apply(
+		(*query).Apply(
 			sm.Where(psql.Quote("id").EQ(psql.Arg(id))),
 		)
 	}
 
 	if kind != "" {
-		query.Apply(
+		(*query).Apply(
 			sm.Where(psql.Quote("kind").EQ(psql.Arg(kind))),
 		)
 	}
 
 	if config != "" {
-		query.Apply(
+		(*query).Apply(
 			sm.Where(psql.Raw("config @> ?", config)),
 		)
 	}
 
-	query.Apply(
+	(*query).Apply(
 		sm.OrderBy(psql.Quote("updated_at")).Desc(),
 	)
 
@@ -390,13 +434,13 @@ func GetTargetConfigs(ctx context.Context, kind, id, config string, limit, page 
 
 	// Apply pagination if limit and page are set
 	if limit < totalCount && limit > 0 {
-		query.Apply(
+		(*query).Apply(
 			sm.Limit(limit),
 			sm.Offset((page-1)*limit),
 		)
 	}
 
-	queryString, args, err := query.Build(ctx)
+	queryString, args, err := (*query).Build(ctx)
 	if err != nil {
 		logrus.Errorf("building query failed: %s\n\t%s", queryString, err)
 		return nil, 0, err
