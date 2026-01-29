@@ -170,9 +170,17 @@ definitions:
         description: Pipeline represent the Updatecli pipeline report.
       pipelineID:
         description: |-
-          PipelineID represent the ID of the pipeline executed by Updatecli.
-          different execution of the same pipeline will have the same PipelineID.
+          PipelineID represent the unique identifier of the pipeline.
+          Several reports can be associated to the same PipelineID.
+        type: string
+      reportID:
+        description: |-
+          ReportID represent the ID of the pipeline executed by Updatecli.
+          different execution of the same pipeline will have the same ReportID.
           This value is coming from the pipeline report to improve the search of reports.
+        type: string
+      result:
+        description: Result represent the result of the pipeline execution.
         type: string
       sourceConfigIDs:
         additionalProperties:
@@ -702,10 +710,29 @@ definitions:
           Note also that a value of `0` for `captureIndex` returns all submatches,
           and individual submatch indexes start at `1`.
         type: integer
+      capturePattern:
+        description: Uses the match group(s) to generate the output using \0, \1,
+          \2, etc
+        type: string
       deprecatedCaptureIndex:
         type: integer
       pattern:
         description: Pattern defines regular expression to use for retrieving a submatch
+        type: string
+    type: object
+  transformer.JsonMatch:
+    properties:
+      joinMultipleMatches:
+        description: If we find multiple matches, join them by this
+        type: string
+      key:
+        type: string
+      multipleMatchSelector:
+        description: If we find multiple matches, select the "first" or the "last"
+        type: string
+      noMatchResult:
+        description: If we don't find a match then return the following string or
+          the input value
         type: string
     type: object
   transformer.Replacer:
@@ -745,6 +772,8 @@ definitions:
         - $ref: '#/definitions/transformer.FindSubMatch'
         description: Find searches for a specific value if it exists then return the
           value using regular expression
+      jsonMatch:
+        $ref: '#/definitions/transformer.JsonMatch'
       quote:
         description: Quote add quote around the value
         type: boolean
@@ -758,7 +787,7 @@ definitions:
           $ref: '#/definitions/transformer.Replacer'
         type: array
       semVerInc:
-        description: SemvVerInc specifies a  comma separated list semantic versioning
+        description: SemvVerInc specifies a comma separated list semantic versioning
           component that needs to be upgraded.
         type: string
       trimPrefix:
@@ -838,6 +867,10 @@ paths:
         in: query
         name: page
         type: string
+      - description: When true, returns only the Spec field from each Config object
+        in: query
+        name: spec_only
+        type: boolean
       responses:
         "200":
           description: OK
@@ -940,6 +973,10 @@ paths:
         in: query
         name: page
         type: string
+      - description: When true, returns only the Spec field from each Config object
+        in: query
+        name: spec_only
+        type: boolean
       responses:
         "200":
           description: OK
@@ -1019,6 +1056,10 @@ paths:
         in: query
         name: page
         type: string
+      - description: When true, returns only the Spec field from each Config object
+        in: query
+        name: spec_only
+        type: boolean
       responses:
         "200":
           description: OK
@@ -1056,6 +1097,8 @@ paths:
       - Configuration Targets
   /api/pipeline/reports:
     get:
+      consumes:
+      - application/json
       description: List all pipeline reports from the database
       parameters:
       - description: SCM ID
@@ -1070,6 +1113,16 @@ paths:
         in: query
         name: page
         type: string
+      - description: Start time for filtering reports (RFC3339 format)
+        in: query
+        name: start_time
+        type: string
+      - description: End time for filtering reports (RFC3339 format)
+        in: query
+        name: end_time
+        type: string
+      produces:
+      - application/json
       responses:
         "200":
           description: OK
@@ -1225,6 +1278,14 @@ paths:
       - description: Page number for pagination, default is 1
         in: query
         name: page
+        type: string
+      - description: Start time for filtering SCMs (RFC3339 format)
+        in: query
+        name: start_time
+        type: string
+      - description: End time for filtering SCMs (RFC3339 format)
+        in: query
+        name: end_time
         type: string
       responses:
         "200":
