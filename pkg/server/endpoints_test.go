@@ -396,6 +396,138 @@ func TestEndpoints(t *testing.T) {
 					},
 				}, removeFieldsAsserter("configs", "Created_at", "Updated_at"))
 			})
+
+			t.Run("with spec_only=true", func(t *testing.T) {
+				// Insert a config with Spec, Transformers, Name, etc.
+				fullConfig := map[string]any{
+					"spec": map[string]any{
+						"owner":      "updatecli",
+						"repository": "updatecli",
+						"token":      "test-token",
+					},
+					"transformers": []any{
+						map[string]any{
+							"addPrefix": "v",
+						},
+					},
+					"name": "test-source",
+					"kind": "githubrelease",
+				}
+				configID, err := database.InsertConfigResource(ctx, "source", "githubrelease", fullConfig)
+				require.NoError(t, err)
+				t.Cleanup(func() {
+					assert.NoError(t, database.DeleteConfigResource(ctx, "source", configID))
+				})
+
+				// Test without spec_only - should return full config
+				resp := doGetRequest(t, srv, "/api/pipeline/config/sources?id="+configID)
+				var resultWithoutSpecOnly map[string]any
+				b, _ := io.ReadAll(resp.Body)
+				resp.Body.Close()
+				require.NoError(t, json.Unmarshal(b, &resultWithoutSpecOnly))
+				configs := resultWithoutSpecOnly["configs"].([]any)
+				require.Len(t, configs, 1)
+				config := configs[0].(map[string]any)
+				configObj := config["Config"].(map[string]any)
+				// Should have transformers, name, etc.
+				assert.NotNil(t, configObj["Transformers"])
+				assert.NotNil(t, configObj["Spec"])
+
+				// Test with spec_only=true - should return only Spec
+				resp = doGetRequest(t, srv, "/api/pipeline/config/sources?id="+configID+"&spec_only=true")
+				var resultWithSpecOnly map[string]any
+				b, _ = io.ReadAll(resp.Body)
+				resp.Body.Close()
+				require.NoError(t, json.Unmarshal(b, &resultWithSpecOnly))
+				configs = resultWithSpecOnly["configs"].([]any)
+				require.Len(t, configs, 1)
+				config = configs[0].(map[string]any)
+				configObj = config["Config"].(map[string]any)
+				// Should only have Spec field
+				assert.NotNil(t, configObj["Spec"])
+				// Transformers should be nil/empty
+				transformers, hasTransformers := configObj["Transformers"]
+				if hasTransformers {
+					assert.Nil(t, transformers)
+				}
+				// Name should be empty
+				name, hasName := configObj["Name"]
+				if hasName {
+					assert.Empty(t, name)
+				}
+			})
+		})
+	})
+
+	t.Run("GET /api/pipeline/config/conditions", func(t *testing.T) {
+		t.Run("with spec_only=true", func(t *testing.T) {
+			fullConfig := map[string]any{
+				"spec": map[string]any{
+					"file": "/path/to/file",
+					"key":  "version",
+				},
+				"transformers": []any{
+					map[string]any{
+						"addSuffix": ".0",
+					},
+				},
+				"name": "test-condition",
+				"kind": "file",
+			}
+			configID, err := database.InsertConfigResource(ctx, "condition", "file", fullConfig)
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				assert.NoError(t, database.DeleteConfigResource(ctx, "condition", configID))
+			})
+
+			// Test with spec_only=true
+			resp := doGetRequest(t, srv, "/api/pipeline/config/conditions?id="+configID+"&spec_only=true")
+			var result map[string]any
+			b, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			require.NoError(t, json.Unmarshal(b, &result))
+			configs := result["configs"].([]any)
+			require.Len(t, configs, 1)
+			config := configs[0].(map[string]any)
+			configObj := config["Config"].(map[string]any)
+			// Should only have Spec field
+			assert.NotNil(t, configObj["Spec"])
+		})
+	})
+
+	t.Run("GET /api/pipeline/config/targets", func(t *testing.T) {
+		t.Run("with spec_only=true", func(t *testing.T) {
+			fullConfig := map[string]any{
+				"spec": map[string]any{
+					"file": "/path/to/target",
+					"key":  "version",
+				},
+				"transformers": []any{
+					map[string]any{
+						"trimPrefix": "v",
+					},
+				},
+				"name": "test-target",
+				"kind": "yaml",
+			}
+			configID, err := database.InsertConfigResource(ctx, "target", "yaml", fullConfig)
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				assert.NoError(t, database.DeleteConfigResource(ctx, "target", configID))
+			})
+
+			// Test with spec_only=true
+			resp := doGetRequest(t, srv, "/api/pipeline/config/targets?id="+configID+"&spec_only=true")
+			var result map[string]any
+			b, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			require.NoError(t, json.Unmarshal(b, &result))
+			configs := result["configs"].([]any)
+			require.Len(t, configs, 1)
+			config := configs[0].(map[string]any)
+			configObj := config["Config"].(map[string]any)
+			// Should only have Spec field
+			assert.NotNil(t, configObj["Spec"])
 		})
 	})
 }

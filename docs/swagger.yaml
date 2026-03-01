@@ -867,6 +867,10 @@ paths:
         in: query
         name: page
         type: string
+      - description: When true, returns only the Spec field from each Config object
+        in: query
+        name: spec_only
+        type: boolean
       responses:
         "200":
           description: OK
@@ -969,6 +973,10 @@ paths:
         in: query
         name: page
         type: string
+      - description: When true, returns only the Spec field from each Config object
+        in: query
+        name: spec_only
+        type: boolean
       responses:
         "200":
           description: OK
@@ -1048,6 +1056,10 @@ paths:
         in: query
         name: page
         type: string
+      - description: When true, returns only the Spec field from each Config object
+        in: query
+        name: spec_only
+        type: boolean
       responses:
         "200":
           description: OK

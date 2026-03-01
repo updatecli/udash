@@ -83,6 +83,12 @@ const docTemplate = `{
                         "description": "Page number for pagination, default is 1",
                         "name": "page",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "When true, returns only the Spec field from each Config object",
+                        "name": "spec_only",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -238,6 +244,12 @@ const docTemplate = `{
                         "description": "Page number for pagination, default is 1",
                         "name": "page",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "When true, returns only the Spec field from each Config object",
+                        "name": "spec_only",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -357,6 +369,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Page number for pagination, default is 1",
                         "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "When true, returns only the Spec field from each Config object",
+                        "name": "spec_only",
                         "in": "query"
                     }
                 ],
