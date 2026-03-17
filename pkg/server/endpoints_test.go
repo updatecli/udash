@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -439,12 +440,62 @@ func TestEndpoints(t *testing.T) {
 			}, assert.Equal)
 		})
 	})
+
+	t.Run("POST /api/pipeline/labels/search", func(t *testing.T) {
+		labelIDs, err := database.InitLabels(ctx, map[string]string{
+			"env":  "production",
+			"tier": "backend",
+		})
+		require.NoError(t, err)
+		require.Len(t, labelIDs, 2)
+
+		envLabelRecords, totalCount, err := database.GetLabelRecords(ctx, "", "env", "production", "", "", 0, 1)
+		require.NoError(t, err)
+		require.Equal(t, 1, totalCount)
+		envLabelID := envLabelRecords[0].ID.String()
+
+		for i := range labelIDs {
+			id := labelIDs[i]
+			t.Cleanup(func() {
+				deleteLabel(t, id)
+			})
+		}
+
+		resp := doPostRequest(t, srv, "/api/pipeline/labels/search", map[string]any{
+			"key":   "env",
+			"value": "production",
+		})
+
+		assertJSONResponse(t, resp, []map[string]any{
+			{
+				"id":    envLabelID,
+				"key":   "env",
+				"value": "production",
+			},
+		}, removeFieldsAsserter("labels", "created_at", "updated_at", "last_pipeline_report_at"))
+	})
 }
 
 func doGetRequest(t *testing.T, ts *httptest.Server, path string) *http.Response {
 	t.Helper()
 	r, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s%s", ts.URL, path), nil)
 	require.NoError(t, err)
+
+	resp, err := ts.Client().Do(r)
+	require.NoError(t, err)
+
+	return resp
+}
+
+func doPostRequest(t *testing.T, ts *httptest.Server, path string, body any) *http.Response {
+	t.Helper()
+
+	payload, err := json.Marshal(body)
+	require.NoError(t, err)
+
+	r, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s%s", ts.URL, path), bytes.NewReader(payload))
+	require.NoError(t, err)
+	r.Header.Set("Content-Type", "application/json")
 
 	resp, err := ts.Client().Do(r)
 	require.NoError(t, err)
