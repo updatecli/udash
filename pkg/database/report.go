@@ -102,12 +102,14 @@ func SearchLatestReports(ctx context.Context, scmID, sourceID, conditionID, targ
 		sm.OrderBy(psql.Quote("updated_at")).Desc(),
 	)
 
-	if err := applyUpdatedAtRangeFilter(DateRangeFilterParams{
-		Query:         &query,
-		DateRangeDays: options.Days,
-		StartTime:     startTime,
-		EndTime:       endTime,
-	}); err != nil {
+	if err := applyRangeFilter(
+		"updated_at",
+		DateRangeFilterParams{
+			Query:         &query,
+			DateRangeDays: options.Days,
+			StartTime:     startTime,
+			EndTime:       endTime,
+		}); err != nil {
 		return nil, 0, fmt.Errorf("applying updated_at range filter: %w", err)
 	}
 
@@ -317,6 +319,7 @@ func SearchLatestReports(ctx context.Context, scmID, sourceID, conditionID, targ
 
 // InsertReport inserts a new report into the database.
 func InsertReport(ctx context.Context, report reports.Report) (string, error) {
+	var err error
 	configTargetIDs := pgtype.Hstore{}
 	configConditionIDs := pgtype.Hstore{}
 
@@ -460,6 +463,14 @@ func InsertReport(ctx context.Context, report reports.Report) (string, error) {
 		}
 	}
 
+	labelIDs := []string{}
+	if len(report.Labels) > 0 {
+		labelIDs, err = InitLabels(ctx, report.Labels)
+		if err != nil {
+			logrus.Errorf("something went wrong initializing labels: %s", err)
+		}
+	}
+
 	// INSERT INTO pipelineReports
 	// (data, pipeline_id, pipeline_result, pipeline_name, target_db_scm_ids, config_source_ids, config_condition_ids, config_target_ids)
 	// VALUES
@@ -476,6 +487,7 @@ func InsertReport(ctx context.Context, report reports.Report) (string, error) {
 			"config_source_ids",
 			"config_condition_ids",
 			"config_target_ids",
+			"label_ids",
 		),
 		im.Values(
 			psql.Arg(report),
@@ -486,6 +498,7 @@ func InsertReport(ctx context.Context, report reports.Report) (string, error) {
 			psql.Arg(configSourceIDs),
 			psql.Arg(configConditionIDs),
 			psql.Arg(configTargetIDs),
+			psql.Arg(labelIDs),
 		),
 		im.Returning("id"),
 	)

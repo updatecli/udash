@@ -170,12 +170,14 @@ func GetSCMSummary(ctx context.Context, scmRows []model.SCM, totalCount, monitor
 			sm.Columns("id", "data", "updated_at"),
 		)
 
-		if err := applyUpdatedAtRangeFilter(DateRangeFilterParams{
-			Query:         &filteredSCMsQuery,
-			DateRangeDays: monitoringDurationDays,
-			StartTime:     startTime,
-			EndTime:       endTime,
-		}); err != nil {
+		if err := applyRangeFilter(
+			"updated_at",
+			DateRangeFilterParams{
+				Query:         &filteredSCMsQuery,
+				DateRangeDays: monitoringDurationDays,
+				StartTime:     startTime,
+				EndTime:       endTime,
+			}); err != nil {
 			return nil, fmt.Errorf("applying updated_at range filter: %w", err)
 		}
 

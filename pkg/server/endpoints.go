@@ -177,6 +177,7 @@ func newGinEngine(opts Options) *gin.Engine {
 		}
 	}
 
+	apiPipeline.GET("/labels", ListLabels)
 	apiPipeline.GET("/scms", ListSCMs)
 	apiPipeline.GET("/reports", ListPipelineReports)
 	apiPipeline.GET("/reports/:id", GetPipelineReportByID)
@@ -191,11 +192,13 @@ func newGinEngine(opts Options) *gin.Engine {
 		r.POST("/api/pipeline/config/sources/search", SearchConfigSources)
 		r.POST("/api/pipeline/config/conditions/search", SearchConfigConditions)
 		r.POST("/api/pipeline/config/targets/search", SearchConfigTargets)
+		r.POST("/api/pipeline/labels/search", SearchLabels)
 	} else {
 		apiPipeline.POST("/reports/search", SearchPipelineReports)
 		apiPipeline.POST("/config/sources/search", SearchConfigSources)
 		apiPipeline.POST("/config/conditions/search", SearchConfigConditions)
 		apiPipeline.POST("/config/targets/search", SearchConfigTargets)
+		apiPipeline.POST("/labels/search", SearchLabels)
 	}
 
 	apiPipeline.POST("/reports", CreatePipelineReport)

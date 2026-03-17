@@ -18,15 +18,16 @@ type DateRangeFilterParams struct {
 	EndTime       string
 }
 
-// applyUpdatedAtRangeFilter applies a time range filter to the given query based on the provided
+// applyRangeFilter applies a time range filter to the given query based on the provided
 // startTime and endTime strings in RFC3339 format. If both are empty and dateRangeDays is greater than zero,
 // it filters records updated within the last dateRangeDays days.
-func applyUpdatedAtRangeFilter(r DateRangeFilterParams) error {
+func applyRangeFilter(columnName string, r DateRangeFilterParams) error {
+
 	if r.StartTime == "" && r.EndTime == "" && r.DateRangeDays > 0 {
 		start := time.Now().UTC().Add(-time.Duration(r.DateRangeDays) * 24 * time.Hour)
 		r.Query.Apply(
 			sm.Where(
-				psql.Raw("updated_at > ?", start),
+				psql.Raw(columnName+" > ?", start),
 			),
 		)
 		return nil
@@ -37,7 +38,7 @@ func applyUpdatedAtRangeFilter(r DateRangeFilterParams) error {
 	}
 
 	if r.StartTime == "" || r.EndTime == "" {
-		return fmt.Errorf("both startTime and endTime must be provided for time range filtering")
+		return fmt.Errorf("both startTime %q and endTime %q must be provided for time range filtering", r.StartTime, r.EndTime)
 	}
 
 	startT, err := time.Parse("2006-01-02 15:04:05Z07:00", r.StartTime)
@@ -58,7 +59,7 @@ func applyUpdatedAtRangeFilter(r DateRangeFilterParams) error {
 
 	r.Query.Apply(
 		sm.Where(
-			psql.Raw("updated_at >= ? AND updated_at < ?", startTimeUTC, endTimeUTC),
+			psql.Raw(columnName+" >= ? AND "+columnName+" < ?", startTimeUTC, endTimeUTC),
 		),
 	)
 

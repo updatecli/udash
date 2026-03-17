@@ -398,6 +398,47 @@ func TestEndpoints(t *testing.T) {
 			})
 		})
 	})
+
+	t.Run("GET /api/pipeline/labels", func(t *testing.T) {
+		t.Run("with no labels", func(t *testing.T) {
+			resp := doGetRequest(t, srv, "/api/pipeline/labels")
+			assertJSONResponse(t, resp, map[string]any{
+				"labels":      []any{},
+				"total_count": float64(0),
+			}, assert.Equal)
+		})
+
+		t.Run("with labels", func(t *testing.T) {
+			labelIDs, err := database.InitLabels(ctx, map[string]string{
+				"env": "production",
+			})
+			require.NoError(t, err)
+			require.Len(t, labelIDs, 1)
+
+			labelID := labelIDs[0]
+
+			t.Cleanup(func() {
+				deleteLabel(t, labelID)
+			})
+
+			resp := doGetRequest(t, srv, "/api/pipeline/labels")
+			assertJSONResponse(t, resp, []map[string]any{
+				{
+					"id":    labelID,
+					"key":   "env",
+					"value": "production",
+				},
+			}, removeFieldsAsserter("labels", "created_at", "updated_at", "last_pipeline_report_at"))
+
+			resp = doGetRequest(t, srv, "/api/pipeline/labels?keyonly=true")
+			assertJSONResponse(t, resp, map[string]any{
+				"labels": []any{
+					"env",
+				},
+				"total_count": float64(1),
+			}, assert.Equal)
+		})
+	})
 }
 
 func doGetRequest(t *testing.T, ts *httptest.Server, path string) *http.Response {
@@ -472,6 +513,20 @@ func removeFieldsAsserter(key string, fields ...string) assertionFunc {
 func deleteSCM(t *testing.T, id string) {
 	query := psql.Delete(
 		dm.From("scms"),
+		dm.Where(psql.Quote("id").EQ(psql.Arg(id))),
+	)
+
+	ctx := context.TODO()
+	queryString, args, err := query.Build(ctx)
+	require.NoError(t, err)
+
+	_, err = database.DB.Exec(ctx, queryString, args...)
+	assert.NoError(t, err)
+}
+
+func deleteLabel(t *testing.T, id string) {
+	query := psql.Delete(
+		dm.From("labels"),
 		dm.Where(psql.Quote("id").EQ(psql.Arg(id))),
 	)
 
