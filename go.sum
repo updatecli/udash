@@ -682,8 +682,8 @@ github.com/zitadel/oidc/v3 v3.45.1 h1:x7J8NywTUtLR9T5uu2dufae3gJrl6VVpIfvGZy+kzJ
 github.com/zitadel/oidc/v3 v3.45.1/go.mod h1:oFArtAPTXEA4ajkIe/JfBjv7hhlD0kr///UqaO3Uzd0=
 github.com/zitadel/schema v1.3.1 h1:QT3kwiRIRXXLVAs6gCK/u044WmUVh6IlbLXUsn6yRQU=
 github.com/zitadel/schema v1.3.1/go.mod h1:071u7D2LQacy1HAN+YnMd/mx1qVE2isb0Mjeqg46xnU=
-github.com/zitadel/zitadel-go/v3 v3.25.0 h1:IczpEpI1jWurcPwYFCLtSxcmZ22pyDjwfYrUQMECcHQ=
-github.com/zitadel/zitadel-go/v3 v3.25.0/go.mod h1:sn5guqryshSbnEluWTAAk/siXywEF7s4RUZ+W8A/8JA=
+github.com/zitadel/zitadel-go/v3 v3.26.1 h1:tDtKuYAB7VOYKfddvTOOmwrqJq75iB0jUMOQQ9omGVc=
+github.com/zitadel/zitadel-go/v3 v3.26.1/go.mod h1:sn5guqryshSbnEluWTAAk/siXywEF7s4RUZ+W8A/8JA=
 gitlab.com/gitlab-org/api/client-go v1.11.0 h1:L+qzw4kiCf3jKdKHQAwiqYKITvzBrW/tl8ampxNLlv0=
 gitlab.com/gitlab-org/api/client-go v1.11.0/go.mod h1:adtVJ4zSTEJ2fP5Pb1zF4Ox1OKFg0MH43yxpb0T0248=
 go.mongodb.org/mongo-driver/v2 v2.5.0 h1:yXUhImUjjAInNcpTcAlPHiT7bIXhshCTL3jVBkF3xaE=
