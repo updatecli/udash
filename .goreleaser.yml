@@ -36,6 +36,9 @@ builds:
       - amd64
       - arm64
       - arm
+    ignore:
+      - goos: windows
+        goarch: arm
 
 changelog:
   ## Delegate Changelog to release-drafter
