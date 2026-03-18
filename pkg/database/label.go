@@ -55,7 +55,7 @@ func GetLabelKeyOnlyRecords(ctx context.Context, startTime, endTime string, limi
 
 	if err := applyRangeFilter(
 		"last_pipeline_report_at",
-		DateRangeFilterParams{
+		dateRangeFilterParams{
 			Query:         &query,
 			DateRangeDays: 0,
 			StartTime:     startTime,
@@ -150,7 +150,7 @@ func GetLabelRecords(ctx context.Context, id, key, value, startTime, endTime str
 
 	if err := applyRangeFilter(
 		"last_pipeline_report_at",
-		DateRangeFilterParams{
+		dateRangeFilterParams{
 			Query:         &query,
 			DateRangeDays: 0,
 			StartTime:     startTime,

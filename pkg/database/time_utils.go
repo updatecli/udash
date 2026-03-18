@@ -10,8 +10,8 @@ import (
 	"github.com/stephenafamo/bob/dialect/psql/sm"
 )
 
-// DateRangeFilterParams holds parameters for applying a date range filter to a query.
-type DateRangeFilterParams struct {
+// dateRangeFilterParams holds parameters for applying a date range filter to a query.
+type dateRangeFilterParams struct {
 	Query         *bob.BaseQuery[*dialect.SelectQuery]
 	DateRangeDays int
 	StartTime     string
@@ -21,7 +21,7 @@ type DateRangeFilterParams struct {
 // applyRangeFilter applies a time range filter to the given query based on the provided
 // startTime and endTime strings in RFC3339 format. If both are empty and dateRangeDays is greater than zero,
 // it filters records updated within the last dateRangeDays days.
-func applyRangeFilter(columnName string, r DateRangeFilterParams) error {
+func applyRangeFilter(columnName string, r dateRangeFilterParams) error {
 
 	if r.StartTime == "" && r.EndTime == "" && r.DateRangeDays > 0 {
 		start := time.Now().UTC().Add(-time.Duration(r.DateRangeDays) * 24 * time.Hour)

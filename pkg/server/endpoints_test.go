@@ -478,6 +478,7 @@ func TestEndpoints(t *testing.T) {
 
 func doGetRequest(t *testing.T, ts *httptest.Server, path string) *http.Response {
 	t.Helper()
+
 	r, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s%s", ts.URL, path), nil)
 	require.NoError(t, err)
 

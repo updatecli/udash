@@ -188,17 +188,19 @@ func newGinEngine(opts Options) *gin.Engine {
 
 	// Public endpoints when API visibility is set to public
 	if opts.Auth.Mode != "" && opts.Auth.Visibility == VisibilityPublic {
-		r.POST("/api/pipeline/reports/search", SearchPipelineReports)
 		r.POST("/api/pipeline/config/sources/search", SearchConfigSources)
 		r.POST("/api/pipeline/config/conditions/search", SearchConfigConditions)
 		r.POST("/api/pipeline/config/targets/search", SearchConfigTargets)
 		r.POST("/api/pipeline/labels/search", SearchLabels)
+		r.POST("/api/pipeline/reports/search", SearchPipelineReports)
+		r.POST("/api/pipeline/scms/search", SearchSCMs)
 	} else {
-		apiPipeline.POST("/reports/search", SearchPipelineReports)
 		apiPipeline.POST("/config/sources/search", SearchConfigSources)
 		apiPipeline.POST("/config/conditions/search", SearchConfigConditions)
 		apiPipeline.POST("/config/targets/search", SearchConfigTargets)
 		apiPipeline.POST("/labels/search", SearchLabels)
+		apiPipeline.POST("/reports/search", SearchPipelineReports)
+		apiPipeline.POST("/scms/search", SearchSCMs)
 	}
 
 	apiPipeline.POST("/reports", CreatePipelineReport)

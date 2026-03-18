@@ -3,12 +3,10 @@ package server
 import (
 	"database/sql"
 	"errors"
-	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
 	"github.com/updatecli/udash/pkg/database"
 	"github.com/updatecli/udash/pkg/model"
@@ -27,14 +25,17 @@ type CreatePipelineReportResponse struct {
 // @Accept json
 // @Produce json
 // @Success 201 {object} CreatePipelineReportResponse
+// @Failure 400 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
 // @Router /api/pipeline/reports [post]
 func CreatePipelineReport(c *gin.Context) {
 	var p reports.Report
 
 	if err := c.BindJSON(&p); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": err})
-		log.Fatal(err)
+		logrus.Errorf("failed to read json body: %s", err)
+		c.JSON(http.StatusBadRequest, DefaultResponseModel{
+			Err: err.Error(),
+		})
 		return
 	}
 
@@ -60,7 +61,7 @@ func CreatePipelineReport(c *gin.Context) {
 // @Description Delete a pipeline report from the database
 // @Tags Pipeline Reports
 // @Param id path string true "Report ID"
-// @Success 201 {object} DefaultResponseModel
+// @Success 200 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
 // @Router /api/pipeline/reports/{id} [delete]
 func DeletePipelineReport(c *gin.Context) {
@@ -68,11 +69,13 @@ func DeletePipelineReport(c *gin.Context) {
 
 	if err := database.DeleteReport(c, id); err != nil {
 		logrus.Errorf("query failed: %s", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err})
+		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
+			Err: err.Error(),
+		})
 		return
 	}
 
-	c.JSON(http.StatusCreated, DefaultResponseModel{
+	c.JSON(http.StatusOK, DefaultResponseModel{
 		Message: "Pipeline report deleted successfully",
 	})
 }
@@ -126,6 +129,8 @@ func SearchPipelineReports(c *gin.Context) {
 		// Latest indicates whether to return only the latest report per pipeline ID
 		// This is optional and defaults to false
 		Latest bool `json:"latest"`
+		// Labels is a map of labels to filter reports by
+		Labels map[string]string `json:"labels,omitempty"`
 	}
 
 	queryParams := queryData{}
@@ -139,11 +144,20 @@ func SearchPipelineReports(c *gin.Context) {
 	}
 
 	dataset, totalCount, err := database.SearchLatestReports(
-		c, queryParams.ScmID, queryParams.SourceID, queryParams.ConditionID,
-		queryParams.TargetID, database.ReportSearchOptions{Days: monitoringDurationDays},
-		queryParams.Limit, queryParams.Page,
-		queryParams.StartTime, queryParams.EndTime,
-		queryParams.Latest,
+		database.SearchLatestReportsParams{
+			Ctx:         c,
+			ScmID:       queryParams.ScmID,
+			SourceID:    queryParams.SourceID,
+			ConditionID: queryParams.ConditionID,
+			TargetID:    queryParams.TargetID,
+			Options:     database.ReportSearchOptions{Days: monitoringDurationDays},
+			StartTime:   queryParams.StartTime,
+			EndTime:     queryParams.EndTime,
+			Limit:       queryParams.Limit,
+			Page:        queryParams.Page,
+			Latest:      queryParams.Latest,
+			Labels:      queryParams.Labels,
+		},
 	)
 	if err != nil {
 		logrus.Errorf("searching for latest report: %s", err)
@@ -195,12 +209,19 @@ func ListPipelineReports(c *gin.Context) {
 	}
 
 	dataset, totalCount, err := database.SearchLatestReports(
-		c, scmID, "", "", "",
-		database.ReportSearchOptions{Days: monitoringDurationDays},
-		limit,
-		page,
-		startTime, endTime,
-		latest,
+		database.SearchLatestReportsParams{
+			Ctx:         c,
+			ScmID:       scmID,
+			SourceID:    "",
+			ConditionID: "",
+			TargetID:    "",
+			Options:     database.ReportSearchOptions{Days: monitoringDurationDays},
+			StartTime:   startTime,
+			EndTime:     endTime,
+			Limit:       limit,
+			Page:        page,
+			Latest:      latest,
+		},
 	)
 
 	if err != nil {
@@ -229,7 +250,7 @@ type GetPipelineReportByIDResponse struct {
 // @Description Get the latest pipeline report for a specific ID
 // @Tags Pipeline Reports
 // @Param id path string true "Report ID"
-// @Success 201 {object} GetPipelineReportByIDResponse
+// @Success 200 {object} GetPipelineReportByIDResponse
 // @Failure 404 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
 // @Router /api/pipeline/reports/{id} [get]
@@ -253,38 +274,44 @@ func GetPipelineReportByID(c *gin.Context) {
 	nbReportsByID, err := database.SearchNumberOfReportsByPipelineID(c, data.Pipeline.ID)
 	if err != nil {
 		logrus.Errorf("getting number of reports by name: %s", err)
+		c.JSON(
+			http.StatusInternalServerError,
+			DefaultResponseModel{
+				Err: err.Error(),
+			})
+		return
 	}
 
 	latestReportByID, err := database.SearchLatestReportByPipelineID(c, data.Pipeline.ID)
 	if err != nil {
 		logrus.Errorf("getting latest report by name: %s", err)
-	}
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(
+				http.StatusNotFound,
+				DefaultResponseModel{
+					Err: "not found",
+				},
+			)
+			return
+		}
 
-	switch err {
-	case nil:
-		c.JSON(
-			http.StatusOK,
-			GetPipelineReportByIDResponse{
-				Message:          "success!",
-				Data:             *data,
-				NBReportsByID:    nbReportsByID,
-				LatestReportByID: *latestReportByID,
-			})
-	case pgx.ErrNoRows:
-		c.JSON(
-			http.StatusNotFound,
-			DefaultResponseModel{
-				Err: "not found",
-			},
-		)
-	default:
 		c.JSON(
 			http.StatusInternalServerError,
 			DefaultResponseModel{
-				Message: err.Error(),
-			})
+				Err: err.Error(),
+			},
+		)
 		return
 	}
+
+	c.JSON(
+		http.StatusOK,
+		GetPipelineReportByIDResponse{
+			Message:          "success!",
+			Data:             *data,
+			NBReportsByID:    nbReportsByID,
+			LatestReportByID: *latestReportByID,
+		})
 }
 
 // UpdatePipelineReport updates a pipeline report in the database
