@@ -144,7 +144,7 @@ func GetLabelRecords(ctx context.Context, id, key, value, startTime, endTime str
 
 	if id != "" {
 		query.Apply(
-			sm.Where(psql.Quote("id").EQ(psql.Arg(value))),
+			sm.Where(psql.Quote("id").EQ(psql.Arg(id))),
 		)
 	}
 
