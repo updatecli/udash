@@ -81,7 +81,7 @@ func TestEndpoints(t *testing.T) {
 				"ID":     id,
 				"URL":    "https://example.com/testing.git",
 			},
-		}, removeFieldsAsserter("scms", "total_count", "Created_at", "Updated_at"))
+		}, removeFieldsAsserter("scms", "Created_at", "Updated_at"))
 	})
 
 	// Test pagination on scms
@@ -110,7 +110,7 @@ func TestEndpoints(t *testing.T) {
 				"ID":     v1ID,
 				"URL":    "https://example.com/testing.git",
 			},
-		}, removeFieldsAsserter("scms", "total_count", "Created_at", "Updated_at"))
+		}, removeFieldsAsserter("scms", "Created_at", "Updated_at"))
 	})
 
 	// TODO: Test query parameters:
@@ -163,7 +163,7 @@ func TestEndpoints(t *testing.T) {
 					},
 					"FilteredResourceID": "",
 				},
-			}, removeFieldsAsserter("data", "CreatedAt", "UpdatedAt"))
+			}, removeFieldsAsserter("data", "CreatedAt", "UpdatedAt", "Labels"))
 		})
 	})
 
@@ -221,7 +221,7 @@ func TestEndpoints(t *testing.T) {
 					},
 					"FilteredResourceID": "",
 				},
-			}, removeFieldsAsserter("data", "CreatedAt", "UpdatedAt"))
+			}, removeFieldsAsserter("data", "CreatedAt", "UpdatedAt", "Labels"))
 		})
 	})
 
@@ -262,7 +262,7 @@ func TestEndpoints(t *testing.T) {
 					"Targets":    nil,
 					"ReportURL":  "",
 				},
-			}, removeFieldsAsserter("data", "Created_at", "Updated_at"))
+			}, removeFieldsAsserter("data", "Created_at", "Updated_at", "Labels"))
 		})
 	})
 
@@ -534,12 +534,40 @@ func assertJSONResponseWithCode(t *testing.T, res *http.Response, code int, want
 }
 
 func deleteKeys(source map[string]any, keys ...string) map[string]any {
-	updated := maps.Clone(source)
+	fields := make(map[string]struct{}, len(keys))
 	for _, key := range keys {
-		delete(updated, key)
+		fields[key] = struct{}{}
 	}
 
-	return updated
+	cleaned, ok := deleteKeysDeep(source, fields).(map[string]any)
+	if !ok {
+		return maps.Clone(source)
+	}
+
+	return cleaned
+}
+
+func deleteKeysDeep(value any, fields map[string]struct{}) any {
+	switch v := value.(type) {
+	case map[string]any:
+		cleaned := make(map[string]any, len(v))
+		for key, item := range v {
+			if _, found := fields[key]; found {
+				continue
+			}
+
+			cleaned[key] = deleteKeysDeep(item, fields)
+		}
+		return cleaned
+	case []any:
+		cleaned := make([]any, 0, len(v))
+		for _, item := range v {
+			cleaned = append(cleaned, deleteKeysDeep(item, fields))
+		}
+		return cleaned
+	default:
+		return value
+	}
 }
 
 func removeFieldsAsserter(key string, fields ...string) assertionFunc {
