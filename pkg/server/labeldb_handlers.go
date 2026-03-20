@@ -110,7 +110,7 @@ func ListLabels(c *gin.Context) {
 // @Success 200 {object} ListLabelsResponse
 // @Failure 400 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/labels/search [post]
+// @Router /api/pipeline/labels/search [post]
 func SearchLabels(c *gin.Context) {
 
 	type queryData struct {

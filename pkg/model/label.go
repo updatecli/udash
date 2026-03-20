@@ -12,7 +12,7 @@ type Label struct {
 	ID uuid.UUID `json:"id,omitempty"`
 	// Key is the label name
 	Key string `json:"key,omitempty"`
-	// Value is the list of values associated with the label
+	// Value is the value associated with the label
 	Value string `json:"value,omitempty"`
 	// CreatedAt is the time the label was created
 	CreatedAt *time.Time `json:"created_at,omitempty"`

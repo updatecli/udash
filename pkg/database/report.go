@@ -266,7 +266,7 @@ func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReport
 			Result:    p.Pipeline.Result,
 			Report:    p.Pipeline,
 			CreatedAt: p.Created_at.String(),
-			UpdatedAt: p.Created_at.String(),
+			UpdatedAt: p.Updated_at.String(),
 		}
 
 		if params.SourceID != "" {
@@ -446,7 +446,7 @@ func InsertReport(ctx context.Context, report reports.Report) (string, error) {
 	if len(report.Labels) > 0 {
 		labelIDs, err = InitLabels(ctx, report.Labels)
 		if err != nil {
-			logrus.Errorf("something went wrong initializing labels: %s", err)
+			return "", fmt.Errorf("initializing labels: %w", err)
 		}
 	}
 

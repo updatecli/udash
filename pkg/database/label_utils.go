@@ -32,6 +32,7 @@ func applyLabelFilter(params labelFilterParams) error {
 	}
 
 	labelIDs := []string{}
+	errs := []error{}
 	for key, value := range params.Labels {
 		results, totalCounts, err := GetLabelRecords(
 			params.Ctx,
@@ -44,14 +45,14 @@ func applyLabelFilter(params labelFilterParams) error {
 			1,
 		)
 		if err != nil {
-			logrus.Errorf("failed getting label records: %s", err)
+			errs = append(errs, fmt.Errorf("failed getting label records: %s", err))
 			continue
 		}
 		switch totalCounts {
 		case 0:
 			// Normally we should never end up here as the labels are inserted when the report is created,
 			// but in case of a manual deletion of a label, we log an error and skip the label filter for this key-value pair.
-			logrus.Errorf("label not found for %s=%s", key, value)
+			errs = append(errs, fmt.Errorf("label not found for %s=%s", key, value))
 		case 1:
 			labelIDs = append(labelIDs, results[0].ID.String())
 		default:
@@ -59,7 +60,11 @@ func applyLabelFilter(params labelFilterParams) error {
 		}
 	}
 
-	if labelIDs == nil {
+	if len(errs) > 0 {
+		return fmt.Errorf("errors occurred while applying label filter: %v", errs)
+	}
+
+	if len(labelIDs) == 0 {
 		// Unless a label was manually deleted, this should never happen as the labels are inserted when the report is created
 		return fmt.Errorf("no label found for the provided labels filter")
 	}
