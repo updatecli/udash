@@ -2,8 +2,7 @@ package server
 
 import (
 	"net/http"
-
-	"strings"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -49,7 +48,7 @@ func ListLabels(c *gin.Context) {
 	value := c.Request.URL.Query().Get("value")
 	startTime := c.Request.URL.Query().Get("start_time")
 	endTime := c.Request.URL.Query().Get("end_time")
-	keyOnly := c.Request.URL.Query().Get("keyonly")
+	keyOnlyValue := c.Request.URL.Query().Get("keyonly")
 	id := c.Request.URL.Query().Get("id")
 
 	limit, page, err := getPaginationParamFromURLQuery(c)
@@ -61,8 +60,21 @@ func ListLabels(c *gin.Context) {
 		return
 	}
 
-	switch strings.ToUpper(keyOnly) {
-	case "TRUE":
+	keyOnly := false
+	if keyOnlyValue != "" {
+		parsedKeyOnly, err := strconv.ParseBool(keyOnlyValue)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, DefaultResponseModel{
+				Err: "invalid keyonly parameter",
+			})
+			return
+		}
+
+		keyOnly = parsedKeyOnly
+	}
+
+	switch keyOnly {
+	case true:
 		results, totalCount, err := database.GetLabelKeyOnlyRecords(c, startTime, endTime, limit, page)
 		if err != nil {
 			logrus.Errorf("searching for labels: %s", err)
@@ -80,7 +92,7 @@ func ListLabels(c *gin.Context) {
 
 		return
 
-	default:
+	case false:
 		results, totalCount, err := database.GetLabelRecords(c, id, key, value, startTime, endTime, limit, page)
 		if err != nil {
 			logrus.Errorf("searching for labels: %s", err)
