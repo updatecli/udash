@@ -24,7 +24,7 @@ type PipelineReport struct {
 	PipelineID string `json:",omitempty"`
 	// TargetScmIDs is a list of unique identifiers of the scm configuration associated with the database.
 	TargetScmIDs []uuid.UUID `json:",omitempty"`
-	// LabelsIDs is a list of unique identifiers of the labels associated with the database.
+	// LabelIDs is a list of unique identifiers of the labels associated with the database.
 	LabelIDs []uuid.UUID `json:",omitempty"`
 	// TargetConfigIDs is a list of unique identifiers of the target configuration associated with the database.
 	TargetConfigIDs map[uuid.UUID]string `json:",omitempty"`
