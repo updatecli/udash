@@ -217,9 +217,9 @@ func GetLabelRecords(ctx context.Context, id, key, value, startTime, endTime str
 }
 
 // InitLabels takes a map of labels and ensures that they exist in the database, creating them if necessary.
-func InitLabels(ctx context.Context, labels map[string]string) ([]string, error) {
+func InitLabels(ctx context.Context, labels map[string]string) ([]uuid.UUID, error) {
 	errs := []error{}
-	labelIDs := []string{}
+	labelIDs := []uuid.UUID{}
 
 	for labelKey, labelValue := range labels {
 		if labelKey == "" {
@@ -253,10 +253,10 @@ func InitLabels(ctx context.Context, labels map[string]string) ([]string, error)
 				continue
 			}
 
-			labelIDs = append(labelIDs, parsedID.String())
+			labelIDs = append(labelIDs, parsedID)
 		case 1:
 			if labelValue == labelRecords[0].Value {
-				labelIDs = append(labelIDs, labelRecords[0].ID.String())
+				labelIDs = append(labelIDs, labelRecords[0].ID)
 			}
 		default:
 			errMsg := fmt.Errorf("something went wrong multiple labels found for key %s", labelKey)

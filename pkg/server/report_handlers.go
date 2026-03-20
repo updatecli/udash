@@ -1,12 +1,12 @@
 package server
 
 import (
-	"database/sql"
 	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
 	"github.com/updatecli/udash/pkg/database"
 	"github.com/updatecli/udash/pkg/model"
@@ -260,7 +260,7 @@ func GetPipelineReportByID(c *gin.Context) {
 	if err != nil {
 		logrus.Errorf("parsing result: %s", err)
 		statusCode := http.StatusInternalServerError
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			statusCode = http.StatusNotFound
 		}
 		c.JSON(
@@ -285,7 +285,7 @@ func GetPipelineReportByID(c *gin.Context) {
 	latestReportByID, err := database.SearchLatestReportByPipelineID(c, data.Pipeline.ID)
 	if err != nil {
 		logrus.Errorf("getting latest report by name: %s", err)
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			c.JSON(
 				http.StatusNotFound,
 				DefaultResponseModel{

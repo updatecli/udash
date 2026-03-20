@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stephenafamo/bob"
 	"github.com/stephenafamo/bob/dialect/psql"
 	"github.com/stephenafamo/bob/dialect/psql/dialect"
@@ -31,9 +30,13 @@ func applyLabelFilter(params labelFilterParams) error {
 		return nil
 	}
 
-	labelIDs := []string{}
 	errs := []error{}
 	for key, value := range params.Labels {
+		if key == "" {
+			errs = append(errs, fmt.Errorf("label key cannot be empty"))
+			continue
+		}
+
 		results, totalCounts, err := GetLabelRecords(
 			params.Ctx,
 			"",
@@ -48,32 +51,40 @@ func applyLabelFilter(params labelFilterParams) error {
 			errs = append(errs, fmt.Errorf("failed getting label records: %s", err))
 			continue
 		}
-		switch totalCounts {
-		case 0:
-			// Normally we should never end up here as the labels are inserted when the report is created,
-			// but in case of a manual deletion of a label, we log an error and skip the label filter for this key-value pair.
-			errs = append(errs, fmt.Errorf("label not found for %s=%s", key, value))
-		case 1:
-			labelIDs = append(labelIDs, results[0].ID.String())
-		default:
-			logrus.Warningf("multiple labels found for %s=%s", key, value)
+
+		if totalCounts == 0 {
+			if value == "" {
+				errs = append(errs, fmt.Errorf("label not found for key %s", key))
+			} else {
+				errs = append(errs, fmt.Errorf("label not found for %s=%s", key, value))
+			}
+			continue
 		}
+
+		ids := make([]string, 0, len(results))
+		for i := range results {
+			ids = append(ids, results[i].ID.String())
+		}
+
+		if len(ids) == 0 {
+			if value == "" {
+				errs = append(errs, fmt.Errorf("no label ids found for key %s", key))
+			} else {
+				errs = append(errs, fmt.Errorf("no label ids found for %s=%s", key, value))
+			}
+			continue
+		}
+
+		params.Query.Apply(
+			sm.Where(
+				psql.Raw(`label_ids && ?`, fmt.Sprintf("{%s}", strings.Join(ids, ","))),
+			),
+		)
 	}
 
 	if len(errs) > 0 {
 		return fmt.Errorf("errors occurred while applying label filter: %v", errs)
 	}
-
-	if len(labelIDs) == 0 {
-		// Unless a label was manually deleted, this should never happen as the labels are inserted when the report is created
-		return fmt.Errorf("no label found for the provided labels filter")
-	}
-
-	params.Query.Apply(
-		sm.Where(
-			psql.Raw(`label_ids @> ?`, fmt.Sprintf("{%s}", strings.Join(labelIDs, ","))),
-		),
-	)
 
 	return nil
 }

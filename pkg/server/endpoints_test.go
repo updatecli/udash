@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stephenafamo/bob/dialect/psql"
 	"github.com/stephenafamo/bob/dialect/psql/dm"
 	"github.com/stretchr/testify/assert"
@@ -425,7 +426,7 @@ func TestEndpoints(t *testing.T) {
 			resp := doGetRequest(t, srv, "/api/pipeline/labels")
 			assertJSONResponse(t, resp, []map[string]any{
 				{
-					"id":    labelID,
+					"id":    labelID.String(),
 					"key":   "env",
 					"value": "production",
 				},
@@ -604,7 +605,7 @@ func deleteSCM(t *testing.T, id string) {
 	assert.NoError(t, err)
 }
 
-func deleteLabel(t *testing.T, id string) {
+func deleteLabel(t *testing.T, id uuid.UUID) {
 	query := psql.Delete(
 		dm.From("labels"),
 		dm.Where(psql.Quote("id").EQ(psql.Arg(id))),

@@ -42,7 +42,7 @@ type ListLabelKeyOnlyResponse struct {
 // @Success 200 {object} ListLabelsResponse
 // @Failure 400 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/labels [get]
+// @Router /api/pipeline/labels [get]
 func ListLabels(c *gin.Context) {
 
 	key := c.Request.URL.Query().Get("key")

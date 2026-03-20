@@ -442,7 +442,7 @@ func InsertReport(ctx context.Context, report reports.Report) (string, error) {
 		}
 	}
 
-	labelIDs := []string{}
+	labelIDs := []uuid.UUID{}
 	if len(report.Labels) > 0 {
 		labelIDs, err = InitLabels(ctx, report.Labels)
 		if err != nil {
