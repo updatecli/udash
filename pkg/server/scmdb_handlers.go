@@ -112,7 +112,6 @@ func ListSCMs(c *gin.Context) {
 	queryValues := c.Request.URL.Query()
 	summaryValue := queryValues.Get("summary")
 
-	labels := map[string]string{}
 	summary := false
 	if summaryValue != "" {
 		parsedSummary, err := strconv.ParseBool(summaryValue)
@@ -155,7 +154,7 @@ func ListSCMs(c *gin.Context) {
 	}
 
 	if summary {
-		findSCMSummary(c, rows, totalCount, queryValues.Get("start_time"), queryValues.Get("end_time"), labels)
+		findSCMSummary(c, rows, totalCount, queryValues.Get("start_time"), queryValues.Get("end_time"), map[string]string{})
 		return
 	}
 
