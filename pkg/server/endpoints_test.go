@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stephenafamo/bob/dialect/psql"
 	"github.com/stephenafamo/bob/dialect/psql/dm"
 	"github.com/stretchr/testify/assert"
@@ -80,7 +82,7 @@ func TestEndpoints(t *testing.T) {
 				"ID":     id,
 				"URL":    "https://example.com/testing.git",
 			},
-		}, removeFieldsAsserter("scms", "total_count", "Created_at", "Updated_at"))
+		}, removeFieldsAsserter("scms", "Created_at", "Updated_at"))
 	})
 
 	// Test pagination on scms
@@ -109,7 +111,7 @@ func TestEndpoints(t *testing.T) {
 				"ID":     v1ID,
 				"URL":    "https://example.com/testing.git",
 			},
-		}, removeFieldsAsserter("scms", "total_count", "Created_at", "Updated_at"))
+		}, removeFieldsAsserter("scms", "Created_at", "Updated_at"))
 	})
 
 	// TODO: Test query parameters:
@@ -162,7 +164,7 @@ func TestEndpoints(t *testing.T) {
 					},
 					"FilteredResourceID": "",
 				},
-			}, removeFieldsAsserter("data", "CreatedAt", "UpdatedAt"))
+			}, removeFieldsAsserter("data", "CreatedAt", "UpdatedAt", "Labels"))
 		})
 	})
 
@@ -220,7 +222,7 @@ func TestEndpoints(t *testing.T) {
 					},
 					"FilteredResourceID": "",
 				},
-			}, removeFieldsAsserter("data", "CreatedAt", "UpdatedAt"))
+			}, removeFieldsAsserter("data", "CreatedAt", "UpdatedAt", "Labels"))
 		})
 	})
 
@@ -261,7 +263,7 @@ func TestEndpoints(t *testing.T) {
 					"Targets":    nil,
 					"ReportURL":  "",
 				},
-			}, removeFieldsAsserter("data", "Created_at", "Updated_at"))
+			}, removeFieldsAsserter("data", "Created_at", "Updated_at", "Labels"))
 		})
 	})
 
@@ -398,12 +400,104 @@ func TestEndpoints(t *testing.T) {
 			})
 		})
 	})
+
+	t.Run("GET /api/pipeline/labels", func(t *testing.T) {
+		t.Run("with no labels", func(t *testing.T) {
+			resp := doGetRequest(t, srv, "/api/pipeline/labels")
+			assertJSONResponse(t, resp, map[string]any{
+				"labels":      []any{},
+				"total_count": float64(0),
+			}, assert.Equal)
+		})
+
+		t.Run("with labels", func(t *testing.T) {
+			labelIDs, err := database.InitLabels(ctx, map[string]string{
+				"env": "production",
+			})
+			require.NoError(t, err)
+			require.Len(t, labelIDs, 1)
+
+			labelID := labelIDs[0]
+
+			t.Cleanup(func() {
+				deleteLabel(t, labelID)
+			})
+
+			resp := doGetRequest(t, srv, "/api/pipeline/labels")
+			assertJSONResponse(t, resp, []map[string]any{
+				{
+					"id":    labelID.String(),
+					"key":   "env",
+					"value": "production",
+				},
+			}, removeFieldsAsserter("labels", "created_at", "updated_at", "last_pipeline_report_at"))
+
+			resp = doGetRequest(t, srv, "/api/pipeline/labels?keyonly=true")
+			assertJSONResponse(t, resp, map[string]any{
+				"labels": []any{
+					"env",
+				},
+				"total_count": float64(1),
+			}, assert.Equal)
+		})
+	})
+
+	t.Run("POST /api/pipeline/labels/search", func(t *testing.T) {
+		labelIDs, err := database.InitLabels(ctx, map[string]string{
+			"env":  "production",
+			"tier": "backend",
+		})
+		require.NoError(t, err)
+		require.Len(t, labelIDs, 2)
+
+		envLabelRecords, totalCount, err := database.GetLabelRecords(ctx, "", "env", "production", "", "", 0, 1)
+		require.NoError(t, err)
+		require.Equal(t, 1, totalCount)
+		envLabelID := envLabelRecords[0].ID.String()
+
+		for i := range labelIDs {
+			id := labelIDs[i]
+			t.Cleanup(func() {
+				deleteLabel(t, id)
+			})
+		}
+
+		resp := doPostRequest(t, srv, "/api/pipeline/labels/search", map[string]any{
+			"key":   "env",
+			"value": "production",
+		})
+
+		assertJSONResponse(t, resp, []map[string]any{
+			{
+				"id":    envLabelID,
+				"key":   "env",
+				"value": "production",
+			},
+		}, removeFieldsAsserter("labels", "created_at", "updated_at", "last_pipeline_report_at"))
+	})
 }
 
 func doGetRequest(t *testing.T, ts *httptest.Server, path string) *http.Response {
 	t.Helper()
+
 	r, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s%s", ts.URL, path), nil)
 	require.NoError(t, err)
+
+	resp, err := ts.Client().Do(r)
+	require.NoError(t, err)
+
+	return resp
+}
+
+func doPostRequest(t *testing.T, ts *httptest.Server, path string, body any) *http.Response {
+	t.Helper()
+
+	payload, err := json.Marshal(body)
+	require.NoError(t, err)
+
+	r, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s%s", ts.URL, path), bytes.NewReader(payload))
+	require.NoError(t, err)
+	r.Header.Set("Content-Type", "application/json")
 
 	resp, err := ts.Client().Do(r)
 	require.NoError(t, err)
@@ -441,12 +535,40 @@ func assertJSONResponseWithCode(t *testing.T, res *http.Response, code int, want
 }
 
 func deleteKeys(source map[string]any, keys ...string) map[string]any {
-	updated := maps.Clone(source)
+	fields := make(map[string]struct{}, len(keys))
 	for _, key := range keys {
-		delete(updated, key)
+		fields[key] = struct{}{}
 	}
 
-	return updated
+	cleaned, ok := deleteKeysDeep(source, fields).(map[string]any)
+	if !ok {
+		return maps.Clone(source)
+	}
+
+	return cleaned
+}
+
+func deleteKeysDeep(value any, fields map[string]struct{}) any {
+	switch v := value.(type) {
+	case map[string]any:
+		cleaned := make(map[string]any, len(v))
+		for key, item := range v {
+			if _, found := fields[key]; found {
+				continue
+			}
+
+			cleaned[key] = deleteKeysDeep(item, fields)
+		}
+		return cleaned
+	case []any:
+		cleaned := make([]any, 0, len(v))
+		for _, item := range v {
+			cleaned = append(cleaned, deleteKeysDeep(item, fields))
+		}
+		return cleaned
+	default:
+		return value
+	}
 }
 
 func removeFieldsAsserter(key string, fields ...string) assertionFunc {
@@ -472,6 +594,20 @@ func removeFieldsAsserter(key string, fields ...string) assertionFunc {
 func deleteSCM(t *testing.T, id string) {
 	query := psql.Delete(
 		dm.From("scms"),
+		dm.Where(psql.Quote("id").EQ(psql.Arg(id))),
+	)
+
+	ctx := context.TODO()
+	queryString, args, err := query.Build(ctx)
+	require.NoError(t, err)
+
+	_, err = database.DB.Exec(ctx, queryString, args...)
+	assert.NoError(t, err)
+}
+
+func deleteLabel(t *testing.T, id uuid.UUID) {
+	query := psql.Delete(
+		dm.From("labels"),
 		dm.Where(psql.Quote("id").EQ(psql.Arg(id))),
 	)
 

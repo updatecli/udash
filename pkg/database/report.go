@@ -74,8 +74,23 @@ func SearchReport(ctx context.Context, id string) (*model.PipelineReport, error)
 	return &report, nil
 }
 
+type SearchLatestReportsParams struct {
+	Ctx         context.Context
+	ScmID       string
+	SourceID    string
+	ConditionID string
+	TargetID    string
+	Options     ReportSearchOptions
+	StartTime   string
+	EndTime     string
+	Limit       int
+	Page        int
+	Latest      bool
+	Labels      map[string]string
+}
+
 // SearchLatestReports searches the latest reports according some parameters.
-func SearchLatestReports(ctx context.Context, scmID, sourceID, conditionID, targetID string, options ReportSearchOptions, limit, page int, startTime, endTime string, latest bool) ([]SearchLatestReportData, int, error) {
+func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReportData, int, error) {
 	queryString := ""
 	var args []any
 
@@ -91,72 +106,57 @@ func SearchLatestReports(ctx context.Context, scmID, sourceID, conditionID, targ
 			"updated_at"),
 	)
 
-	if latest {
-		query.Apply(
-			sm.Distinct("data -> 'ID'"),
-			sm.OrderBy("data -> 'ID'"),
-		)
+	if params.Latest {
+		query.Apply(sm.Distinct("data -> 'ID'"), sm.OrderBy("data -> 'ID'"))
 	}
 
-	query.Apply(
-		sm.OrderBy(psql.Quote("updated_at")).Desc(),
-	)
+	if len(params.Labels) > 0 {
+		err := applyLabelFilter(labelFilterParams{
+			Query:     &query,
+			Labels:    params.Labels,
+			StartTime: params.StartTime,
+			EndTime:   params.EndTime,
+			Ctx:       params.Ctx,
+		})
+		if err != nil {
+			return nil, 0, err
+		}
+	}
 
-	if err := applyUpdatedAtRangeFilter(DateRangeFilterParams{
-		Query:         &query,
-		DateRangeDays: options.Days,
-		StartTime:     startTime,
-		EndTime:       endTime,
-	}); err != nil {
+	query.Apply(sm.OrderBy(psql.Quote("updated_at")).Desc())
+
+	if err := applyRangeFilter(
+		"updated_at",
+		dateRangeFilterParams{
+			Query:         &query,
+			DateRangeDays: params.Options.Days,
+			StartTime:     params.StartTime,
+			EndTime:       params.EndTime,
+		}); err != nil {
 		return nil, 0, fmt.Errorf("applying updated_at range filter: %w", err)
 	}
 
-	if sourceID != "" {
-		if err := applyResourceConfigFilter(&query, sourceID, configSourceType); err != nil {
+	if params.SourceID != "" {
+		if err := applyResourceConfigFilter(&query, params.SourceID, configSourceType); err != nil {
 			return nil, 0, err
 		}
 	}
 
-	if conditionID != "" {
-		if err := applyResourceConfigFilter(&query, conditionID, configConditionType); err != nil {
+	if params.ConditionID != "" {
+		if err := applyResourceConfigFilter(&query, params.ConditionID, configConditionType); err != nil {
 			return nil, 0, err
 		}
 	}
 
-	if targetID != "" {
-		if err := applyResourceConfigFilter(&query, targetID, configTargetType); err != nil {
+	if params.TargetID != "" {
+		if err := applyResourceConfigFilter(&query, params.TargetID, configTargetType); err != nil {
 			return nil, 0, err
 		}
 	}
 
-	switch scmID {
+	switch params.ScmID {
 	case "":
-		// WITH filtered_reports AS (
-		// 	SELECT id, data,created_at, updated_at
-		// 	FROM pipelineReports
-		// 	WHERE
-		// 	  updated_at >  current_date - interval '%d day'
-		// )
-		// SELECT id, data, created_at, updated_at
-		// FROM filtered_reports
-		// ORDER BY updated_at DESC`
-
 	case "none", "null", "nil":
-		// WITH filtered_reports AS (
-		// 	SELECT id, data, created_at, updated_at
-		// 	FROM pipelineReports
-		// 	WHERE
-		// 	  	(( cardinality(target_db_scm_ids) = 0 ) OR ( target_db_scm_ids IS NULL )) AND
-		//       	( updated_at >  current_date - interval '%d day' )
-		// )
-		// SELECT DISTINCT ON (data ->> 'Name')
-		// 	id,
-		// 	data,
-		// 	created_at,
-		// 	updated_at
-		// FROM filtered_reports
-		// ORDER BY (data ->> 'Name'), updated_at DESC;`
-
 		query.Apply(
 			sm.Where(
 				psql.Or(
@@ -167,7 +167,7 @@ func SearchLatestReports(ctx context.Context, scmID, sourceID, conditionID, targ
 		)
 
 	default:
-		scm, _, err := GetSCM(ctx, scmID, "", "", 0, 1)
+		scm, _, err := GetSCM(params.Ctx, params.ScmID, "", "", 0, 1)
 		if err != nil {
 			logrus.Errorf("get scm data: %s", err)
 			return nil, 0, err
@@ -176,34 +176,16 @@ func SearchLatestReports(ctx context.Context, scmID, sourceID, conditionID, targ
 		switch len(scm) {
 		case 0:
 			logrus.Errorf("scm data not found")
-
 		case 1:
-			// WITH filtered_reports AS (
-			// 	SELECT id, data, created_at, updated_at
-			// 	FROM pipelineReports
-			// 	WHERE
-			// 		( target_db_scm_ids && '{ %q }' ) AND
-			// 		( updated_at >  current_date - interval '%d day' )
-			// )
-			//
-			// SELECT DISTINCT ON (data ->> 'Name')
-			// 	id,
-			// 	data,
-			// 	created_at,
-			// 	updated_at
-			// FROM filtered_reports
-			// ORDER BY (data ->> 'Name'), updated_at DESC;
-
 			query.Apply(
 				sm.Where(
 					psql.Raw(`target_db_scm_ids && ?`, fmt.Sprintf("{%s}", scm[0].ID.String())),
 				),
 			)
-
 		default:
 			// Normally we should never have multiple scms with the same id
 			// so we should never reach this point.
-			logrus.Errorf("multiple scms found")
+			logrus.Errorf("unexpected behavior: multiple scms found")
 		}
 	}
 
@@ -211,45 +193,44 @@ func SearchLatestReports(ctx context.Context, scmID, sourceID, conditionID, targ
 	// because it needs to count all the reports matching the query.
 	totalCountQuery := psql.Select(sm.From(query), sm.Columns("count(*)"))
 
-	totalCountQueryString, totalCountArgs, err := totalCountQuery.Build(ctx)
+	totalCountQueryString, totalCountArgs, err := totalCountQuery.Build(params.Ctx)
 	if err != nil {
 		return nil, 0, fmt.Errorf("building total count query failed: %s\n\t%s",
 			totalCountQueryString, err)
 	}
 
 	totalCount := 0
-	if err = DB.QueryRow(ctx, totalCountQueryString, totalCountArgs...).Scan(
+	if err = DB.QueryRow(params.Ctx, totalCountQueryString, totalCountArgs...).Scan(
 		&totalCount,
 	); err != nil {
-		logrus.Errorf("parsing total count result: %s", err)
+		logrus.Errorf("get reports: %s", err)
 	}
 
 	// If limit and page are not set, we do not apply pagination.
-	if limit < totalCount && limit > 0 {
+	if params.Limit < totalCount && params.Limit > 0 {
 		query.Apply(
-			sm.Limit(limit),
-			sm.Offset((page-1)*limit),
+			sm.Limit(params.Limit),
+			sm.Offset((params.Page-1)*params.Limit),
 		)
 	}
 
-	queryString, args, err = query.Build(ctx)
+	queryString, args, err = query.Build(params.Ctx)
 	if err != nil {
 		return nil, 0, fmt.Errorf("building query failed: %s\n\t%s", queryString, err)
 	}
 
-	rows, err := DB.Query(ctx, queryString, args...)
+	rows, err := DB.Query(params.Ctx, queryString, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("query failed: %q\n\t%s", queryString, err)
 	}
 
 	dataset := []SearchLatestReportData{}
-
 	for rows.Next() {
 		p := model.PipelineReport{}
 
 		filteredResources := pgtype.Hstore{}
 
-		if sourceID != "" || conditionID != "" || targetID != "" {
+		if params.SourceID != "" || params.ConditionID != "" || params.TargetID != "" {
 			err = rows.Scan(
 				&p.ReportID,
 				&p.ID,
@@ -285,28 +266,28 @@ func SearchLatestReports(ctx context.Context, scmID, sourceID, conditionID, targ
 			Result:    p.Pipeline.Result,
 			Report:    p.Pipeline,
 			CreatedAt: p.Created_at.String(),
-			UpdatedAt: p.Created_at.String(),
+			UpdatedAt: p.Updated_at.String(),
 		}
 
-		if sourceID != "" {
-			if _, ok := filteredResources[sourceID]; !ok {
-				return nil, 0, fmt.Errorf("sourceID %s not found in pipeline report", sourceID)
+		if params.SourceID != "" {
+			if _, ok := filteredResources[params.SourceID]; !ok {
+				return nil, 0, fmt.Errorf("sourceID %s not found in pipeline report", params.SourceID)
 			}
-			data.FilteredResourceID = *filteredResources[sourceID]
+			data.FilteredResourceID = *filteredResources[params.SourceID]
 		}
 
-		if conditionID != "" {
-			if _, ok := filteredResources[conditionID]; !ok {
-				return nil, 0, fmt.Errorf("conditionID %s not found in pipeline report", conditionID)
+		if params.ConditionID != "" {
+			if _, ok := filteredResources[params.ConditionID]; !ok {
+				return nil, 0, fmt.Errorf("conditionID %s not found in pipeline report", params.ConditionID)
 			}
-			data.FilteredResourceID = *filteredResources[conditionID]
+			data.FilteredResourceID = *filteredResources[params.ConditionID]
 		}
 
-		if targetID != "" {
-			if _, ok := filteredResources[targetID]; !ok {
-				return nil, 0, fmt.Errorf("targetID %s not found in pipeline report", targetID)
+		if params.TargetID != "" {
+			if _, ok := filteredResources[params.TargetID]; !ok {
+				return nil, 0, fmt.Errorf("targetID %s not found in pipeline report", params.TargetID)
 			}
-			data.FilteredResourceID = *filteredResources[targetID]
+			data.FilteredResourceID = *filteredResources[params.TargetID]
 		}
 
 		dataset = append(dataset, data)
@@ -317,6 +298,7 @@ func SearchLatestReports(ctx context.Context, scmID, sourceID, conditionID, targ
 
 // InsertReport inserts a new report into the database.
 func InsertReport(ctx context.Context, report reports.Report) (string, error) {
+	var err error
 	configTargetIDs := pgtype.Hstore{}
 	configConditionIDs := pgtype.Hstore{}
 
@@ -460,11 +442,14 @@ func InsertReport(ctx context.Context, report reports.Report) (string, error) {
 		}
 	}
 
-	// INSERT INTO pipelineReports
-	// (data, pipeline_id, pipeline_result, pipeline_name, target_db_scm_ids, config_source_ids, config_condition_ids, config_target_ids)
-	// VALUES
-	// ($1, $2, $3, $4, $5, $6, $7, $8)
-	// RETURNING id
+	labelIDs := []uuid.UUID{}
+	if len(report.Labels) > 0 {
+		labelIDs, err = InitLabels(ctx, report.Labels)
+		if err != nil {
+			return "", fmt.Errorf("initializing labels: %w", err)
+		}
+	}
+
 	query := psql.Insert(
 		im.Into(
 			"pipelineReports",
@@ -476,6 +461,7 @@ func InsertReport(ctx context.Context, report reports.Report) (string, error) {
 			"config_source_ids",
 			"config_condition_ids",
 			"config_target_ids",
+			"label_ids",
 		),
 		im.Values(
 			psql.Arg(report),
@@ -486,6 +472,7 @@ func InsertReport(ctx context.Context, report reports.Report) (string, error) {
 			psql.Arg(configSourceIDs),
 			psql.Arg(configConditionIDs),
 			psql.Arg(configTargetIDs),
+			psql.Arg(labelIDs),
 		),
 		im.Returning("id"),
 	)

@@ -144,12 +144,22 @@ type SCMDataset struct {
 	Data map[string]SCMBranchDataset `json:"data"`
 }
 
+type GetSCMSummaryParams struct {
+	MonitoringDurationDays int
+	StartTime              string
+	EndTime                string
+	Labels                 map[string]string
+	TotalCount             int
+	Ctx                    context.Context
+	ScmRows                []model.SCM
+}
+
 // GetSCMSummary returns a list of scms summary from the scm database table.
-func GetSCMSummary(ctx context.Context, scmRows []model.SCM, totalCount, monitoringDurationDays int, startTime, endTime string) (*SCMDataset, error) {
+func GetSCMSummary(params GetSCMSummaryParams) (*SCMDataset, error) {
 
 	dataset := SCMDataset{}
 
-	for _, row := range scmRows {
+	for _, row := range params.ScmRows {
 
 		scmID := row.ID
 		scmURL := row.URL
@@ -170,13 +180,27 @@ func GetSCMSummary(ctx context.Context, scmRows []model.SCM, totalCount, monitor
 			sm.Columns("id", "data", "updated_at"),
 		)
 
-		if err := applyUpdatedAtRangeFilter(DateRangeFilterParams{
-			Query:         &filteredSCMsQuery,
-			DateRangeDays: monitoringDurationDays,
-			StartTime:     startTime,
-			EndTime:       endTime,
-		}); err != nil {
+		if err := applyRangeFilter(
+			"updated_at",
+			dateRangeFilterParams{
+				Query:         &filteredSCMsQuery,
+				DateRangeDays: params.MonitoringDurationDays,
+				StartTime:     params.StartTime,
+				EndTime:       params.EndTime,
+			}); err != nil {
 			return nil, fmt.Errorf("applying updated_at range filter: %w", err)
+		}
+
+		if len(params.Labels) > 0 {
+			if err := applyLabelFilter(labelFilterParams{
+				Ctx:       params.Ctx,
+				Query:     &filteredSCMsQuery,
+				Labels:    params.Labels,
+				StartTime: params.StartTime,
+				EndTime:   params.EndTime,
+			}); err != nil {
+				return nil, fmt.Errorf("applying label filter: %w", err)
+			}
 		}
 
 		query := psql.Select(
@@ -190,12 +214,12 @@ func GetSCMSummary(ctx context.Context, scmRows []model.SCM, totalCount, monitor
 			sm.OrderBy(psql.Quote("updated_at")).Desc(),
 		)
 
-		queryString, queryArgs, err := query.Build(ctx)
+		queryString, queryArgs, err := query.Build(params.Ctx)
 		if err != nil {
 			return nil, fmt.Errorf("building scm summary query: %w", err)
 		}
 
-		rows, err := DB.Query(context.Background(), queryString, queryArgs...)
+		rows, err := DB.Query(params.Ctx, queryString, queryArgs...)
 		if err != nil {
 			return nil, fmt.Errorf("querying scm summary: %w", err)
 		}
