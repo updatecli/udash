@@ -12,7 +12,7 @@ policies:
       - updatecli/values.d/scm.yaml
 
   - name: Golang Version
-    policy: ghcr.io/updatecli/policies/golang/version:0.6.0@sha256:db93f333a26548e9c252e87bf46b9ff69cf68c6e693cd0ac6a7127609b478167
+    policy: ghcr.io/updatecli/policies/golang/version:0.7.1@sha256:b8590dff076dbd81ac160351e4749142f94a9ea718cc18c3c56c126067a29607
     values:
       - updatecli/values.d/scm.yaml
 
