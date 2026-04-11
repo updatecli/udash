@@ -2,8 +2,8 @@ name: "ci: bump Swag version"
 pipelineid: "swagger"
 
 labels:
-  event: release
-  monitoring: enabled
+  release: udash
+  monitor: active
 
 actions:
   default:
