@@ -1,8 +1,8 @@
 name: Update API Documentation
 
 labels:
-  event: release
-  monitoring: enabled
+  release: udash
+  monitor: active
 
 pipelineid: "venom"
 actions:
