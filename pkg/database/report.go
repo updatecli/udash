@@ -326,7 +326,7 @@ func InsertReport(ctx context.Context, report reports.Report) (string, error) {
 			continue
 		}
 
-		results, _, err := GetTargetConfigs(ctx, kind, "", string(data), 0, 1)
+		results, _, err := GetTargetConfigs(ctx, kind, "", string(data), 0, 1, false)
 		if err != nil {
 			logrus.Errorf("failed: %s", err)
 			continue
@@ -411,7 +411,7 @@ func InsertReport(ctx context.Context, report reports.Report) (string, error) {
 				continue
 			}
 
-			results, _, err := GetTargetConfigs(ctx, kind, "", string(data), 0, 1)
+			results, _, err := GetTargetConfigs(ctx, kind, "", string(data), 0, 1, false)
 			if err != nil {
 				logrus.Errorf("failed: %s", err)
 				continue
@@ -519,7 +519,7 @@ func buildConfigSources(ctx context.Context, report reports.Report) pgtype.Hstor
 			continue
 		}
 
-		results, _, err := GetSourceConfigs(ctx, kind, "", string(data), 0, 1)
+		results, _, err := GetSourceConfigs(ctx, kind, "", string(data), 0, 1, false)
 		if err != nil {
 			logrus.Errorf("failed: %s", err)
 			continue
