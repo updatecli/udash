@@ -1,6 +1,6 @@
 module github.com/updatecli/udash
 
-go 1.26.1
+go 1.26.2
 
 replace github.com/vmware-labs/yaml-jsonpath => github.com/helm-unittest/yaml-jsonpath v0.4.0 // fork maintained; module path remains vmware-labs
 
