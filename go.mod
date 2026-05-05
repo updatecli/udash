@@ -6,7 +6,7 @@ replace github.com/vmware-labs/yaml-jsonpath => github.com/helm-unittest/yaml-js
 
 require (
 	github.com/auth0/go-jwt-middleware/v2 v2.3.1
-	github.com/fsnotify/fsnotify v1.10.0
+	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gin-gonic/gin v1.12.0
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/uuid v1.6.0
