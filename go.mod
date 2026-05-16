@@ -22,7 +22,7 @@ require (
 	github.com/testcontainers/testcontainers-go v0.41.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.41.0
 	github.com/updatecli/updatecli v0.114.0
-	github.com/zitadel/zitadel-go/v3 v3.28.0
+	github.com/zitadel/zitadel-go/v3 v3.29.0
 )
 
 require (
