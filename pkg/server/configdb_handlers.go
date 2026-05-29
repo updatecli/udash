@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -48,6 +49,7 @@ type ConfigKindResponse struct {
 // @Param config query string false "Configuration of the source"
 // @Param limit query string false "Limit the number of reports returned, default is 100"
 // @Param page query string false "Page number for pagination, default is 1"
+// @Param spec_only query boolean false "When true, returns only the Spec field from each Config object"
 // @Success 200 {object} SourceConfigResponse
 // @Failure 500 {object} DefaultResponseModel
 // @Router /api/pipeline/config/sources [get]
@@ -55,6 +57,12 @@ func ListConfigSources(c *gin.Context) {
 	id := c.Request.URL.Query().Get("id")
 	kind := c.Request.URL.Query().Get("kind")
 	config := c.Request.URL.Query().Get("config")
+
+	specOnlyStr := c.Request.URL.Query().Get("spec_only")
+	specOnly, err := strconv.ParseBool(specOnlyStr)
+	if err != nil {
+		logrus.Warningf("ignoring spec_only param due to: %s", err)
+	}
 
 	limit, page, err := getPaginationParamFromURLQuery(c)
 
@@ -66,7 +74,7 @@ func ListConfigSources(c *gin.Context) {
 		return
 	}
 
-	rows, totalCount, err := database.GetSourceConfigs(c, kind, id, config, limit, page)
+	rows, totalCount, err := database.GetSourceConfigs(c, kind, id, config, limit, page, specOnly)
 	if err != nil {
 		logrus.Errorf("searching for config source: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -110,7 +118,7 @@ func SearchConfigSources(c *gin.Context) {
 		return
 	}
 
-	rows, totalCount, err := database.GetSourceConfigs(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config), queryConfig.Limit, queryConfig.Page)
+	rows, totalCount, err := database.GetSourceConfigs(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config), queryConfig.Limit, queryConfig.Page, false)
 	if err != nil {
 		logrus.Errorf("searching for config source: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -194,6 +202,7 @@ func DeleteConfigSource(c *gin.Context) {
 // @Param config query string false "Configuration of the condition"
 // @Param limit query string false "Limit the number of reports returned, default is 100"
 // @Param page query string false "Page number for pagination, default is 1"
+// @Param spec_only query boolean false "When true, returns only the Spec field from each Config object"
 // @Success 200 {object} ConditionConfigResponse
 // @Failure 500 {object} DefaultResponseModel
 // @Router /api/pipeline/config/conditions [get]
@@ -201,6 +210,12 @@ func ListConfigConditions(c *gin.Context) {
 	id := c.Request.URL.Query().Get("id")
 	kind := c.Request.URL.Query().Get("kind")
 	config := c.Request.URL.Query().Get("config")
+
+	specOnlyStr := c.Request.URL.Query().Get("spec_only")
+	specOnly, err := strconv.ParseBool(specOnlyStr)
+	if err != nil {
+		logrus.Warningf("ignoring spec_only param due to: %s", err)
+	}
 
 	limit, page, err := getPaginationParamFromURLQuery(c)
 	if err != nil {
@@ -211,7 +226,7 @@ func ListConfigConditions(c *gin.Context) {
 		return
 	}
 
-	rows, totalCount, err := database.GetConditionConfigs(c, kind, id, config, limit, page)
+	rows, totalCount, err := database.GetConditionConfigs(c, kind, id, config, limit, page, specOnly)
 	if err != nil {
 		logrus.Errorf("searching for config condition: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -219,6 +234,7 @@ func ListConfigConditions(c *gin.Context) {
 		})
 		return
 	}
+
 	c.JSON(http.StatusOK, ConditionConfigResponse{
 		Configs:    rows,
 		TotalCount: totalCount,
@@ -259,7 +275,7 @@ func SearchConfigConditions(c *gin.Context) {
 		return
 	}
 
-	configs, totalCount, err := database.GetConditionConfigs(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config), queryConfig.Limit, queryConfig.Page)
+	configs, totalCount, err := database.GetConditionConfigs(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config), queryConfig.Limit, queryConfig.Page, false)
 	if err != nil {
 		logrus.Errorf("searching for config condition: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -306,6 +322,7 @@ func DeleteConfigCondition(c *gin.Context) {
 // @Param config query string false "Configuration of the target"
 // @Param limit query string false "Limit the number of reports returned, default is 100"
 // @Param page query string false "Page number for pagination, default is 1"
+// @Param spec_only query boolean false "When true, returns only the Spec field from each Config object"
 // @Success 200 {object} TargetConfigResponse
 // @Failure 500 {object} DefaultResponseModel
 // @Router /api/pipeline/config/targets [get]
@@ -313,6 +330,12 @@ func ListConfigTargets(c *gin.Context) {
 	id := c.Request.URL.Query().Get("id")
 	kind := c.Request.URL.Query().Get("kind")
 	config := c.Request.URL.Query().Get("config")
+
+	specOnlyStr := c.Request.URL.Query().Get("spec_only")
+	specOnly, err := strconv.ParseBool(specOnlyStr)
+	if err != nil {
+		logrus.Warningf("ignoring spec_only param due to: %s", err)
+	}
 
 	limit, page, err := getPaginationParamFromURLQuery(c)
 	if err != nil {
@@ -323,7 +346,7 @@ func ListConfigTargets(c *gin.Context) {
 		return
 	}
 
-	rows, totalCount, err := database.GetTargetConfigs(c, kind, id, config, limit, page)
+	rows, totalCount, err := database.GetTargetConfigs(c, kind, id, config, limit, page, specOnly)
 	if err != nil {
 		logrus.Errorf("searching for config target: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
@@ -331,6 +354,7 @@ func ListConfigTargets(c *gin.Context) {
 		})
 		return
 	}
+
 	c.JSON(http.StatusOK, TargetConfigResponse{
 		Configs:    rows,
 		TotalCount: totalCount,
@@ -366,7 +390,7 @@ func SearchConfigTargets(c *gin.Context) {
 		return
 	}
 
-	configs, totalCount, err := database.GetTargetConfigs(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config), queryConfig.Limit, queryConfig.Page)
+	configs, totalCount, err := database.GetTargetConfigs(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config), queryConfig.Limit, queryConfig.Page, false)
 	if err != nil {
 		logrus.Errorf("searching for config target: %s", err)
 		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
