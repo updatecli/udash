@@ -1,13 +1,10 @@
-name: GitHub Actions Security Analysis with zizmor 🌈
-
+name: "GitHub Actions Security Analysis with zizmor \U0001F308"
 on:
   push:
     branches: ["main"]
   pull_request:
     branches: ["**"]
-
 permissions: {}
-
 jobs:
   zizmor:
     runs-on: ubuntu-latest
@@ -18,9 +15,8 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-
-      - name: Run zizmor 🌈
-        uses: zizmorcore/zizmor-action@71321a20a9ded102f6e9ce5718a2fcec2c4f70d8 # v0.5.2
+      - name: "Run zizmor \U0001F308"
+        uses: zizmorcore/zizmor-action@5f14fd08f7cf1cb1609c1e344975f152c7ee938d # v0.5.6
         with:
           # intentionally not scanning the entire repository,
           inputs: ./.github/
