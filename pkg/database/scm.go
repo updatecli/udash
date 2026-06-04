@@ -134,6 +134,8 @@ type ScmSummaryData struct {
 	TotalResultByType map[string]int `json:"total_result_by_type"`
 	// TotalResult is the total number of results for this SCM.
 	TotalResult int `json:"total_result"`
+	// TotalActionURLs is the total number of unique action URLs for this SCM.
+	TotalActionURLs int `json:"total_action_urls"`
 }
 
 // SCMBranchDataset represents a map of branches and their summary data for a single SCM URL.
@@ -150,6 +152,7 @@ type GetSCMSummaryParams struct {
 	EndTime                string
 	Labels                 map[string]string
 	TotalCount             int
+	TotalActions           int
 	Ctx                    context.Context
 	ScmRows                []model.SCM
 }
@@ -208,7 +211,7 @@ func GetSCMSummary(params GetSCMSummaryParams) (*SCMDataset, error) {
 				psql.Raw("data ->> 'ID'"),
 			),
 			sm.With("filtered_reports").As(filteredSCMsQuery),
-			sm.Columns("id", "data ->> 'Result'"),
+			sm.Columns("id", "data ->> 'Result'", "jsonb_path_query_array(data, '$.Actions.*.actionUrl')"),
 			sm.From("filtered_reports"),
 			sm.OrderBy(psql.Raw("data ->> 'ID'")),
 			sm.OrderBy(psql.Quote("updated_at")).Desc(),
@@ -239,12 +242,15 @@ func GetSCMSummary(params GetSCMSummaryParams) (*SCMDataset, error) {
 
 		dataset.Data[scmURL][scmBranch] = d
 
+		isActionURLsFound := make(map[string]bool)
+
 		for rows.Next() {
 
 			id := ""
 			result := ""
+			actionUrls := []string{}
 
-			err = rows.Scan(&id, &result)
+			err = rows.Scan(&id, &result, &actionUrls)
 			if err != nil {
 				return nil, fmt.Errorf("scanning scm summary row: %w", err)
 			}
@@ -260,12 +266,20 @@ func GetSCMSummary(params GetSCMSummaryParams) (*SCMDataset, error) {
 			if !resultFound {
 				dataset.Data[scmURL][scmBranch].TotalResultByType[result] = 1
 			}
+
+			for i := range actionUrls {
+				if _, ok := isActionURLsFound[actionUrls[i]]; !ok {
+					isActionURLsFound[actionUrls[i]] = true
+				}
+			}
 		}
 
 		scmData := dataset.Data[scmURL][scmBranch]
 		for r := range scmData.TotalResultByType {
 			scmData.TotalResult += scmData.TotalResultByType[r]
 		}
+		scmData.TotalActionURLs = len(isActionURLsFound)
+
 		dataset.Data[scmURL][scmBranch] = scmData
 	}
 	return &dataset, nil
