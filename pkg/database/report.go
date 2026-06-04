@@ -99,6 +99,8 @@ type SearchLatestReportsParams struct {
 }
 
 // SearchLatestReports searches the latest reports according some parameters.
+//
+//nolint:funlen
 func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReportData, int, error) {
 	queryString := ""
 	var args []any
