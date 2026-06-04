@@ -194,6 +194,9 @@ func ListPipelineReports(c *gin.Context) {
 	endTime := queryParams.Get("end_time")
 	lateststr := queryParams.Get("latest")
 
+	if lateststr == "" {
+		lateststr = "true"
+	}
 	latest, err := strconv.ParseBool(lateststr)
 	if err != nil {
 		logrus.Warningf("ignoring latest param due to: %s", err)

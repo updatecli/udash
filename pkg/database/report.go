@@ -36,6 +36,12 @@ type SearchLatestReportData struct {
 	CreatedAt string
 	// UpdatedAt represents the last update date of the report.
 	UpdatedAt string
+	// TargetConfigIDs contains the config target IDs associated with the report.
+	TargetConfigIDs pgtype.Hstore
+	// ConditionConfigIDs contains the config condition IDs associated with the report.
+	ConditionConfigIDs pgtype.Hstore
+	// SourceConfigIDs contains the config source IDs associated with the report.
+	SourceConfigIDs pgtype.Hstore
 }
 
 // ReportSearchOptions contains options for searching reports.
@@ -50,7 +56,7 @@ func SearchReport(ctx context.Context, id string) (*model.PipelineReport, error)
 
 	// "SELECT id,data,created_at,updated_at FROM pipelineReports WHERE id=$1"
 	query := psql.Select(
-		sm.Columns("id", "data", "created_at", "updated_at"),
+		sm.Columns("id", "data", "created_at", "updated_at", "config_target_ids", "config_condition_ids", "config_source_ids"),
 		sm.From("pipelineReports"),
 		sm.Where(psql.Quote("id").EQ(psql.Arg(id))),
 	)
@@ -65,6 +71,9 @@ func SearchReport(ctx context.Context, id string) (*model.PipelineReport, error)
 		&report.Pipeline,
 		&report.Created_at,
 		&report.Updated_at,
+		&report.TargetConfigIDs,
+		&report.ConditionConfigIDs,
+		&report.SourceConfigIDs,
 	)
 	if err != nil {
 		logrus.Errorf("querying for report: %s", err)
@@ -103,7 +112,9 @@ func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReport
 			"data -> 'Result'",
 			"data",
 			"created_at",
-			"updated_at"),
+			"updated_at",
+			"config_target_ids", "config_condition_ids", "config_source_ids",
+		),
 	)
 
 	if params.Latest {
@@ -239,6 +250,9 @@ func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReport
 				&p.Pipeline,
 				&p.Created_at,
 				&p.Updated_at,
+				&p.TargetConfigIDs,
+				&p.ConditionConfigIDs,
+				&p.SourceConfigIDs,
 				&filteredResources,
 			)
 			if err != nil {
@@ -254,6 +268,9 @@ func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReport
 				&p.Pipeline,
 				&p.Created_at,
 				&p.Updated_at,
+				&p.TargetConfigIDs,
+				&p.ConditionConfigIDs,
+				&p.SourceConfigIDs,
 			)
 			if err != nil {
 				return nil, 0, fmt.Errorf("parsing result: %s", err)
@@ -261,12 +278,15 @@ func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReport
 		}
 
 		data := SearchLatestReportData{
-			ID:        p.ID.String(),
-			Name:      p.Pipeline.Name,
-			Result:    p.Pipeline.Result,
-			Report:    p.Pipeline,
-			CreatedAt: p.Created_at.String(),
-			UpdatedAt: p.Updated_at.String(),
+			ID:                 p.ID.String(),
+			Name:               p.Pipeline.Name,
+			Result:             p.Pipeline.Result,
+			Report:             p.Pipeline,
+			CreatedAt:          p.Created_at.String(),
+			UpdatedAt:          p.Updated_at.String(),
+			TargetConfigIDs:    p.TargetConfigIDs,
+			ConditionConfigIDs: p.ConditionConfigIDs,
+			SourceConfigIDs:    p.SourceConfigIDs,
 		}
 
 		if params.SourceID != "" {
@@ -610,7 +630,7 @@ func SearchLatestReportByPipelineID(ctx context.Context, id string) (*model.Pipe
 	// ORDER BY updated_at DESC FETCH FIRST 1 ROWS ONLY
 
 	query := psql.Select(
-		sm.Columns("id", "data", "created_at", "updated_at"),
+		sm.Columns("id", "data", "created_at", "updated_at", "config_target_ids", "config_condition_ids", "config_source_ids"),
 		sm.From("pipelineReports"),
 		sm.Where(psql.Quote("pipeline_id").EQ(psql.Arg(id))),
 		sm.OrderBy(psql.Quote("updated_at")).Desc(),
@@ -627,6 +647,9 @@ func SearchLatestReportByPipelineID(ctx context.Context, id string) (*model.Pipe
 		&report.Pipeline,
 		&report.Created_at,
 		&report.Updated_at,
+		&report.TargetConfigIDs,
+		&report.ConditionConfigIDs,
+		&report.SourceConfigIDs,
 	)
 
 	if err != nil {
