@@ -1,6 +1,6 @@
 module github.com/updatecli/udash
 
-go 1.26.1
+go 1.26.4
 
 replace github.com/vmware-labs/yaml-jsonpath => github.com/helm-unittest/yaml-jsonpath v0.4.0 // fork maintained; module path remains vmware-labs
 
@@ -14,7 +14,7 @@ require (
 	github.com/sirupsen/logrus v1.9.4
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
-	github.com/stephenafamo/bob v0.42.0
+	github.com/stephenafamo/bob v0.45.0
 	github.com/stretchr/testify v1.11.1
 	github.com/swaggo/files v1.0.1
 	github.com/swaggo/gin-swagger v1.6.1
