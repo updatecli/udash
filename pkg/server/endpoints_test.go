@@ -163,6 +163,9 @@ func TestEndpoints(t *testing.T) {
 						"ReportURL":  "",
 					},
 					"FilteredResourceID": "",
+					"ConditionConfigIDs": map[string]any{},
+					"SourceConfigIDs":    map[string]any{},
+					"TargetConfigIDs":    map[string]any{},
 				},
 			}, removeFieldsAsserter("data", "CreatedAt", "UpdatedAt", "Labels"))
 		})
@@ -221,6 +224,9 @@ func TestEndpoints(t *testing.T) {
 						"ReportURL":  "",
 					},
 					"FilteredResourceID": "",
+					"ConditionConfigIDs": map[string]any{},
+					"SourceConfigIDs":    map[string]any{},
+					"TargetConfigIDs":    map[string]any{},
 				},
 			}, removeFieldsAsserter("data", "CreatedAt", "UpdatedAt", "Labels"))
 		})
