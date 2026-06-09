@@ -181,7 +181,7 @@ func DeleteConfigSource(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, DefaultResponseModel{
-		Message: "success",
+		Message: successMessageType,
 	})
 }
 
@@ -293,7 +293,7 @@ func DeleteConfigCondition(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, DefaultResponseModel{
-		Message: "success",
+		Message: successMessageType,
 	})
 }
 
@@ -400,6 +400,6 @@ func DeleteConfigTarget(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, DefaultResponseModel{
-		Message: "success",
+		Message: successMessageType,
 	})
 }

@@ -83,7 +83,11 @@ linters:
         path: _expansion_test\.go
       - linters:
           - gocritic
-        text: 'unnecessaryDefer:'
+        text: "unnecessaryDefer:"
+      - linters:
+          - goconst
+        path: "pkg/server/endpoints_test.go"
+
     paths:
       - test/testdata_etc
       - internal/cache

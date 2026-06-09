@@ -206,7 +206,7 @@ func ListPipelineReports(c *gin.Context) {
 	if err != nil {
 		logrus.Errorf("getting pagination params: %s", err)
 		c.JSON(http.StatusBadRequest, DefaultResponseModel{
-			Err: "invalid pagination parameters",
+			Err: ErrInvalidPaginationParams,
 		})
 		return
 	}
