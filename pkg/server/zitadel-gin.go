@@ -24,11 +24,11 @@ func (i *Interceptor[T]) RequireAuthorization(options ...authorization.CheckOpti
 		authCtx, err := i.authorizer.CheckAuthorization(c.Request.Context(), c.GetHeader(authorization.HeaderName), options...)
 		if err != nil {
 			if errors.Is(err, &authorization.UnauthorizedErr{}) {
-				c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+				c.JSON(http.StatusUnauthorized, gin.H{errMessageType: err.Error()})
 				c.Abort()
 				return
 			}
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			c.JSON(http.StatusForbidden, gin.H{errMessageType: err.Error()})
 			c.Abort()
 			return
 		}

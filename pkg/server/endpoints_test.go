@@ -163,6 +163,9 @@ func TestEndpoints(t *testing.T) {
 						"ReportURL":  "",
 					},
 					"FilteredResourceID": "",
+					"ConditionConfigIDs": map[string]any{},
+					"SourceConfigIDs":    map[string]any{},
+					"TargetConfigIDs":    map[string]any{},
 				},
 			}, removeFieldsAsserter("data", "CreatedAt", "UpdatedAt", "Labels"))
 		})
@@ -221,6 +224,9 @@ func TestEndpoints(t *testing.T) {
 						"ReportURL":  "",
 					},
 					"FilteredResourceID": "",
+					"ConditionConfigIDs": map[string]any{},
+					"SourceConfigIDs":    map[string]any{},
+					"TargetConfigIDs":    map[string]any{},
 				},
 			}, removeFieldsAsserter("data", "CreatedAt", "UpdatedAt", "Labels"))
 		})
@@ -516,7 +522,7 @@ func assertJSONResponse(t *testing.T, res *http.Response, want any, asserter ass
 func assertErrorResponse(t *testing.T, res *http.Response, code int, wantMsg string) {
 	t.Helper()
 
-	assertJSONResponseWithCode(t, res, code, map[string]any{"error": wantMsg}, assert.Equal)
+	assertJSONResponseWithCode(t, res, code, map[string]any{errMessageType: wantMsg}, assert.Equal)
 }
 
 func assertJSONResponseWithCode(t *testing.T, res *http.Response, code int, want any, asserter assertionFunc) {

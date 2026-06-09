@@ -69,7 +69,7 @@ func checkJWT() gin.HandlerFunc {
 		if encounteredError {
 			ctx.AbortWithStatusJSON(
 				http.StatusUnauthorized,
-				map[string]string{"message": "JWT is invalid."},
+				map[string]string{errMessageType: ErrInvalidJWT},
 			)
 		}
 	}

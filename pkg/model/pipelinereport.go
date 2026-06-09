@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/updatecli/updatecli/pkg/core/reports"
 )
 
@@ -27,11 +28,11 @@ type PipelineReport struct {
 	// LabelIDs is a list of unique identifiers of the labels associated with the database.
 	LabelIDs []uuid.UUID `json:",omitempty"`
 	// TargetConfigIDs is a list of unique identifiers of the target configuration associated with the database.
-	TargetConfigIDs map[uuid.UUID]string `json:",omitempty"`
+	TargetConfigIDs pgtype.Hstore `json:",omitempty"`
 	// ConditionConfigIDs is a list of unique identifiers of the condition configuration associated with the database.
-	ConditionConfigIDs map[uuid.UUID]string `json:",omitempty"`
+	ConditionConfigIDs pgtype.Hstore `json:",omitempty"`
 	// SourceConfigIDs is a list of unique identifiers of the source configuration associated with the database.
-	SourceConfigIDs map[uuid.UUID]string `json:",omitempty"`
+	SourceConfigIDs pgtype.Hstore `json:",omitempty"`
 
 	// Create_at represent the creation date of the record.
 	Created_at time.Time `json:",omitempty"`

@@ -55,7 +55,7 @@ func ListLabels(c *gin.Context) {
 	if err != nil {
 		logrus.Errorf("getting pagination params: %s", err)
 		c.JSON(http.StatusBadRequest, DefaultResponseModel{
-			Err: "invalid pagination parameters",
+			Err: ErrInvalidPaginationParams,
 		})
 		return
 	}
@@ -65,7 +65,7 @@ func ListLabels(c *gin.Context) {
 		parsedKeyOnly, err := strconv.ParseBool(keyOnlyValue)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, DefaultResponseModel{
-				Err: "invalid keyonly parameter",
+				Err: ErrInvalidKeyOnlyParam,
 			})
 			return
 		}
