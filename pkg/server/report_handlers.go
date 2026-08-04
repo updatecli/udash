@@ -173,6 +173,184 @@ func SearchPipelineReports(c *gin.Context) {
 	})
 }
 
+// SearchPipelineReportsSummaryRequest represents the filters used to summarize
+// pipeline reports.
+type SearchPipelineReportsSummaryRequest struct {
+	// Metric is what the reports are counted by. It defaults to "result", which is
+	// the only value supported so far.
+	Metric string `json:"metric,omitempty"`
+	// Granularity is the size of the time buckets, one of "hour", "day", "week" or
+	// "month". It defaults to "day".
+	Granularity string `json:"granularity,omitempty"`
+	// Days is the number of days to summarize, today included.
+	// It defaults to 7 and is ignored when hours, or start_time and end_time, are provided.
+	Days int `json:"days,omitempty"`
+	// Hours is the number of hours to summarize, the current hour included.
+	// It cannot be combined with days and is ignored when start_time and end_time are provided.
+	Hours int `json:"hours,omitempty"`
+	// ScmID is the ID of the SCM to filter reports by.
+	// Use "none" to only count the reports which are not attached to any SCM.
+	ScmID string `json:"scmid,omitempty"`
+	// Labels is a map of labels to filter reports by.
+	Labels map[string]string `json:"labels,omitempty"`
+	// StartTime is the start time for the time range filter.
+	// Time format is: 2006-01-02 15:04:05Z07:00
+	StartTime string `json:"start_time,omitempty"`
+	// EndTime is the end time for the time range filter.
+	// Time format is: 2006-01-02 15:04:05Z07:00
+	EndTime string `json:"end_time,omitempty"`
+}
+
+// SearchPipelineReportsSummaryResponse represents the response for the
+// SearchPipelineReportsSummary endpoint.
+type SearchPipelineReportsSummaryResponse struct {
+	// Metric is the metric the reports were counted by.
+	Metric string `json:"metric"`
+	// Granularity is the size of the time buckets of the entries.
+	Granularity string `json:"granularity"`
+	// Data contains one entry per time bucket, ordered from the oldest to the most recent one.
+	Data []database.ReportResultSummaryEntry `json:"data"`
+	// TotalCount is the total number of reports matching the query.
+	TotalCount int `json:"total_count"`
+}
+
+// SearchPipelineReportsSummary returns the number of pipeline reports per result, per time bucket.
+// @Summary Summarize pipeline reports
+// @Description Return the number of pipeline reports per result for each time bucket of the requested time range.
+// @Description Buckets are UTC hours, UTC calendar days, ISO weeks or calendar months depending on the
+// @Description granularity, and the date of an entry is the start of its bucket, formatted as RFC3339.
+// @Description Every report is counted, including several reports of the same pipeline, and buckets without
+// @Description any report are returned with a zeroed entry.
+// @Tags Pipeline Reports
+// @Accept json
+// @Produce json
+// @Param body body SearchPipelineReportsSummaryRequest true "Summary filters"
+// @Success 200 {object} SearchPipelineReportsSummaryResponse
+// @Failure 400 {object} DefaultResponseModel
+// @Failure 500 {object} DefaultResponseModel
+// @Router /api/pipeline/reports/summary [post]
+func SearchPipelineReportsSummary(c *gin.Context) {
+	queryParams := SearchPipelineReportsSummaryRequest{}
+
+	if err := c.ShouldBindJSON(&queryParams); err != nil {
+		logrus.Errorf("failed to read json body: %s", err)
+		c.JSON(http.StatusBadRequest, DefaultResponseModel{
+			Err: err.Error(),
+		})
+		return
+	}
+
+	metric := queryParams.Metric
+	if metric == "" {
+		metric = summaryMetricResult
+	}
+
+	if metric != summaryMetricResult {
+		c.JSON(http.StatusBadRequest, DefaultResponseModel{
+			Err: ErrInvalidMetricParam,
+		})
+		return
+	}
+
+	granularity := database.SummaryGranularity(queryParams.Granularity)
+	if granularity == "" {
+		granularity = database.SummaryGranularityDay
+	}
+
+	if !granularity.IsValid() {
+		c.JSON(http.StatusBadRequest, DefaultResponseModel{
+			Err: ErrInvalidGranularityParam,
+		})
+		return
+	}
+
+	if queryParams.Days != 0 && queryParams.Hours != 0 {
+		c.JSON(http.StatusBadRequest, DefaultResponseModel{
+			Err: ErrConflictingWindowParams,
+		})
+		return
+	}
+
+	hours := queryParams.Hours
+	if hours < 0 || hours > maxMonitoringDurationDays*24 {
+		c.JSON(http.StatusBadRequest, DefaultResponseModel{
+			Err: ErrInvalidHoursParam,
+		})
+		return
+	}
+
+	days := queryParams.Days
+	switch {
+	case days == 0:
+		// Only fall back to the default window when no window was asked for at all,
+		// otherwise it would silently override hours.
+		if hours == 0 {
+			days = monitoringDurationDays
+		}
+	case days < 0 || days > maxMonitoringDurationDays:
+		c.JSON(http.StatusBadRequest, DefaultResponseModel{
+			Err: ErrInvalidDaysParam,
+		})
+		return
+	}
+
+	// Catching this here returns a 400 instead of the 500 that the database layer
+	// would return for the same mistake.
+	if (queryParams.StartTime == "") != (queryParams.EndTime == "") {
+		c.JSON(http.StatusBadRequest, DefaultResponseModel{
+			Err: ErrInvalidTimeRangeParams,
+		})
+		return
+	}
+
+	dataset, totalCount, err := database.SearchReportsSummary(
+		database.ReportSummaryParams{
+			Ctx:         c,
+			Days:        days,
+			Hours:       hours,
+			Granularity: granularity,
+			MaxDays:     maxMonitoringDurationDays,
+			MaxBuckets:  maxSummaryBuckets,
+			ScmID:       queryParams.ScmID,
+			Labels:      queryParams.Labels,
+			StartTime:   queryParams.StartTime,
+			EndTime:     queryParams.EndTime,
+		},
+	)
+	if err != nil {
+		// An explicit time range bypasses the days validation above, so this is the
+		// only place a range wider than the limit can be caught.
+		if errors.Is(err, database.ErrSummaryRangeTooWide) {
+			c.JSON(http.StatusBadRequest, DefaultResponseModel{
+				Err: ErrTimeRangeTooWide,
+			})
+			return
+		}
+
+		// The number of buckets depends on the granularity, which the validation above
+		// cannot account for on its own.
+		if errors.Is(err, database.ErrSummaryTooManyBuckets) {
+			c.JSON(http.StatusBadRequest, DefaultResponseModel{
+				Err: ErrTooManyBuckets,
+			})
+			return
+		}
+
+		logrus.Errorf("summarizing reports: %s", err)
+		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
+			Err: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SearchPipelineReportsSummaryResponse{
+		Metric:      metric,
+		Granularity: string(granularity),
+		Data:        dataset,
+		TotalCount:  totalCount,
+	})
+}
+
 // ListPipelineReports returns all pipeline reports from the database
 // @Summary List all pipeline reports
 // @Description List all pipeline reports from the database

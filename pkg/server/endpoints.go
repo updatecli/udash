@@ -193,6 +193,7 @@ func newGinEngine(opts Options) *gin.Engine {
 		r.POST("/api/pipeline/config/targets/search", SearchConfigTargets)
 		r.POST("/api/pipeline/labels/search", SearchLabels)
 		r.POST("/api/pipeline/reports/search", SearchPipelineReports)
+		r.POST("/api/pipeline/reports/summary", SearchPipelineReportsSummary)
 		r.POST("/api/pipeline/scms/search", SearchSCMs)
 	} else {
 		apiPipeline.POST("/config/sources/search", SearchConfigSources)
@@ -200,6 +201,7 @@ func newGinEngine(opts Options) *gin.Engine {
 		apiPipeline.POST("/config/targets/search", SearchConfigTargets)
 		apiPipeline.POST("/labels/search", SearchLabels)
 		apiPipeline.POST("/reports/search", SearchPipelineReports)
+		apiPipeline.POST("/reports/summary", SearchPipelineReportsSummary)
 		apiPipeline.POST("/scms/search", SearchSCMs)
 	}
 

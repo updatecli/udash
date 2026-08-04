@@ -70,8 +70,28 @@ definitions:
           $ref: '#/definitions/transformer.Transformer'
         type: array
     type: object
+  database.ReportResultSummaryEntry:
+    properties:
+      date:
+        description: Date is the start of the bucket, in UTC, formatted as RFC3339.
+        type: string
+      results:
+        additionalProperties:
+          type: integer
+        description: Results contains the number of reports per Updatecli result for
+          that bucket.
+        type: object
+      total:
+        description: Total is the number of reports for that bucket, all results combined.
+        type: integer
+    type: object
   database.SearchLatestReportData:
     properties:
+      conditionConfigIDs:
+        allOf:
+        - $ref: '#/definitions/pgtype.Hstore'
+        description: ConditionConfigIDs contains the config condition IDs associated
+          with the report.
       createdAt:
         description: CreatedAt represents the creation date of the report.
         type: string
@@ -93,6 +113,16 @@ definitions:
       result:
         description: Result represents the result of the report.
         type: string
+      sourceConfigIDs:
+        allOf:
+        - $ref: '#/definitions/pgtype.Hstore'
+        description: SourceConfigIDs contains the config source IDs associated with
+          the report.
+      targetConfigIDs:
+        allOf:
+        - $ref: '#/definitions/pgtype.Hstore'
+        description: TargetConfigIDs contains the config target IDs associated with
+          the report.
       updatedAt:
         description: UpdatedAt represents the last update date of the report.
         type: string
@@ -150,20 +180,47 @@ definitions:
         description: Updated_at represent the last update date of the record.
         type: string
     type: object
+  model.Label:
+    properties:
+      created_at:
+        description: CreatedAt is the time the label was created
+        type: string
+      id:
+        description: ID is a unique identifier for the label, generated as a UUID.
+        type: string
+      key:
+        description: Key is the label name
+        type: string
+      last_pipeline_report_at:
+        description: LastPipelineReportAt is the time the label was last used in a
+          pipeline report
+        type: string
+      updated_at:
+        description: UpdatedAt is the time the label was last updated
+        type: string
+      value:
+        description: Value is the value associated with the label
+        type: string
+    type: object
   model.PipelineReport:
     properties:
       conditionConfigIDs:
-        additionalProperties:
-          type: string
+        allOf:
+        - $ref: '#/definitions/pgtype.Hstore'
         description: ConditionConfigIDs is a list of unique identifiers of the condition
           configuration associated with the database.
-        type: object
       created_at:
         description: Create_at represent the creation date of the record.
         type: string
       id:
         description: ID is the unique identifier of the record in the database.
         type: string
+      labelIDs:
+        description: LabelIDs is a list of unique identifiers of the labels associated
+          with the database.
+        items:
+          type: string
+        type: array
       pipeline:
         allOf:
         - $ref: '#/definitions/reports.Report'
@@ -183,17 +240,15 @@ definitions:
         description: Result represent the result of the pipeline execution.
         type: string
       sourceConfigIDs:
-        additionalProperties:
-          type: string
+        allOf:
+        - $ref: '#/definitions/pgtype.Hstore'
         description: SourceConfigIDs is a list of unique identifiers of the source
           configuration associated with the database.
-        type: object
       targetConfigIDs:
-        additionalProperties:
-          type: string
+        allOf:
+        - $ref: '#/definitions/pgtype.Hstore'
         description: TargetConfigIDs is a list of unique identifiers of the target
           configuration associated with the database.
-        type: object
       targetScmIDs:
         description: TargetScmIDs is a list of unique identifiers of the scm configuration
           associated with the database.
@@ -203,6 +258,28 @@ definitions:
       updated_at:
         description: Updated_at represent the last update date of the record.
         type: string
+    type: object
+  model.SCM:
+    properties:
+      branch:
+        description: Branch is the Git branch
+        type: string
+      created_at:
+        description: Created_at is the time the SCM configuration was created
+        type: string
+      id:
+        description: ID is a unique identifier for the SCM configuration
+        type: string
+      updated_at:
+        description: Updated_at is the time the SCM configuration was last updated
+        type: string
+      url:
+        description: URL is the Git repository URL
+        type: string
+    type: object
+  pgtype.Hstore:
+    additionalProperties:
+      type: string
     type: object
   reports.Action:
     properties:
@@ -253,6 +330,13 @@ definitions:
         description: Title is the title of the changelog
         type: string
     type: object
+  reports.CIData:
+    properties:
+      name:
+        type: string
+      url:
+        type: string
+    type: object
   reports.PipelineURL:
     properties:
       name:
@@ -268,6 +352,8 @@ definitions:
         additionalProperties:
           $ref: '#/definitions/reports.Action'
         type: object
+      ci:
+        $ref: '#/definitions/reports.CIData'
       conditions:
         additionalProperties:
           $ref: '#/definitions/result.Condition'
@@ -279,6 +365,10 @@ definitions:
       id:
         description: ID defines the report ID
         type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
       name:
         type: string
       pipelineID:
@@ -519,6 +609,164 @@ definitions:
         type: array
       total_count:
         type: integer
+    type: object
+  server.ListLabelsResponse:
+    properties:
+      labels:
+        description: Labels is a list of labels.
+        items:
+          $ref: '#/definitions/model.Label'
+        type: array
+      total_count:
+        description: TotalCount is the total number of labels matching the query.
+        type: integer
+    type: object
+  server.ListSCMsResponse:
+    properties:
+      scms:
+        description: SCMs is a list of SCMs.
+        items:
+          $ref: '#/definitions/model.SCM'
+        type: array
+      total_count:
+        description: TotalCount is the total number of SCMs matching the query.
+        type: integer
+    type: object
+  server.SearchLabelsRequest:
+    properties:
+      end_time:
+        description: |-
+          EndTime is the end time for the time range filter
+          This is optional and can be used to filter labels by a specific end time
+          Time format is RFC3339: 2006-01-02T15:04:05Z07:00
+        type: string
+      id:
+        description: Id is the unique identifier of the label.
+        type: string
+      key:
+        description: Key is the key of the label.
+        type: string
+      key_only:
+        description: KeyOnly specifies if we only need to retrieve a list of uniq
+          Label keys
+        type: boolean
+      limit:
+        description: |-
+          Limit is the maximum number of labels to return
+          This is optional and can be used to limit the number of labels returned
+        type: integer
+      page:
+        description: |-
+          Page is the page number for pagination
+          This is optional and can be used to paginate the results
+        type: integer
+      start_time:
+        description: |-
+          StartTime is the start time for the time range filter
+          This is optional and can be used to filter labels by a specific start time
+          Time format is RFC3339: 2006-01-02T15:04:05Z07:00
+        type: string
+      value:
+        description: Value is the value of the label.
+        type: string
+    type: object
+  server.SearchPipelineReportsSummaryRequest:
+    properties:
+      days:
+        description: |-
+          Days is the number of days to summarize, today included.
+          It defaults to 7 and is ignored when hours, or start_time and end_time, are provided.
+        type: integer
+      end_time:
+        description: |-
+          EndTime is the end time for the time range filter.
+          Time format is: 2006-01-02 15:04:05Z07:00
+        type: string
+      granularity:
+        description: |-
+          Granularity is the size of the time buckets, one of "hour", "day", "week" or
+          "month". It defaults to "day".
+        type: string
+      hours:
+        description: |-
+          Hours is the number of hours to summarize, the current hour included.
+          It cannot be combined with days and is ignored when start_time and end_time are provided.
+        type: integer
+      labels:
+        additionalProperties:
+          type: string
+        description: Labels is a map of labels to filter reports by.
+        type: object
+      metric:
+        description: |-
+          Metric is what the reports are counted by. It defaults to "result", which is
+          the only value supported so far.
+        type: string
+      scmid:
+        description: |-
+          ScmID is the ID of the SCM to filter reports by.
+          Use "none" to only count the reports which are not attached to any SCM.
+        type: string
+      start_time:
+        description: |-
+          StartTime is the start time for the time range filter.
+          Time format is: 2006-01-02 15:04:05Z07:00
+        type: string
+    type: object
+  server.SearchPipelineReportsSummaryResponse:
+    properties:
+      data:
+        description: Data contains one entry per time bucket, ordered from the oldest
+          to the most recent one.
+        items:
+          $ref: '#/definitions/database.ReportResultSummaryEntry'
+        type: array
+      granularity:
+        description: Granularity is the size of the time buckets of the entries.
+        type: string
+      metric:
+        description: Metric is the metric the reports were counted by.
+        type: string
+      total_count:
+        description: TotalCount is the total number of reports matching the query.
+        type: integer
+    type: object
+  server.SearchSCMsRequest:
+    properties:
+      branch:
+        description: Branch is the SCM branch to filter by.
+        type: string
+      end_time:
+        description: |-
+          EndTime is the end time for the time range filter.
+          Time format is RFC3339: 2006-01-02T15:04:05Z07:00
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        description: Labels filters SCM summaries by report labels.
+        type: object
+      limit:
+        description: Limit is the maximum number of SCMs to return.
+        type: integer
+      page:
+        description: Page is the page number for pagination.
+        type: integer
+      scmid:
+        description: ScmID is the ID of the SCM to filter by.
+        type: string
+      start_time:
+        description: |-
+          StartTime is the start time for the time range filter.
+          Time format is RFC3339: 2006-01-02T15:04:05Z07:00
+        type: string
+      summary:
+        description: Summary indicates if the response should contain SCM summary
+          data.
+        type: boolean
+      url:
+        description: URL is the SCM URL to filter by.
+        type: string
     type: object
   server.SourceConfigResponse:
     properties:
@@ -1083,6 +1331,88 @@ paths:
       summary: Search configuration targets
       tags:
       - Configuration Targets
+  /api/pipeline/labels:
+    get:
+      description: List labels data from the database with optional filtering
+      parameters:
+      - description: Filter by label ID
+        in: query
+        name: id
+        type: string
+      - description: Filter by label key
+        in: query
+        name: key
+        type: string
+      - description: Filter by label value
+        in: query
+        name: value
+        type: string
+      - description: Return only unique label keys (true/false)
+        in: query
+        name: keyonly
+        type: string
+      - description: Limit the number of labels returned, default is 100
+        in: query
+        name: limit
+        type: string
+      - description: Page number for pagination, default is 1
+        in: query
+        name: page
+        type: string
+      - description: Start time for filtering labels (RFC3339 format)
+        in: query
+        name: start_time
+        type: string
+      - description: End time for filtering labels (RFC3339 format)
+        in: query
+        name: end_time
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.ListLabelsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: List labels
+      tags:
+      - Labels
+  /api/pipeline/labels/search:
+    post:
+      consumes:
+      - application/json
+      description: Search labels in the database using advanced filtering
+      parameters:
+      - description: Search parameters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/server.SearchLabelsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.ListLabelsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: Search labels
+      tags:
+      - Labels
   /api/pipeline/reports:
     get:
       consumes:
@@ -1134,6 +1464,10 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/server.CreatePipelineReportResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
         "500":
           description: Internal Server Error
           schema:
@@ -1151,8 +1485,8 @@ paths:
         required: true
         type: string
       responses:
-        "201":
-          description: Created
+        "200":
+          description: OK
           schema:
             $ref: '#/definitions/server.DefaultResponseModel'
         "500":
@@ -1171,8 +1505,8 @@ paths:
         required: true
         type: string
       responses:
-        "201":
-          description: Created
+        "200":
+          description: OK
           schema:
             $ref: '#/definitions/server.GetPipelineReportByIDResponse'
         "404":
@@ -1239,6 +1573,41 @@ paths:
       summary: Search pipeline reports
       tags:
       - Pipeline Reports
+  /api/pipeline/reports/summary:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Return the number of pipeline reports per result for each time bucket of the requested time range.
+        Buckets are UTC hours, UTC calendar days, ISO weeks or calendar months depending on the
+        granularity, and the date of an entry is the start of its bucket, formatted as RFC3339.
+        Every report is counted, including several reports of the same pipeline, and buckets without
+        any report are returned with a zeroed entry.
+      parameters:
+      - description: Summary filters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/server.SearchPipelineReportsSummaryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.SearchPipelineReportsSummaryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: Summarize pipeline reports
+      tags:
+      - Pipeline Reports
   /api/pipeline/scms:
     get:
       description: List SCMs data from the database
@@ -1279,12 +1648,47 @@ paths:
         "200":
           description: OK
           schema:
+            $ref: '#/definitions/server.ListSCMsResponse'
+        "400":
+          description: Bad Request
+          schema:
             $ref: '#/definitions/server.DefaultResponseModel'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/server.DefaultResponseModel'
       summary: List SCMs
+      tags:
+      - SCMs
+  /api/pipeline/scms/search:
+    post:
+      consumes:
+      - application/json
+      description: Search SCM data using JSON filters. When summary is true, the response
+        contains SCM summary data for all matching SCMs.
+      parameters:
+      - description: SCM search filters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/server.SearchSCMsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.ListSCMsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: Search SCMs
       tags:
       - SCMs
 swagger: "2.0"

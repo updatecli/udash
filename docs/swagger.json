@@ -430,6 +430,131 @@
                 }
             }
         },
+        "/api/pipeline/labels": {
+            "get": {
+                "description": "List labels data from the database with optional filtering",
+                "tags": [
+                    "Labels"
+                ],
+                "summary": "List labels",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by label ID",
+                        "name": "id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by label key",
+                        "name": "key",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by label value",
+                        "name": "value",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Return only unique label keys (true/false)",
+                        "name": "keyonly",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Limit the number of labels returned, default is 100",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page number for pagination, default is 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start time for filtering labels (RFC3339 format)",
+                        "name": "start_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End time for filtering labels (RFC3339 format)",
+                        "name": "end_time",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.ListLabelsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/pipeline/labels/search": {
+            "post": {
+                "description": "Search labels in the database using advanced filtering",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Labels"
+                ],
+                "summary": "Search labels",
+                "parameters": [
+                    {
+                        "description": "Search parameters",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/server.SearchLabelsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.ListLabelsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    }
+                }
+            }
+        },
         "/api/pipeline/reports": {
             "get": {
                 "description": "List all pipeline reports from the database",
@@ -509,6 +634,12 @@
                             "$ref": "#/definitions/server.CreatePipelineReportResponse"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -567,6 +698,52 @@
                 }
             }
         },
+        "/api/pipeline/reports/summary": {
+            "post": {
+                "description": "Return the number of pipeline reports per result for each time bucket of the requested time range.\nBuckets are UTC hours, UTC calendar days, ISO weeks or calendar months depending on the\ngranularity, and the date of an entry is the start of its bucket, formatted as RFC3339.\nEvery report is counted, including several reports of the same pipeline, and buckets without\nany report are returned with a zeroed entry.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Pipeline Reports"
+                ],
+                "summary": "Summarize pipeline reports",
+                "parameters": [
+                    {
+                        "description": "Summary filters",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/server.SearchPipelineReportsSummaryRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.SearchPipelineReportsSummaryResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    }
+                }
+            }
+        },
         "/api/pipeline/reports/{id}": {
             "get": {
                 "description": "Get the latest pipeline report for a specific ID",
@@ -584,8 +761,8 @@
                     }
                 ],
                 "responses": {
-                    "201": {
-                        "description": "Created",
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/server.GetPipelineReportByIDResponse"
                         }
@@ -650,8 +827,8 @@
                     }
                 ],
                 "responses": {
-                    "201": {
-                        "description": "Created",
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/server.DefaultResponseModel"
                         }
@@ -725,6 +902,58 @@
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.ListSCMsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/pipeline/scms/search": {
+            "post": {
+                "description": "Search SCM data using JSON filters. When summary is true, the response contains SCM summary data for all matching SCMs.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SCMs"
+                ],
+                "summary": "Search SCMs",
+                "parameters": [
+                    {
+                        "description": "SCM search filters",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/server.SearchSCMsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.ListSCMsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/server.DefaultResponseModel"
                         }
@@ -801,9 +1030,37 @@
                 }
             }
         },
+        "database.ReportResultSummaryEntry": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "description": "Date is the start of the bucket, in UTC, formatted as RFC3339.",
+                    "type": "string"
+                },
+                "results": {
+                    "description": "Results contains the number of reports per Updatecli result for that bucket.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "total": {
+                    "description": "Total is the number of reports for that bucket, all results combined.",
+                    "type": "integer"
+                }
+            }
+        },
         "database.SearchLatestReportData": {
             "type": "object",
             "properties": {
+                "conditionConfigIDs": {
+                    "description": "ConditionConfigIDs contains the config condition IDs associated with the report.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/pgtype.Hstore"
+                        }
+                    ]
+                },
                 "createdAt": {
                     "description": "CreatedAt represents the creation date of the report.",
                     "type": "string"
@@ -831,6 +1088,22 @@
                 "result": {
                     "description": "Result represents the result of the report.",
                     "type": "string"
+                },
+                "sourceConfigIDs": {
+                    "description": "SourceConfigIDs contains the config source IDs associated with the report.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/pgtype.Hstore"
+                        }
+                    ]
+                },
+                "targetConfigIDs": {
+                    "description": "TargetConfigIDs contains the config target IDs associated with the report.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/pgtype.Hstore"
+                        }
+                    ]
                 },
                 "updatedAt": {
                     "description": "UpdatedAt represents the last update date of the report.",
@@ -915,15 +1188,45 @@
                 }
             }
         },
+        "model.Label": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "description": "CreatedAt is the time the label was created",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "ID is a unique identifier for the label, generated as a UUID.",
+                    "type": "string"
+                },
+                "key": {
+                    "description": "Key is the label name",
+                    "type": "string"
+                },
+                "last_pipeline_report_at": {
+                    "description": "LastPipelineReportAt is the time the label was last used in a pipeline report",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "description": "UpdatedAt is the time the label was last updated",
+                    "type": "string"
+                },
+                "value": {
+                    "description": "Value is the value associated with the label",
+                    "type": "string"
+                }
+            }
+        },
         "model.PipelineReport": {
             "type": "object",
             "properties": {
                 "conditionConfigIDs": {
                     "description": "ConditionConfigIDs is a list of unique identifiers of the condition configuration associated with the database.",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/pgtype.Hstore"
+                        }
+                    ]
                 },
                 "created_at": {
                     "description": "Create_at represent the creation date of the record.",
@@ -932,6 +1235,13 @@
                 "id": {
                     "description": "ID is the unique identifier of the record in the database.",
                     "type": "string"
+                },
+                "labelIDs": {
+                    "description": "LabelIDs is a list of unique identifiers of the labels associated with the database.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "pipeline": {
                     "description": "Pipeline represent the Updatecli pipeline report.",
@@ -955,17 +1265,19 @@
                 },
                 "sourceConfigIDs": {
                     "description": "SourceConfigIDs is a list of unique identifiers of the source configuration associated with the database.",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/pgtype.Hstore"
+                        }
+                    ]
                 },
                 "targetConfigIDs": {
                     "description": "TargetConfigIDs is a list of unique identifiers of the target configuration associated with the database.",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/pgtype.Hstore"
+                        }
+                    ]
                 },
                 "targetScmIDs": {
                     "description": "TargetScmIDs is a list of unique identifiers of the scm configuration associated with the database.",
@@ -978,6 +1290,37 @@
                     "description": "Updated_at represent the last update date of the record.",
                     "type": "string"
                 }
+            }
+        },
+        "model.SCM": {
+            "type": "object",
+            "properties": {
+                "branch": {
+                    "description": "Branch is the Git branch",
+                    "type": "string"
+                },
+                "created_at": {
+                    "description": "Created_at is the time the SCM configuration was created",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "ID is a unique identifier for the SCM configuration",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "description": "Updated_at is the time the SCM configuration was last updated",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "URL is the Git repository URL",
+                    "type": "string"
+                }
+            }
+        },
+        "pgtype.Hstore": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "string"
             }
         },
         "reports.Action": {
@@ -1053,6 +1396,17 @@
                 }
             }
         },
+        "reports.CIData": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
         "reports.PipelineURL": {
             "type": "object",
             "properties": {
@@ -1075,6 +1429,9 @@
                         "$ref": "#/definitions/reports.Action"
                     }
                 },
+                "ci": {
+                    "$ref": "#/definitions/reports.CIData"
+                },
                 "conditions": {
                     "type": "object",
                     "additionalProperties": {
@@ -1090,6 +1447,12 @@
                 "id": {
                     "description": "ID defines the report ID",
                     "type": "string"
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "name": {
                     "type": "string"
@@ -1431,6 +1794,183 @@
                 },
                 "total_count": {
                     "type": "integer"
+                }
+            }
+        },
+        "server.ListLabelsResponse": {
+            "type": "object",
+            "properties": {
+                "labels": {
+                    "description": "Labels is a list of labels.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Label"
+                    }
+                },
+                "total_count": {
+                    "description": "TotalCount is the total number of labels matching the query.",
+                    "type": "integer"
+                }
+            }
+        },
+        "server.ListSCMsResponse": {
+            "type": "object",
+            "properties": {
+                "scms": {
+                    "description": "SCMs is a list of SCMs.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.SCM"
+                    }
+                },
+                "total_count": {
+                    "description": "TotalCount is the total number of SCMs matching the query.",
+                    "type": "integer"
+                }
+            }
+        },
+        "server.SearchLabelsRequest": {
+            "type": "object",
+            "properties": {
+                "end_time": {
+                    "description": "EndTime is the end time for the time range filter\nThis is optional and can be used to filter labels by a specific end time\nTime format is RFC3339: 2006-01-02T15:04:05Z07:00",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "Id is the unique identifier of the label.",
+                    "type": "string"
+                },
+                "key": {
+                    "description": "Key is the key of the label.",
+                    "type": "string"
+                },
+                "key_only": {
+                    "description": "KeyOnly specifies if we only need to retrieve a list of uniq Label keys",
+                    "type": "boolean"
+                },
+                "limit": {
+                    "description": "Limit is the maximum number of labels to return\nThis is optional and can be used to limit the number of labels returned",
+                    "type": "integer"
+                },
+                "page": {
+                    "description": "Page is the page number for pagination\nThis is optional and can be used to paginate the results",
+                    "type": "integer"
+                },
+                "start_time": {
+                    "description": "StartTime is the start time for the time range filter\nThis is optional and can be used to filter labels by a specific start time\nTime format is RFC3339: 2006-01-02T15:04:05Z07:00",
+                    "type": "string"
+                },
+                "value": {
+                    "description": "Value is the value of the label.",
+                    "type": "string"
+                }
+            }
+        },
+        "server.SearchPipelineReportsSummaryRequest": {
+            "type": "object",
+            "properties": {
+                "days": {
+                    "description": "Days is the number of days to summarize, today included.\nIt defaults to 7 and is ignored when hours, or start_time and end_time, are provided.",
+                    "type": "integer"
+                },
+                "end_time": {
+                    "description": "EndTime is the end time for the time range filter.\nTime format is: 2006-01-02 15:04:05Z07:00",
+                    "type": "string"
+                },
+                "granularity": {
+                    "description": "Granularity is the size of the time buckets, one of \"hour\", \"day\", \"week\" or\n\"month\". It defaults to \"day\".",
+                    "type": "string"
+                },
+                "hours": {
+                    "description": "Hours is the number of hours to summarize, the current hour included.\nIt cannot be combined with days and is ignored when start_time and end_time are provided.",
+                    "type": "integer"
+                },
+                "labels": {
+                    "description": "Labels is a map of labels to filter reports by.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "metric": {
+                    "description": "Metric is what the reports are counted by. It defaults to \"result\", which is\nthe only value supported so far.",
+                    "type": "string"
+                },
+                "scmid": {
+                    "description": "ScmID is the ID of the SCM to filter reports by.\nUse \"none\" to only count the reports which are not attached to any SCM.",
+                    "type": "string"
+                },
+                "start_time": {
+                    "description": "StartTime is the start time for the time range filter.\nTime format is: 2006-01-02 15:04:05Z07:00",
+                    "type": "string"
+                }
+            }
+        },
+        "server.SearchPipelineReportsSummaryResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "description": "Data contains one entry per time bucket, ordered from the oldest to the most recent one.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/database.ReportResultSummaryEntry"
+                    }
+                },
+                "granularity": {
+                    "description": "Granularity is the size of the time buckets of the entries.",
+                    "type": "string"
+                },
+                "metric": {
+                    "description": "Metric is the metric the reports were counted by.",
+                    "type": "string"
+                },
+                "total_count": {
+                    "description": "TotalCount is the total number of reports matching the query.",
+                    "type": "integer"
+                }
+            }
+        },
+        "server.SearchSCMsRequest": {
+            "type": "object",
+            "properties": {
+                "branch": {
+                    "description": "Branch is the SCM branch to filter by.",
+                    "type": "string"
+                },
+                "end_time": {
+                    "description": "EndTime is the end time for the time range filter.\nTime format is RFC3339: 2006-01-02T15:04:05Z07:00",
+                    "type": "string"
+                },
+                "labels": {
+                    "description": "Labels filters SCM summaries by report labels.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "limit": {
+                    "description": "Limit is the maximum number of SCMs to return.",
+                    "type": "integer"
+                },
+                "page": {
+                    "description": "Page is the page number for pagination.",
+                    "type": "integer"
+                },
+                "scmid": {
+                    "description": "ScmID is the ID of the SCM to filter by.",
+                    "type": "string"
+                },
+                "start_time": {
+                    "description": "StartTime is the start time for the time range filter.\nTime format is RFC3339: 2006-01-02T15:04:05Z07:00",
+                    "type": "string"
+                },
+                "summary": {
+                    "description": "Summary indicates if the response should contain SCM summary data.",
+                    "type": "boolean"
+                },
+                "url": {
+                    "description": "URL is the SCM URL to filter by.",
+                    "type": "string"
                 }
             }
         },

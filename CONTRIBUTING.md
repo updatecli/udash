@@ -51,6 +51,7 @@ The file `pkg/server/main.go` contains the following endpoint:
 * `/api/pipeline/scms`[GET]
 * `/api/pipeline/reports`[GET][POST]
 * `/api/pipeline/reports/:id`[GET][PUT][DELETE]
+* `/api/pipeline/reports/summary`[POST]
 
 ## 3. Frontend
 

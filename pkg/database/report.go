@@ -3,8 +3,10 @@ package database
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -17,6 +19,7 @@ import (
 	"github.com/stephenafamo/bob/dialect/psql/sm"
 	"github.com/updatecli/udash/pkg/model"
 	"github.com/updatecli/updatecli/pkg/core/reports"
+	"github.com/updatecli/updatecli/pkg/core/result"
 )
 
 // SearchLatestReportData represents a report.
@@ -99,8 +102,6 @@ type SearchLatestReportsParams struct {
 }
 
 // SearchLatestReports searches the latest reports according some parameters.
-//
-//nolint:funlen
 func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReportData, int, error) {
 	queryString := ""
 	var args []any
@@ -167,39 +168,8 @@ func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReport
 		}
 	}
 
-	switch params.ScmID {
-	case "":
-	case "none", "null", "nil":
-		query.Apply(
-			sm.Where(
-				psql.Or(
-					psql.Quote("cardinality(target_db_scm_ids) = 0"),
-					psql.Quote("target_db_scm_ids").IsNull(),
-				),
-			),
-		)
-
-	default:
-		scm, _, err := GetSCM(params.Ctx, params.ScmID, "", "", 0, 1)
-		if err != nil {
-			logrus.Errorf("get scm data: %s", err)
-			return nil, 0, err
-		}
-
-		switch len(scm) {
-		case 0:
-			logrus.Errorf("scm data not found")
-		case 1:
-			query.Apply(
-				sm.Where(
-					psql.Raw(`target_db_scm_ids && ?`, fmt.Sprintf("{%s}", scm[0].ID.String())),
-				),
-			)
-		default:
-			// Normally we should never have multiple scms with the same id
-			// so we should never reach this point.
-			logrus.Errorf("unexpected behavior: multiple scms found")
-		}
+	if err := applyScmFilter(params.Ctx, &query, params.ScmID); err != nil {
+		return nil, 0, err
 	}
 
 	// Total counter query must be built before applying pagination
@@ -316,6 +286,323 @@ func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReport
 	}
 
 	return dataset, totalCount, nil
+}
+
+// SummaryGranularity is the size of the time buckets a reports summary is grouped by.
+type SummaryGranularity string
+
+const (
+	// SummaryGranularityHour groups the reports per UTC hour.
+	SummaryGranularityHour SummaryGranularity = "hour"
+	// SummaryGranularityDay groups the reports per UTC day.
+	SummaryGranularityDay SummaryGranularity = "day"
+	// SummaryGranularityWeek groups the reports per ISO week, starting on monday.
+	SummaryGranularityWeek SummaryGranularity = "week"
+	// SummaryGranularityMonth groups the reports per calendar month.
+	SummaryGranularityMonth SummaryGranularity = "month"
+)
+
+// IsValid reports whether the granularity is one this package knows how to bucket.
+func (g SummaryGranularity) IsValid() bool {
+	switch g {
+	case SummaryGranularityHour, SummaryGranularityDay, SummaryGranularityWeek, SummaryGranularityMonth:
+		return true
+	default:
+		return false
+	}
+}
+
+// ErrSummaryRangeTooWide is returned when the requested time range spans more days than
+// the caller allows. Callers are expected to turn it into a client error.
+var ErrSummaryRangeTooWide = errors.New("requested time range is too wide")
+
+// ErrSummaryTooManyBuckets is returned when the requested time range and granularity would
+// produce more buckets than the caller allows. Callers are expected to turn it into a
+// client error.
+var ErrSummaryTooManyBuckets = errors.New("requested time range produces too many buckets")
+
+// summaryDateFormat is the layout used to identify the bucket of a summary entry. It has to
+// carry the time of the day, otherwise every bucket of an hourly summary would share the
+// same identifier and their counts would be merged together.
+const summaryDateFormat = time.RFC3339
+
+// summaryUnknownResult is the key reporting the reports whose result is empty or is not
+// an Updatecli result.
+const summaryUnknownResult = "unknown"
+
+// summaryResultKeys contains the keys always reported for a bucket, even when no report
+// matched, so that consumers always retrieve the same set of keys.
+var summaryResultKeys = []string{
+	result.SUCCESS,
+	result.FAILURE,
+	result.ATTENTION,
+	result.SKIPPED,
+	summaryUnknownResult,
+}
+
+// ReportSummaryParams contains the parameters used to summarize reports per time bucket.
+type ReportSummaryParams struct {
+	Ctx context.Context
+	// Days is how far back to look for reports, in days.
+	// It is ignored when Hours, or StartTime and EndTime, are provided.
+	Days int
+	// Hours is how far back to look for reports, in hours. It takes precedence over
+	// Days and is ignored when StartTime and EndTime are provided.
+	Hours int
+	// Granularity is the size of the time buckets, it defaults to a day.
+	Granularity SummaryGranularity
+	// MaxDays is the widest time range accepted, in days. A value lower than one
+	// does not enforce any limit.
+	MaxDays int
+	// MaxBuckets is the largest number of buckets a summary may return. A value lower
+	// than one does not enforce any limit.
+	MaxBuckets int
+	// StartTime and EndTime define an explicit time range, both must be provided.
+	StartTime string
+	EndTime   string
+	// ScmID restricts the summary to the reports of a specific scm.
+	ScmID string
+	// Labels restricts the summary to the reports matching those labels.
+	Labels map[string]string
+}
+
+// ReportResultSummaryEntry contains the number of reports per result for a single time bucket.
+type ReportResultSummaryEntry struct {
+	// Date is the start of the bucket, in UTC, formatted as RFC3339.
+	Date string `json:"date"`
+	// Results contains the number of reports per Updatecli result for that bucket.
+	Results map[string]int `json:"results"`
+	// Total is the number of reports for that bucket, all results combined.
+	Total int `json:"total"`
+}
+
+// SearchReportsSummary returns the number of reports per result for each time bucket of
+// the requested time range. Buckets without any report are reported with a zeroed entry
+// so that the returned dataset always covers the whole time range.
+//
+// The summary always covers whole buckets: an explicit time range is widened to the
+// buckets it overlaps, otherwise a partial bucket would be reported as a drop of activity.
+func SearchReportsSummary(params ReportSummaryParams) ([]ReportResultSummaryEntry, int, error) {
+
+	granularity := params.Granularity
+	if granularity == "" {
+		granularity = SummaryGranularityDay
+	}
+
+	if !granularity.IsValid() {
+		return nil, 0, fmt.Errorf("unsupported granularity %q", params.Granularity)
+	}
+
+	firstBucket, lastBucket, err := summaryRange(params, granularity)
+	if err != nil {
+		return nil, 0, fmt.Errorf("resolving summary range: %w", err)
+	}
+
+	// granularity is one of the constants above, never the raw value received from a
+	// caller, so it cannot inject anything into the query.
+	dateTrunc := fmt.Sprintf("date_trunc('%s', updated_at)", granularity)
+
+	query := psql.Select(
+		sm.From("pipelineReports"),
+		sm.Columns(
+			dateTrunc,
+			// pipeline_result is denormalized from data ->> 'Result' when the report is
+			// inserted, grouping on it avoids parsing the jsonb document of every report.
+			"pipeline_result",
+			"count(*)",
+		),
+		sm.Where(
+			psql.Raw("updated_at >= ? AND updated_at < ?", firstBucket, nextBucket(lastBucket, granularity)),
+		),
+		sm.GroupBy(dateTrunc),
+		sm.GroupBy("pipeline_result"),
+		sm.OrderBy(dateTrunc),
+	)
+
+	if err := applyScmFilter(params.Ctx, &query, params.ScmID); err != nil {
+		return nil, 0, err
+	}
+
+	if len(params.Labels) > 0 {
+		// The report window is widened to whole buckets so the label lookup must cover
+		// the same range, otherwise labels timestamped within the widened part would be
+		// missed and their reports silently dropped. An empty range keeps the lookup
+		// unbounded, as SearchLatestReports does.
+		labelStartTime, labelEndTime := "", ""
+		if params.StartTime != "" || params.EndTime != "" {
+			labelStartTime = firstBucket.Format(timeRangeLayout)
+			labelEndTime = nextBucket(lastBucket, granularity).Format(timeRangeLayout)
+		}
+
+		if err := applyLabelFilter(labelFilterParams{
+			Ctx:       params.Ctx,
+			Query:     &query,
+			Labels:    params.Labels,
+			StartTime: labelStartTime,
+			EndTime:   labelEndTime,
+		}); err != nil {
+			return nil, 0, fmt.Errorf("applying label filter: %w", err)
+		}
+	}
+
+	queryString, args, err := query.Build(params.Ctx)
+	if err != nil {
+		return nil, 0, fmt.Errorf("building query failed: %s\n\t%s", queryString, err)
+	}
+
+	rows, err := DB.Query(params.Ctx, queryString, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("query failed: %q\n\t%s", queryString, err)
+	}
+	defer rows.Close()
+
+	countByDate := map[string]map[string]int{}
+	totalCount := 0
+
+	for rows.Next() {
+		bucket := time.Time{}
+		reportResult := ""
+		count := 0
+
+		if err := rows.Scan(&bucket, &reportResult, &count); err != nil {
+			return nil, 0, fmt.Errorf("parsing result: %s", err)
+		}
+
+		date := bucket.UTC().Format(summaryDateFormat)
+		if countByDate[date] == nil {
+			countByDate[date] = map[string]int{}
+		}
+
+		countByDate[date][summaryResultKey(reportResult)] += count
+		totalCount += count
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("reading results: %s", err)
+	}
+
+	dataset := []ReportResultSummaryEntry{}
+	for bucket := firstBucket; !bucket.After(lastBucket); bucket = nextBucket(bucket, granularity) {
+		entry := ReportResultSummaryEntry{
+			Date:    bucket.Format(summaryDateFormat),
+			Results: map[string]int{},
+		}
+
+		for _, r := range summaryResultKeys {
+			entry.Results[r] = 0
+		}
+
+		for r, count := range countByDate[entry.Date] {
+			entry.Results[r] += count
+			entry.Total += count
+		}
+
+		dataset = append(dataset, entry)
+	}
+
+	return dataset, totalCount, nil
+}
+
+// summaryResultKey maps a stored pipeline result to the key it is reported under.
+// Anything unexpected, including the empty result of a report inserted before the
+// pipeline_result column was backfilled, is folded into a single bucket so that the
+// reported keys stay stable.
+func summaryResultKey(pipelineResult string) string {
+	switch pipelineResult {
+	case result.SUCCESS, result.FAILURE, result.ATTENTION, result.SKIPPED:
+		return pipelineResult
+	default:
+		return summaryUnknownResult
+	}
+}
+
+// summaryRange returns the first and the last bucket, both included, covered by a
+// summary. Both are the start of a bucket, in UTC.
+func summaryRange(params ReportSummaryParams, granularity SummaryGranularity) (time.Time, time.Time, error) {
+
+	firstTime, lastTime := time.Time{}, time.Time{}
+
+	switch {
+	case params.StartTime != "" || params.EndTime != "":
+		var err error
+		firstTime, lastTime, err = resolveTimeRange(0, params.StartTime, params.EndTime)
+		if err != nil {
+			return time.Time{}, time.Time{}, err
+		}
+
+	case params.Hours > 0:
+		// The window includes the bucket of the current hour, as the Days one includes
+		// the bucket of the current day.
+		lastTime = time.Now().UTC()
+		firstTime = lastTime.Add(-time.Duration(params.Hours-1) * time.Hour)
+
+	default:
+		days := params.Days
+		if days < 1 {
+			days = 1
+		}
+
+		lastTime = time.Now().UTC()
+		firstTime = lastTime.AddDate(0, 0, -(days - 1))
+	}
+
+	// The limit is checked against the requested range rather than the widened one:
+	// widening adds up to a bucket on each side, which a month granularity would
+	// otherwise turn into a rejection of a request that is within the limit.
+	if params.MaxDays > 0 && lastTime.Sub(firstTime) > time.Duration(params.MaxDays)*24*time.Hour {
+		return time.Time{}, time.Time{}, ErrSummaryRangeTooWide
+	}
+
+	firstBucket := truncateToBucket(firstTime, granularity)
+	lastBucket := truncateToBucket(lastTime, granularity)
+
+	// MaxDays bounds how much of the table the query scans, this bounds how large the
+	// response gets: an hourly summary of a year is a cheap scan but ~8800 entries.
+	if params.MaxBuckets > 0 {
+		count := 0
+		for bucket := firstBucket; !bucket.After(lastBucket); bucket = nextBucket(bucket, granularity) {
+			count++
+			if count > params.MaxBuckets {
+				return time.Time{}, time.Time{}, ErrSummaryTooManyBuckets
+			}
+		}
+	}
+
+	return firstBucket, lastBucket, nil
+}
+
+// truncateToBucket returns the start, in UTC, of the bucket containing the provided time.
+// It must return the same instant as the matching date_trunc call, otherwise the zeroed
+// buckets would not line up with the counted rows.
+func truncateToBucket(t time.Time, granularity SummaryGranularity) time.Time {
+	t = t.UTC()
+
+	switch granularity {
+	case SummaryGranularityHour:
+		return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, time.UTC)
+	case SummaryGranularityWeek:
+		day := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
+		// date_trunc truncates a week to its ISO monday.
+		return day.AddDate(0, 0, -((int(day.Weekday()) + 6) % 7))
+	case SummaryGranularityMonth:
+		return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
+	default:
+		return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
+	}
+}
+
+// nextBucket returns the start of the bucket following the provided bucket start.
+func nextBucket(t time.Time, granularity SummaryGranularity) time.Time {
+	switch granularity {
+	case SummaryGranularityHour:
+		return t.Add(time.Hour)
+	case SummaryGranularityWeek:
+		return t.AddDate(0, 0, 7)
+	case SummaryGranularityMonth:
+		return t.AddDate(0, 1, 0)
+	default:
+		return t.AddDate(0, 0, 1)
+	}
 }
 
 // InsertReport inserts a new report into the database.
@@ -676,5 +963,50 @@ func applyResourceConfigFilter(query *bob.BaseQuery[*dialect.SelectQuery], id, k
 		),
 		sm.Columns(fmt.Sprintf("config_%s_ids", kind)),
 	)
+	return nil
+}
+
+// applyScmFilter restricts the given query to the reports associated to a specific scm.
+// An empty scmID does not filter anything while "none", "null", or "nil" only keeps
+// the reports which are not associated to any scm.
+func applyScmFilter(ctx context.Context, query *bob.BaseQuery[*dialect.SelectQuery], scmID string) error {
+
+	switch scmID {
+	case "":
+	case "none", "null", "nil":
+		// psql.Quote would quote the whole expression as a column identifier,
+		// so the cardinality call must be passed as a raw expression.
+		query.Apply(
+			sm.Where(
+				psql.Or(
+					psql.Raw("cardinality(target_db_scm_ids) = 0"),
+					psql.Quote("target_db_scm_ids").IsNull(),
+				),
+			),
+		)
+
+	default:
+		scm, _, err := GetSCM(ctx, scmID, "", "", 0, 1)
+		if err != nil {
+			logrus.Errorf("get scm data: %s", err)
+			return err
+		}
+
+		switch len(scm) {
+		case 0:
+			logrus.Errorf("scm data not found")
+		case 1:
+			query.Apply(
+				sm.Where(
+					psql.Raw(`target_db_scm_ids && ?`, fmt.Sprintf("{%s}", scm[0].ID.String())),
+				),
+			)
+		default:
+			// Normally we should never have multiple scms with the same id
+			// so we should never reach this point.
+			logrus.Errorf("unexpected behavior: multiple scms found")
+		}
+	}
+
 	return nil
 }
