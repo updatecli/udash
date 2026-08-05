@@ -131,6 +131,10 @@ func SearchPipelineReports(c *gin.Context) {
 		Latest bool `json:"latest"`
 		// Labels is a map of labels to filter reports by
 		Labels map[string]string `json:"labels,omitempty"`
+		// Results is a list of pipeline results to filter reports by, such as
+		// "✔", "✗", "⚠" or "-". A report matches when its result is any of them.
+		// This is optional and an empty list does not filter anything out.
+		Results []string `json:"results,omitempty"`
 	}
 
 	queryParams := queryData{}
@@ -157,6 +161,7 @@ func SearchPipelineReports(c *gin.Context) {
 			Page:        queryParams.Page,
 			Latest:      queryParams.Latest,
 			Labels:      queryParams.Labels,
+			Results:     queryParams.Results,
 		},
 	)
 	if err != nil {
@@ -193,6 +198,10 @@ type SearchPipelineReportsSummaryRequest struct {
 	ScmID string `json:"scmid,omitempty"`
 	// Labels is a map of labels to filter reports by.
 	Labels map[string]string `json:"labels,omitempty"`
+	// Results is a list of pipeline results to filter reports by, such as
+	// "✔", "✗", "⚠" or "-". A report is counted when its result is any of them.
+	// An empty list does not filter anything out.
+	Results []string `json:"results,omitempty"`
 	// StartTime is the start time for the time range filter.
 	// Time format is: 2006-01-02 15:04:05Z07:00
 	StartTime string `json:"start_time,omitempty"`
@@ -313,6 +322,7 @@ func SearchPipelineReportsSummary(c *gin.Context) {
 			MaxBuckets:  maxSummaryBuckets,
 			ScmID:       queryParams.ScmID,
 			Labels:      queryParams.Labels,
+			Results:     queryParams.Results,
 			StartTime:   queryParams.StartTime,
 			EndTime:     queryParams.EndTime,
 		},

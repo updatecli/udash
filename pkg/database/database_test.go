@@ -66,7 +66,7 @@ func TestDatabase(t *testing.T) {
 	})
 
 	t.Run("migration 000010 backfills pipeline_result", func(t *testing.T) {
-		// Migration 000004 read "data ->> 'result'" while a marshalled report stores
+		// Migration 000004 read "data ->> 'result'" while a marshaled report stores
 		// the key as "Result", so its backfill silently did nothing and every report
 		// inserted before it still has an empty pipeline_result.
 		id, err := InsertReport(ctx, reports.Report{

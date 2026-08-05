@@ -99,6 +99,9 @@ type SearchLatestReportsParams struct {
 	Page        int
 	Latest      bool
 	Labels      map[string]string
+	// Results restricts the search to the reports whose pipeline result is one of
+	// them. An empty list does not filter anything out.
+	Results []string
 }
 
 // SearchLatestReports searches the latest reports according some parameters.
@@ -171,6 +174,8 @@ func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReport
 	if err := applyScmFilter(params.Ctx, &query, params.ScmID); err != nil {
 		return nil, 0, err
 	}
+
+	applyResultFilter(&query, params.Results)
 
 	// Total counter query must be built before applying pagination
 	// because it needs to count all the reports matching the query.
@@ -364,6 +369,9 @@ type ReportSummaryParams struct {
 	ScmID string
 	// Labels restricts the summary to the reports matching those labels.
 	Labels map[string]string
+	// Results restricts the summary to the reports whose pipeline result is one of
+	// them. An empty list does not filter anything out.
+	Results []string
 }
 
 // ReportResultSummaryEntry contains the number of reports per result for a single time bucket.
@@ -422,6 +430,8 @@ func SearchReportsSummary(params ReportSummaryParams) ([]ReportResultSummaryEntr
 	if err := applyScmFilter(params.Ctx, &query, params.ScmID); err != nil {
 		return nil, 0, err
 	}
+
+	applyResultFilter(&query, params.Results)
 
 	if len(params.Labels) > 0 {
 		// The report window is widened to whole buckets so the label lookup must cover
@@ -520,7 +530,8 @@ func summaryResultKey(pipelineResult string) string {
 // summary. Both are the start of a bucket, in UTC.
 func summaryRange(params ReportSummaryParams, granularity SummaryGranularity) (time.Time, time.Time, error) {
 
-	firstTime, lastTime := time.Time{}, time.Time{}
+	var firstTime time.Time
+	var lastTime time.Time
 
 	switch {
 	case params.StartTime != "" || params.EndTime != "":
@@ -964,6 +975,26 @@ func applyResourceConfigFilter(query *bob.BaseQuery[*dialect.SelectQuery], id, k
 		sm.Columns(fmt.Sprintf("config_%s_ids", kind)),
 	)
 	return nil
+}
+
+// applyResultFilter restricts the given query to the reports whose pipeline result is
+// one of those given. An empty list does not filter anything out.
+//
+// pipeline_result is denormalized from data ->> 'Result' when the report is inserted,
+// and indexed alongside updated_at, so this does not have to reach into the jsonb
+// payload. A result which is not an Updatecli one simply matches no report, rather
+// than being silently dropped from the filter.
+func applyResultFilter(query *bob.BaseQuery[*dialect.SelectQuery], results []string) {
+	if len(results) == 0 {
+		return
+	}
+
+	args := make([]bob.Expression, len(results))
+	for i := range results {
+		args[i] = psql.Arg(results[i])
+	}
+
+	query.Apply(sm.Where(psql.Quote("pipeline_result").In(args...)))
 }
 
 // applyScmFilter restricts the given query to the reports associated to a specific scm.

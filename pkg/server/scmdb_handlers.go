@@ -30,6 +30,9 @@ type SearchSCMsRequest struct {
 	EndTime string `json:"end_time"`
 	// Labels filters SCM summaries by report labels.
 	Labels map[string]string `json:"labels,omitempty"`
+	// Results filters SCM summaries by pipeline result, such as "✔", "✗", "⚠" or
+	// "-". An empty list does not filter anything out.
+	Results []string `json:"results,omitempty"`
 	// URL is the SCM URL to filter by.
 	URL string `json:"url,omitempty"`
 	// Branch is the SCM branch to filter by.
@@ -82,6 +85,7 @@ func SearchSCMs(c *gin.Context) {
 			queryParams.StartTime,
 			queryParams.EndTime,
 			queryParams.Labels,
+			queryParams.Results,
 		)
 		return
 	}
@@ -154,7 +158,7 @@ func ListSCMs(c *gin.Context) {
 	}
 
 	if summary {
-		findSCMSummary(c, rows, totalCount, queryValues.Get("start_time"), queryValues.Get("end_time"), map[string]string{})
+		findSCMSummary(c, rows, totalCount, queryValues.Get("start_time"), queryValues.Get("end_time"), map[string]string{}, nil)
 		return
 	}
 
@@ -182,7 +186,7 @@ type FindSCMSummaryResponse struct {
 }
 
 // findSCMSummary returns a summary of all git repositories detected.
-func findSCMSummary(c *gin.Context, scmRows []model.SCM, totalCount int, startTime, endTime string, labels map[string]string) {
+func findSCMSummary(c *gin.Context, scmRows []model.SCM, totalCount int, startTime, endTime string, labels map[string]string, results []string) {
 	var data map[string]database.SCMBranchDataset
 
 	dataset, err := database.GetSCMSummary(database.GetSCMSummaryParams{
@@ -193,6 +197,7 @@ func findSCMSummary(c *gin.Context, scmRows []model.SCM, totalCount int, startTi
 		StartTime:              startTime,
 		EndTime:                endTime,
 		Labels:                 labels,
+		Results:                results,
 	})
 	if err != nil {
 		logrus.Errorf("getting scm summary failed: %s", err)

@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -14,7 +15,6 @@ import (
 )
 
 // InsertSCM creates a new SCM and inserts it into the database.
-//
 // It returns the ID of the newly created SCM.
 func InsertSCM(ctx context.Context, url, branch string) (string, error) {
 	//"INSERT INTO scms (url, branch) VALUES ($1, $2) RETURNING id"
@@ -151,10 +151,13 @@ type GetSCMSummaryParams struct {
 	StartTime              string
 	EndTime                string
 	Labels                 map[string]string
-	TotalCount             int
-	TotalActions           int
-	Ctx                    context.Context
-	ScmRows                []model.SCM
+	// Results restricts the summary to the reports whose pipeline result is one of
+	// them. An empty list does not filter anything out.
+	Results      []string
+	TotalCount   int
+	TotalActions int
+	Ctx          context.Context
+	ScmRows      []model.SCM
 }
 
 // GetSCMSummary returns a list of scms summary from the scm database table.
@@ -253,6 +256,16 @@ func GetSCMSummary(params GetSCMSummaryParams) (*SCMDataset, error) {
 			err = rows.Scan(&id, &result, &actionUrls)
 			if err != nil {
 				return nil, fmt.Errorf("scanning scm summary row: %w", err)
+			}
+
+			// The results are dropped here rather than in the query above on purpose.
+			// That query keeps the latest report of every pipeline, so this summary
+			// reports where each pipeline stands now; filtering the reports before
+			// that would instead keep the latest report which happened to carry one
+			// of those results, reporting a pipeline as failing long after it
+			// recovered.
+			if len(params.Results) > 0 && !slices.Contains(params.Results, result) {
+				continue
 			}
 
 			resultFound := false

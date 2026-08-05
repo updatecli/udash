@@ -815,7 +815,7 @@ func TestEndpoints(t *testing.T) {
 				setReportTimestamp(t, id, at)
 			}
 
-			// Halfway into each hour, so that a report cannot land in a neighbouring
+			// Halfway into each hour, so that a report cannot land in a neighboring
 			// bucket.
 			halfPast := 30 * time.Minute
 			seedReportAt("✔", currentHour.Add(halfPast))
