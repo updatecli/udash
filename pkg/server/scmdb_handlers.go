@@ -33,6 +33,11 @@ type SearchSCMsRequest struct {
 	// Results filters SCM summaries by pipeline result, such as "✔", "✗", "⚠" or
 	// "-". An empty list does not filter anything out.
 	Results []string `json:"results,omitempty"`
+	// OpenAction filters SCM summaries by whether a pipeline carries an action left open,
+	// such as a pull request still waiting to be merged. This is optional: unset does not
+	// filter anything out, true only keeps the pipelines with an open action and false only
+	// the ones without.
+	OpenAction *bool `json:"open_action,omitempty"`
 	// URL is the SCM URL to filter by.
 	URL string `json:"url,omitempty"`
 	// Branch is the SCM branch to filter by.
@@ -78,15 +83,15 @@ func SearchSCMs(c *gin.Context) {
 	}
 
 	if queryParams.Summary {
-		findSCMSummary(
-			c,
-			rows,
-			totalCount,
-			queryParams.StartTime,
-			queryParams.EndTime,
-			queryParams.Labels,
-			queryParams.Results,
-		)
+		findSCMSummary(c, findSCMSummaryParams{
+			ScmRows:    rows,
+			TotalCount: totalCount,
+			StartTime:  queryParams.StartTime,
+			EndTime:    queryParams.EndTime,
+			Labels:     queryParams.Labels,
+			Results:    queryParams.Results,
+			OpenAction: queryParams.OpenAction,
+		})
 		return
 	}
 
@@ -158,7 +163,13 @@ func ListSCMs(c *gin.Context) {
 	}
 
 	if summary {
-		findSCMSummary(c, rows, totalCount, queryValues.Get("start_time"), queryValues.Get("end_time"), map[string]string{}, nil)
+		findSCMSummary(c, findSCMSummaryParams{
+			ScmRows:    rows,
+			TotalCount: totalCount,
+			StartTime:  queryValues.Get("start_time"),
+			EndTime:    queryValues.Get("end_time"),
+			Labels:     map[string]string{},
+		})
 		return
 	}
 
@@ -185,19 +196,39 @@ type FindSCMSummaryResponse struct {
 	Data       map[string]database.SCMBranchDataset `json:"data"`
 }
 
+// findSCMSummaryParams contains the filters applied to a git repositories summary.
+type findSCMSummaryParams struct {
+	// ScmRows are the SCMs to summarize.
+	ScmRows []model.SCM
+	// TotalCount is the number of SCMs matching the search, before pagination.
+	TotalCount int
+	// StartTime and EndTime define the time range the reports are summarized over.
+	StartTime string
+	EndTime   string
+	// Labels restricts the summary to the reports matching those labels.
+	Labels map[string]string
+	// Results restricts the summary to the pipelines whose result is one of them. An empty
+	// list does not filter anything out.
+	Results []string
+	// OpenAction restricts the summary to the pipelines which carry an open action, or to
+	// the ones which do not. A nil value does not filter anything out.
+	OpenAction *bool
+}
+
 // findSCMSummary returns a summary of all git repositories detected.
-func findSCMSummary(c *gin.Context, scmRows []model.SCM, totalCount int, startTime, endTime string, labels map[string]string, results []string) {
+func findSCMSummary(c *gin.Context, params findSCMSummaryParams) {
 	var data map[string]database.SCMBranchDataset
 
 	dataset, err := database.GetSCMSummary(database.GetSCMSummaryParams{
 		Ctx:                    c,
-		ScmRows:                scmRows,
-		TotalCount:             totalCount,
+		ScmRows:                params.ScmRows,
+		TotalCount:             params.TotalCount,
 		MonitoringDurationDays: monitoringDurationDays,
-		StartTime:              startTime,
-		EndTime:                endTime,
-		Labels:                 labels,
-		Results:                results,
+		StartTime:              params.StartTime,
+		EndTime:                params.EndTime,
+		Labels:                 params.Labels,
+		Results:                params.Results,
+		OpenAction:             params.OpenAction,
 	})
 	if err != nil {
 		logrus.Errorf("getting scm summary failed: %s", err)
@@ -213,6 +244,6 @@ func findSCMSummary(c *gin.Context, scmRows []model.SCM, totalCount int, startTi
 
 	c.JSON(http.StatusOK, FindSCMSummaryResponse{
 		Data:       data,
-		TotalCount: totalCount,
+		TotalCount: params.TotalCount,
 	})
 }

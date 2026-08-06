@@ -75,6 +75,19 @@ definitions:
       date:
         description: Date is the start of the bucket, in UTC, formatted as RFC3339.
         type: string
+      open_actions:
+        additionalProperties:
+          type: integer
+        description: |-
+          OpenActions contains, for each Updatecli result, how many of the reports counted in
+          Results also carry an open action, such as a pull request still waiting to be merged.
+          It is a breakdown of Results, not an addition to it, so its counts are always lower
+          than or equal to the matching ones in Results.
+
+          The interesting one is the count reported under the success result: those pipelines
+          ran fine and had nothing to change only because the change is already waiting in a
+          pull request.
+        type: object
       results:
         additionalProperties:
           type: integer
@@ -702,6 +715,24 @@ definitions:
           Metric is what the reports are counted by. It defaults to "result", which is
           the only value supported so far.
         type: string
+      open_action:
+        description: |-
+          OpenAction filters reports by whether they carry an action left open, such as a
+          pull request still waiting to be merged. This is optional: unset does not filter
+          anything out, true only counts the reports with an open action and false only the
+          ones without.
+
+          The same breakdown is reported without filtering anything out under the open_actions
+          key of every bucket.
+        type: boolean
+      results:
+        description: |-
+          Results is a list of pipeline results to filter reports by, such as
+          "✔", "✗", "⚠" or "-". A report is counted when its result is any of them.
+          An empty list does not filter anything out.
+        items:
+          type: string
+        type: array
       scmid:
         description: |-
           ScmID is the ID of the SCM to filter reports by.
@@ -749,9 +780,23 @@ definitions:
       limit:
         description: Limit is the maximum number of SCMs to return.
         type: integer
+      open_action:
+        description: |-
+          OpenAction filters SCM summaries by whether a pipeline carries an action left open,
+          such as a pull request still waiting to be merged. This is optional: unset does not
+          filter anything out, true only keeps the pipelines with an open action and false only
+          the ones without.
+        type: boolean
       page:
         description: Page is the page number for pagination.
         type: integer
+      results:
+        description: |-
+          Results filters SCM summaries by pipeline result, such as "✔", "✗", "⚠" or
+          "-". An empty list does not filter anything out.
+        items:
+          type: string
+        type: array
       scmid:
         description: ScmID is the ID of the SCM to filter by.
         type: string

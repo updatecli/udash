@@ -101,4 +101,106 @@ func TestDatabase(t *testing.T) {
 		assert.Equal(t, result.SUCCESS, pipelineResult)
 		assert.Equal(t, "ci: bump Venom version", pipelineName)
 	})
+
+	t.Run("openActionSQLExpr detects an action left open", func(t *testing.T) {
+		// This is the contract the whole open action dimension rests on: Updatecli reports
+		// a pipeline which had nothing to change as a success even when its change is
+		// already waiting in an open pull request, and the only trace of it in the payload
+		// is reports.Action.Link, serialized as "actionUrl" and omitted when empty.
+		//
+		// The expression is exercised through the reports it is meant to tell apart rather
+		// than through a handcrafted jsonb document, so that a change to the Action struct
+		// of the Updatecli module this repository depends on breaks this test.
+		testdata := []struct {
+			name   string
+			report reports.Report
+			want   bool
+		}{
+			{
+				name: "success with a pull request left open",
+				report: reports.Report{
+					Name:   "succeeded, pull request still open",
+					Result: result.SUCCESS,
+					ID:     "open-action-success",
+					Actions: map[string]*reports.Action{
+						"default": {
+							ID:   "default",
+							Link: "https://github.com/updatecli/udash/pull/42",
+						},
+					},
+				},
+				want: true,
+			},
+			{
+				name: "success with an action but no pull request",
+				report: reports.Report{
+					Name:   "succeeded, nothing to follow up",
+					Result: result.SUCCESS,
+					ID:     "no-open-action-success",
+					Actions: map[string]*reports.Action{
+						"default": {ID: "default"},
+					},
+				},
+				want: false,
+			},
+			{
+				name: "pipeline without any action configured",
+				report: reports.Report{
+					Name:   "no action configured",
+					Result: result.SUCCESS,
+					ID:     "no-action-at-all",
+				},
+				want: false,
+			},
+			{
+				name: "attention with a pull request left open",
+				report: reports.Report{
+					Name:   "changed something and opened a pull request",
+					Result: result.ATTENTION,
+					ID:     "open-action-attention",
+					Actions: map[string]*reports.Action{
+						"default": {
+							ID:   "default",
+							Link: "https://github.com/updatecli/udash/pull/43",
+						},
+					},
+				},
+				want: true,
+			},
+		}
+
+		for _, tt := range testdata {
+			t.Run(tt.name, func(t *testing.T) {
+				id, err := InsertReport(ctx, tt.report)
+				require.NoError(t, err)
+				t.Cleanup(func() {
+					_, err := DB.Exec(ctx, "DELETE FROM pipelineReports WHERE id = $1", id)
+					assert.NoError(t, err)
+				})
+
+				got := false
+				require.NoError(t, DB.QueryRow(ctx,
+					"SELECT "+openActionSQLExpr+" FROM pipelineReports WHERE id = $1", id,
+				).Scan(&got))
+
+				assert.Equal(t, tt.want, got)
+			})
+		}
+	})
+
+	t.Run("migration 000011 indexes the open action expression", func(t *testing.T) {
+		// The jsonpath is inlined in openActionSQLExpr so that it matches the index
+		// expression. Binding it as a parameter would still return the right reports while
+		// silently falling back to a sequential scan over every stored payload.
+		indexed := false
+		require.NoError(t, DB.QueryRow(ctx, `
+			SELECT count(*) = 1
+			FROM pg_indexes
+			WHERE tablename = 'pipelinereports'
+			  AND indexname = 'idx_pipelinereports_updated_at_result_open_action'
+			  AND indexdef LIKE '%jsonb_path_exists%'`,
+		).Scan(&indexed))
+
+		assert.True(t, indexed)
+	})
 }

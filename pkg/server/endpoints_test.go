@@ -9,6 +9,7 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"testing"
 	"time"
 
@@ -526,15 +527,20 @@ func TestEndpoints(t *testing.T) {
 		}
 
 		// bucketEntry builds the expected response entry for a bucket, starting from
-		// a zeroed set of results.
+		// a zeroed set of results. None of the reports seeded here carries an action, so
+		// the open action breakdown is always zeroed; it is covered on its own below.
 		bucketEntry := func(date string, results map[string]any) map[string]any {
-			allResults := map[string]any{
-				"✔":       float64(0),
-				"✗":       float64(0),
-				"⚠":       float64(0),
-				"-":       float64(0),
-				"unknown": float64(0),
+			zeroedResults := func() map[string]any {
+				return map[string]any{
+					"✔":       float64(0),
+					"✗":       float64(0),
+					"⚠":       float64(0),
+					"-":       float64(0),
+					"unknown": float64(0),
+				}
 			}
+
+			allResults := zeroedResults()
 			total := float64(0)
 			for k, v := range results {
 				allResults[k] = v
@@ -542,9 +548,10 @@ func TestEndpoints(t *testing.T) {
 			}
 
 			return map[string]any{
-				"date":    date,
-				"results": allResults,
-				"total":   total,
+				"date":         date,
+				"results":      allResults,
+				"open_actions": zeroedResults(),
+				"total":        total,
 			}
 		}
 
@@ -860,6 +867,225 @@ func TestEndpoints(t *testing.T) {
 				assert.Equal(t, "hour", blob["granularity"])
 				assert.Len(t, blob["data"], 6)
 				assert.Equal(t, float64(4), blob["total_count"])
+			})
+		})
+	})
+
+	t.Run("filtering on an action left open", func(t *testing.T) {
+		// Updatecli reports a pipeline which had nothing to change as a success even when
+		// the change it would have made is already waiting in an open pull request. That
+		// is the state which needs a human, yet the result alone cannot express it: the
+		// only thing telling it apart from a genuinely up to date pipeline is the action
+		// link the report carries.
+		truncateReports(t)
+		t.Cleanup(func() {
+			truncateReports(t)
+		})
+
+		seed := func(name, pipelineResult, actionURL string) string {
+			t.Helper()
+
+			id, err := database.InsertReport(ctx, reports.Report{
+				Name:       name,
+				Result:     pipelineResult,
+				ID:         name,
+				PipelineID: "venom",
+				Actions: map[string]*reports.Action{
+					"default": {ID: "default", Link: actionURL},
+				},
+			})
+			require.NoError(t, err)
+
+			return id
+		}
+
+		successWithOpenPR := seed("succeeded, pull request still open", "✔",
+			"https://example.com/testing/pull/42")
+		seed("succeeded, nothing to follow up", "✔", "")
+		attentionWithOpenPR := seed("changed something and opened a pull request", "⚠",
+			"https://example.com/testing/pull/43")
+
+		// reportNames returns the name of every report of a search response, which
+		// identifies the seeded reports more readably than their database id.
+		reportNames := func(resp *http.Response) []string {
+			t.Helper()
+
+			blob := struct {
+				Data []struct {
+					Name string
+				}
+				TotalCount int `json:"total_count"`
+			}{}
+			require.NoError(t, json.NewDecoder(resp.Body).Decode(&blob))
+			defer resp.Body.Close()
+
+			names := make([]string, 0, len(blob.Data))
+			for _, report := range blob.Data {
+				names = append(names, report.Name)
+			}
+
+			// A filter dropping reports from the page while still counting them in the
+			// total breaks pagination, so the two are checked against each other.
+			assert.Equal(t, len(names), blob.TotalCount)
+			sort.Strings(names)
+
+			return names
+		}
+
+		t.Run("POST /api/pipeline/reports/search", func(t *testing.T) {
+			t.Run("without the filter", func(t *testing.T) {
+				resp := doPostRequest(t, srv, "/api/pipeline/reports/search", map[string]any{})
+
+				assert.Equal(t, []string{
+					"changed something and opened a pull request",
+					"succeeded, nothing to follow up",
+					"succeeded, pull request still open",
+				}, reportNames(resp))
+			})
+
+			t.Run("with an open action", func(t *testing.T) {
+				resp := doPostRequest(t, srv, "/api/pipeline/reports/search", map[string]any{
+					"open_action": true,
+				})
+
+				assert.Equal(t, []string{
+					"changed something and opened a pull request",
+					"succeeded, pull request still open",
+				}, reportNames(resp))
+			})
+
+			t.Run("without any open action", func(t *testing.T) {
+				resp := doPostRequest(t, srv, "/api/pipeline/reports/search", map[string]any{
+					"open_action": false,
+				})
+
+				assert.Equal(t, []string{"succeeded, nothing to follow up"}, reportNames(resp))
+			})
+
+			t.Run("combined with a result", func(t *testing.T) {
+				// This is the combination the whole dimension exists for: the pipelines
+				// which succeeded only because their change is already waiting in a pull
+				// request nobody merged.
+				resp := doPostRequest(t, srv, "/api/pipeline/reports/search", map[string]any{
+					"results":     []string{"✔"},
+					"open_action": true,
+				})
+
+				assert.Equal(t, []string{"succeeded, pull request still open"}, reportNames(resp))
+			})
+		})
+
+		t.Run("POST /api/pipeline/reports/summary", func(t *testing.T) {
+			summaryOf := func(body map[string]any) (results, openActions map[string]any, totalCount float64) {
+				t.Helper()
+
+				blob := map[string]any{}
+				resp := doPostRequest(t, srv, "/api/pipeline/reports/summary", body)
+				require.NoError(t, json.NewDecoder(resp.Body).Decode(&blob))
+				defer resp.Body.Close()
+
+				data := blob["data"].([]any)
+				today := data[len(data)-1].(map[string]any)
+
+				return today["results"].(map[string]any),
+					today["open_actions"].(map[string]any),
+					blob["total_count"].(float64)
+			}
+
+			t.Run("reports the open actions as a breakdown of the results", func(t *testing.T) {
+				// Nothing is filtered out here: the breakdown is what lets a dashboard
+				// split the success bucket without having to run a second query.
+				results, openActions, totalCount := summaryOf(map[string]any{"days": 1})
+
+				assert.Equal(t, float64(3), totalCount)
+				assert.Equal(t, float64(2), results["✔"])
+				assert.Equal(t, float64(1), results["⚠"])
+				assert.Equal(t, float64(1), openActions["✔"])
+				assert.Equal(t, float64(1), openActions["⚠"])
+				assert.Equal(t, float64(0), openActions["✗"])
+			})
+
+			t.Run("filtered on an open action", func(t *testing.T) {
+				results, openActions, totalCount := summaryOf(map[string]any{
+					"days":        1,
+					"open_action": true,
+				})
+
+				assert.Equal(t, float64(2), totalCount)
+				assert.Equal(t, float64(1), results["✔"])
+				assert.Equal(t, float64(1), openActions["✔"])
+			})
+
+			t.Run("filtered on the absence of an open action", func(t *testing.T) {
+				results, openActions, totalCount := summaryOf(map[string]any{
+					"days":        1,
+					"open_action": false,
+				})
+
+				assert.Equal(t, float64(1), totalCount)
+				assert.Equal(t, float64(1), results["✔"])
+				assert.Equal(t, float64(0), openActions["✔"])
+			})
+		})
+
+		t.Run("POST /api/pipeline/scms/search", func(t *testing.T) {
+			scmID, err := database.InsertSCM(ctx, "https://example.com/openaction.git", "main")
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				deleteSCM(t, scmID)
+			})
+
+			attachReportToSCM(t, successWithOpenPR, scmID)
+			attachReportToSCM(t, attentionWithOpenPR, scmID)
+
+			branchOf := func(body map[string]any) map[string]any {
+				t.Helper()
+
+				blob := map[string]any{}
+				resp := doPostRequest(t, srv, "/api/pipeline/scms/search", body)
+				require.NoError(t, json.NewDecoder(resp.Body).Decode(&blob))
+				defer resp.Body.Close()
+
+				data := blob["data"].(map[string]any)
+				repository := data["https://example.com/openaction.git"].(map[string]any)
+
+				return repository["main"].(map[string]any)
+			}
+
+			t.Run("breaks the open actions down per result", func(t *testing.T) {
+				branch := branchOf(map[string]any{"summary": true, "scmid": scmID})
+
+				assert.Equal(t, map[string]any{"✔": float64(1), "⚠": float64(1)},
+					branch["total_result_by_type"])
+				assert.Equal(t, map[string]any{"✔": float64(1), "⚠": float64(1)},
+					branch["total_open_action_by_result"])
+				// Two pipelines, but each on a pull request of its own.
+				assert.Equal(t, float64(2), branch["total_action_urls"])
+			})
+
+			t.Run("filtered on a result and an open action", func(t *testing.T) {
+				branch := branchOf(map[string]any{
+					"summary":     true,
+					"scmid":       scmID,
+					"results":     []string{"✔"},
+					"open_action": true,
+				})
+
+				assert.Equal(t, map[string]any{"✔": float64(1)}, branch["total_result_by_type"])
+				assert.Equal(t, map[string]any{"✔": float64(1)}, branch["total_open_action_by_result"])
+			})
+
+			t.Run("filtered on the absence of an open action", func(t *testing.T) {
+				// Both reports attached to this scm carry one, so the summary keeps the
+				// branch but empties its counts.
+				branch := branchOf(map[string]any{
+					"summary":     true,
+					"scmid":       scmID,
+					"open_action": false,
+				})
+
+				assert.Equal(t, map[string]any{}, branch["total_result_by_type"])
+				assert.Equal(t, map[string]any{}, branch["total_open_action_by_result"])
 			})
 		})
 	})

@@ -136,6 +136,15 @@ type ScmSummaryData struct {
 	TotalResult int `json:"total_result"`
 	// TotalActionURLs is the total number of unique action URLs for this SCM.
 	TotalActionURLs int `json:"total_action_urls"`
+	// TotalOpenActionByResult is a map of result types to the number of pipelines in that
+	// result which also carry an open action, such as a pull request still waiting to be
+	// merged. It is a breakdown of TotalResultByType, so its counts are always lower than
+	// or equal to the matching ones there.
+	//
+	// Unlike TotalActionURLs, which counts distinct action URLs, this counts pipelines: a
+	// single pull request grouping the changes of several pipelines is counted once there
+	// and once per pipeline here.
+	TotalOpenActionByResult map[string]int `json:"total_open_action_by_result"`
 }
 
 // SCMBranchDataset represents a map of branches and their summary data for a single SCM URL.
@@ -153,7 +162,11 @@ type GetSCMSummaryParams struct {
 	Labels                 map[string]string
 	// Results restricts the summary to the reports whose pipeline result is one of
 	// them. An empty list does not filter anything out.
-	Results      []string
+	Results []string
+	// OpenAction restricts the summary to the pipelines which carry an open action, such as
+	// a pull request still waiting to be merged, or to the ones which do not. A nil value
+	// does not filter anything out.
+	OpenAction   *bool
 	TotalCount   int
 	TotalActions int
 	Ctx          context.Context
@@ -214,6 +227,9 @@ func GetSCMSummary(params GetSCMSummaryParams) (*SCMDataset, error) {
 				psql.Raw("data ->> 'ID'"),
 			),
 			sm.With("filtered_reports").As(filteredSCMsQuery),
+			// The action URLs are read with the same jsonpath as openActionSQLExpr, so that
+			// a pipeline counted as carrying an open action here is the one the reports
+			// search and the reports summary would return too.
 			sm.Columns("id", "data ->> 'Result'", "jsonb_path_query_array(data, '$.Actions.*.actionUrl')"),
 			sm.From("filtered_reports"),
 			sm.OrderBy(psql.Raw("data ->> 'ID'")),
@@ -239,8 +255,9 @@ func GetSCMSummary(params GetSCMSummaryParams) (*SCMDataset, error) {
 		}
 
 		d := ScmSummaryData{
-			ID:                scmID.String(),
-			TotalResultByType: make(map[string]int),
+			ID:                      scmID.String(),
+			TotalResultByType:       make(map[string]int),
+			TotalOpenActionByResult: make(map[string]int),
 		}
 
 		dataset.Data[scmURL][scmBranch] = d
@@ -258,13 +275,19 @@ func GetSCMSummary(params GetSCMSummaryParams) (*SCMDataset, error) {
 				return nil, fmt.Errorf("scanning scm summary row: %w", err)
 			}
 
-			// The results are dropped here rather than in the query above on purpose.
-			// That query keeps the latest report of every pipeline, so this summary
-			// reports where each pipeline stands now; filtering the reports before
-			// that would instead keep the latest report which happened to carry one
+			hasOpenAction := len(actionUrls) > 0
+
+			// The results and the open actions are dropped here rather than in the query
+			// above on purpose. That query keeps the latest report of every pipeline, so
+			// this summary reports where each pipeline stands now; filtering the reports
+			// before that would instead keep the latest report which happened to carry one
 			// of those results, reporting a pipeline as failing long after it
 			// recovered.
 			if len(params.Results) > 0 && !slices.Contains(params.Results, result) {
+				continue
+			}
+
+			if params.OpenAction != nil && *params.OpenAction != hasOpenAction {
 				continue
 			}
 
@@ -278,6 +301,10 @@ func GetSCMSummary(params GetSCMSummaryParams) (*SCMDataset, error) {
 
 			if !resultFound {
 				dataset.Data[scmURL][scmBranch].TotalResultByType[result] = 1
+			}
+
+			if hasOpenAction {
+				dataset.Data[scmURL][scmBranch].TotalOpenActionByResult[result]++
 			}
 
 			for i := range actionUrls {

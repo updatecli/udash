@@ -102,6 +102,10 @@ type SearchLatestReportsParams struct {
 	// Results restricts the search to the reports whose pipeline result is one of
 	// them. An empty list does not filter anything out.
 	Results []string
+	// OpenAction restricts the search to the reports which carry an open action, such as
+	// a pull request still waiting to be merged, or to the ones which do not. A nil value
+	// does not filter anything out.
+	OpenAction *bool
 }
 
 // SearchLatestReports searches the latest reports according some parameters.
@@ -176,6 +180,7 @@ func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReport
 	}
 
 	applyResultFilter(&query, params.Results)
+	applyOpenActionFilter(&query, params.OpenAction)
 
 	// Total counter query must be built before applying pagination
 	// because it needs to count all the reports matching the query.
@@ -372,6 +377,10 @@ type ReportSummaryParams struct {
 	// Results restricts the summary to the reports whose pipeline result is one of
 	// them. An empty list does not filter anything out.
 	Results []string
+	// OpenAction restricts the summary to the reports which carry an open action, such as
+	// a pull request still waiting to be merged, or to the ones which do not. A nil value
+	// does not filter anything out.
+	OpenAction *bool
 }
 
 // ReportResultSummaryEntry contains the number of reports per result for a single time bucket.
@@ -380,6 +389,15 @@ type ReportResultSummaryEntry struct {
 	Date string `json:"date"`
 	// Results contains the number of reports per Updatecli result for that bucket.
 	Results map[string]int `json:"results"`
+	// OpenActions contains, for each Updatecli result, how many of the reports counted in
+	// Results also carry an open action, such as a pull request still waiting to be merged.
+	// It is a breakdown of Results, not an addition to it, so its counts are always lower
+	// than or equal to the matching ones in Results.
+	//
+	// The interesting one is the count reported under the success result: those pipelines
+	// ran fine and had nothing to change only because the change is already waiting in a
+	// pull request.
+	OpenActions map[string]int `json:"open_actions"`
 	// Total is the number of reports for that bucket, all results combined.
 	Total int `json:"total"`
 }
@@ -417,6 +435,7 @@ func SearchReportsSummary(params ReportSummaryParams) ([]ReportResultSummaryEntr
 			// pipeline_result is denormalized from data ->> 'Result' when the report is
 			// inserted, grouping on it avoids parsing the jsonb document of every report.
 			"pipeline_result",
+			openActionSQLExpr,
 			"count(*)",
 		),
 		sm.Where(
@@ -424,6 +443,7 @@ func SearchReportsSummary(params ReportSummaryParams) ([]ReportResultSummaryEntr
 		),
 		sm.GroupBy(dateTrunc),
 		sm.GroupBy("pipeline_result"),
+		sm.GroupBy(openActionSQLExpr),
 		sm.OrderBy(dateTrunc),
 	)
 
@@ -432,6 +452,7 @@ func SearchReportsSummary(params ReportSummaryParams) ([]ReportResultSummaryEntr
 	}
 
 	applyResultFilter(&query, params.Results)
+	applyOpenActionFilter(&query, params.OpenAction)
 
 	if len(params.Labels) > 0 {
 		// The report window is widened to whole buckets so the label lookup must cover
@@ -467,23 +488,31 @@ func SearchReportsSummary(params ReportSummaryParams) ([]ReportResultSummaryEntr
 	defer rows.Close()
 
 	countByDate := map[string]map[string]int{}
+	openActionCountByDate := map[string]map[string]int{}
 	totalCount := 0
 
 	for rows.Next() {
 		bucket := time.Time{}
 		reportResult := ""
+		hasOpenAction := false
 		count := 0
 
-		if err := rows.Scan(&bucket, &reportResult, &count); err != nil {
+		if err := rows.Scan(&bucket, &reportResult, &hasOpenAction, &count); err != nil {
 			return nil, 0, fmt.Errorf("parsing result: %s", err)
 		}
 
 		date := bucket.UTC().Format(summaryDateFormat)
 		if countByDate[date] == nil {
 			countByDate[date] = map[string]int{}
+			openActionCountByDate[date] = map[string]int{}
 		}
 
-		countByDate[date][summaryResultKey(reportResult)] += count
+		resultKey := summaryResultKey(reportResult)
+
+		countByDate[date][resultKey] += count
+		if hasOpenAction {
+			openActionCountByDate[date][resultKey] += count
+		}
 		totalCount += count
 	}
 
@@ -494,17 +523,23 @@ func SearchReportsSummary(params ReportSummaryParams) ([]ReportResultSummaryEntr
 	dataset := []ReportResultSummaryEntry{}
 	for bucket := firstBucket; !bucket.After(lastBucket); bucket = nextBucket(bucket, granularity) {
 		entry := ReportResultSummaryEntry{
-			Date:    bucket.Format(summaryDateFormat),
-			Results: map[string]int{},
+			Date:        bucket.Format(summaryDateFormat),
+			Results:     map[string]int{},
+			OpenActions: map[string]int{},
 		}
 
 		for _, r := range summaryResultKeys {
 			entry.Results[r] = 0
+			entry.OpenActions[r] = 0
 		}
 
 		for r, count := range countByDate[entry.Date] {
 			entry.Results[r] += count
 			entry.Total += count
+		}
+
+		for r, count := range openActionCountByDate[entry.Date] {
+			entry.OpenActions[r] += count
 		}
 
 		dataset = append(dataset, entry)
@@ -995,6 +1030,40 @@ func applyResultFilter(query *bob.BaseQuery[*dialect.SelectQuery], results []str
 	}
 
 	query.Apply(sm.Where(psql.Quote("pipeline_result").In(args...)))
+}
+
+// openActionSQLExpr is true of the reports carrying at least one action left open, which is
+// how Updatecli reports a pull request still waiting to be merged.
+//
+// reports.Action.Link is serialized as "actionUrl" and omitted when empty, and Updatecli
+// only ever fills it from an open pull request: CheckActionExist queries the forge for open
+// pull requests only, and the pull request handler resets the link when it closes one. So
+// the presence of that key is a self clearing marker, and it is already true of every report
+// stored so far rather than only of the ones produced from now on.
+//
+// The jsonpath is inlined rather than bound as a parameter on purpose: an expression index
+// only matches a literal expression, so binding it would cost
+// idx_pipelinereports_updated_at_result_open_action. It contains no user input.
+//
+// It must also stay free of the jsonpath filter operator: bob reads "?" as a placeholder,
+// so a path such as '$.Actions.*.actionUrl ? (@ != "")' silently consumes an argument and
+// builds a query which matches nothing. Guarding against an empty link is unnecessary
+// anyway, "actionUrl" is omitempty so it is absent rather than empty.
+const openActionSQLExpr = `jsonb_path_exists(data, '$.Actions.*.actionUrl')`
+
+// applyOpenActionFilter restricts the given query to the reports which do, or which do not,
+// carry an open action. A nil openAction does not filter anything out.
+//
+// This is deliberately a dimension of its own rather than a fifth pipeline result: an open
+// action is orthogonal to the result. A pipeline may have succeeded because its change is
+// already in an open pull request, but it may also have changed something and just opened
+// one, or be failing while a pull request from a previous run is still around.
+func applyOpenActionFilter(query *bob.BaseQuery[*dialect.SelectQuery], openAction *bool) {
+	if openAction == nil {
+		return
+	}
+
+	query.Apply(sm.Where(psql.Raw(openActionSQLExpr+" = ?", psql.Arg(*openAction))))
 }
 
 // applyScmFilter restricts the given query to the reports associated to a specific scm.

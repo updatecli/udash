@@ -1048,6 +1048,13 @@ const docTemplate = `{
                     "description": "Date is the start of the bucket, in UTC, formatted as RFC3339.",
                     "type": "string"
                 },
+                "open_actions": {
+                    "description": "OpenActions contains, for each Updatecli result, how many of the reports counted in\nResults also carry an open action, such as a pull request still waiting to be merged.\nIt is a breakdown of Results, not an addition to it, so its counts are always lower\nthan or equal to the matching ones in Results.\n\nThe interesting one is the count reported under the success result: those pipelines\nran fine and had nothing to change only because the change is already waiting in a\npull request.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
                 "results": {
                     "description": "Results contains the number of reports per Updatecli result for that bucket.",
                     "type": "object",
@@ -1907,6 +1914,17 @@ const docTemplate = `{
                     "description": "Metric is what the reports are counted by. It defaults to \"result\", which is\nthe only value supported so far.",
                     "type": "string"
                 },
+                "open_action": {
+                    "description": "OpenAction filters reports by whether they carry an action left open, such as a\npull request still waiting to be merged. This is optional: unset does not filter\nanything out, true only counts the reports with an open action and false only the\nones without.\n\nThe same breakdown is reported without filtering anything out under the open_actions\nkey of every bucket.",
+                    "type": "boolean"
+                },
+                "results": {
+                    "description": "Results is a list of pipeline results to filter reports by, such as\n\"✔\", \"✗\", \"⚠\" or \"-\". A report is counted when its result is any of them.\nAn empty list does not filter anything out.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "scmid": {
                     "description": "ScmID is the ID of the SCM to filter reports by.\nUse \"none\" to only count the reports which are not attached to any SCM.",
                     "type": "string"
@@ -1963,9 +1981,20 @@ const docTemplate = `{
                     "description": "Limit is the maximum number of SCMs to return.",
                     "type": "integer"
                 },
+                "open_action": {
+                    "description": "OpenAction filters SCM summaries by whether a pipeline carries an action left open,\nsuch as a pull request still waiting to be merged. This is optional: unset does not\nfilter anything out, true only keeps the pipelines with an open action and false only\nthe ones without.",
+                    "type": "boolean"
+                },
                 "page": {
                     "description": "Page is the page number for pagination.",
                     "type": "integer"
+                },
+                "results": {
+                    "description": "Results filters SCM summaries by pipeline result, such as \"✔\", \"✗\", \"⚠\" or\n\"-\". An empty list does not filter anything out.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "scmid": {
                     "description": "ScmID is the ID of the SCM to filter by.",

@@ -135,6 +135,15 @@ func SearchPipelineReports(c *gin.Context) {
 		// "✔", "✗", "⚠" or "-". A report matches when its result is any of them.
 		// This is optional and an empty list does not filter anything out.
 		Results []string `json:"results,omitempty"`
+		// OpenAction filters reports by whether they carry an action left open, such as a
+		// pull request still waiting to be merged. This is optional: unset does not filter
+		// anything out, true only keeps the reports with an open action and false only the
+		// ones without.
+		//
+		// Combined with results it isolates the pipelines which succeeded because their
+		// change is already waiting in a pull request, which a result alone cannot express:
+		// {"results": ["✔"], "open_action": true}.
+		OpenAction *bool `json:"open_action,omitempty"`
 	}
 
 	queryParams := queryData{}
@@ -162,6 +171,7 @@ func SearchPipelineReports(c *gin.Context) {
 			Latest:      queryParams.Latest,
 			Labels:      queryParams.Labels,
 			Results:     queryParams.Results,
+			OpenAction:  queryParams.OpenAction,
 		},
 	)
 	if err != nil {
@@ -202,6 +212,14 @@ type SearchPipelineReportsSummaryRequest struct {
 	// "✔", "✗", "⚠" or "-". A report is counted when its result is any of them.
 	// An empty list does not filter anything out.
 	Results []string `json:"results,omitempty"`
+	// OpenAction filters reports by whether they carry an action left open, such as a
+	// pull request still waiting to be merged. This is optional: unset does not filter
+	// anything out, true only counts the reports with an open action and false only the
+	// ones without.
+	//
+	// The same breakdown is reported without filtering anything out under the open_actions
+	// key of every bucket.
+	OpenAction *bool `json:"open_action,omitempty"`
 	// StartTime is the start time for the time range filter.
 	// Time format is: 2006-01-02 15:04:05Z07:00
 	StartTime string `json:"start_time,omitempty"`
@@ -323,6 +341,7 @@ func SearchPipelineReportsSummary(c *gin.Context) {
 			ScmID:       queryParams.ScmID,
 			Labels:      queryParams.Labels,
 			Results:     queryParams.Results,
+			OpenAction:  queryParams.OpenAction,
 			StartTime:   queryParams.StartTime,
 			EndTime:     queryParams.EndTime,
 		},
