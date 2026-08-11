@@ -1127,7 +1127,7 @@ func TestEndpoints(t *testing.T) {
 			assert.Len(t, reportsOf(t, map[string]any{"limit": 1}), 1)
 		})
 
-		t.Run("an explicit page is honoured", func(t *testing.T) {
+		t.Run("an explicit page is honored", func(t *testing.T) {
 			assert.Len(t, reportsOf(t, map[string]any{"limit": 2, "page": 1}), 2)
 			assert.Len(t, reportsOf(t, map[string]any{"limit": 2, "page": 2}), 1)
 		})
