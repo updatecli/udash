@@ -60,7 +60,7 @@ func InsertConfigResource(ctx context.Context, resourceType, resourceKind string
 	}
 
 	var configID uuid.UUID
-	err = DB.QueryRow(context.Background(), queryString, args...).Scan(
+	err = DB.QueryRow(ctx, queryString, args...).Scan(
 		&configID,
 	)
 
@@ -135,11 +135,12 @@ func GetConfigKind(ctx context.Context, resourceType string) ([]string, error) {
 		return nil, err
 	}
 
-	rows, err := DB.Query(context.Background(), queryString, args...)
+	rows, err := DB.Query(ctx, queryString, args...)
 	if err != nil {
 		logrus.Errorf("query failed: %q\n\t%s", queryString, err)
 		return nil, err
 	}
+	defer rows.Close()
 
 	results := []string{}
 	for rows.Next() {
@@ -150,6 +151,11 @@ func GetConfigKind(ctx context.Context, resourceType string) ([]string, error) {
 			return nil, err
 		}
 		results = append(results, kind)
+	}
+
+	if err := rows.Err(); err != nil {
+		logrus.Errorf("reading config kinds: %s", err)
+		return nil, err
 	}
 
 	return results, nil
@@ -202,12 +208,7 @@ func GetSourceConfigs(ctx context.Context, kind, id, config string, limit, page 
 		logrus.Errorf("parsing total count result: %s", err)
 	}
 
-	if limit < totalCount && limit > 0 {
-		query.Apply(
-			sm.Limit(limit),
-			sm.Offset((page-1)*limit),
-		)
-	}
+	applyPagination(&query, limit, page)
 
 	queryString, args, err := query.Build(ctx)
 	if err != nil {
@@ -215,12 +216,13 @@ func GetSourceConfigs(ctx context.Context, kind, id, config string, limit, page 
 		return nil, 0, err
 	}
 
-	rows, err := DB.Query(context.Background(), queryString, args...)
+	rows, err := DB.Query(ctx, queryString, args...)
 
 	if err != nil {
 		logrus.Errorf("query failed: %q\n\t%s", queryString, err)
 		return nil, 0, err
 	}
+	defer rows.Close()
 
 	results := []model.ConfigSource{}
 
@@ -242,6 +244,11 @@ func GetSourceConfigs(ctx context.Context, kind, id, config string, limit, page 
 		}
 
 		results = append(results, r)
+	}
+
+	if err := rows.Err(); err != nil {
+		logrus.Errorf("reading config sources: %s", err)
+		return nil, 0, err
 	}
 
 	return results, totalCount, nil
@@ -293,13 +300,7 @@ func GetConditionConfigs(ctx context.Context, kind, id, config string, limit, pa
 		logrus.Errorf("parsing total count result: %s", err)
 	}
 
-	// Apply pagination if limit and page are set
-	if limit < totalCount && limit > 0 {
-		query.Apply(
-			sm.Limit(limit),
-			sm.Offset((page-1)*limit),
-		)
-	}
+	applyPagination(&query, limit, page)
 
 	queryString, args, err := query.Build(ctx)
 	if err != nil {
@@ -307,12 +308,13 @@ func GetConditionConfigs(ctx context.Context, kind, id, config string, limit, pa
 		return nil, 0, err
 	}
 
-	rows, err := DB.Query(context.Background(), queryString, args...)
+	rows, err := DB.Query(ctx, queryString, args...)
 
 	if err != nil {
 		logrus.Errorf("query failed: %q\n\t%s", queryString, err)
 		return nil, 0, err
 	}
+	defer rows.Close()
 
 	results := []model.ConfigCondition{}
 
@@ -337,6 +339,11 @@ func GetConditionConfigs(ctx context.Context, kind, id, config string, limit, pa
 		}
 
 		results = append(results, r)
+	}
+
+	if err := rows.Err(); err != nil {
+		logrus.Errorf("reading config conditions: %s", err)
+		return nil, 0, err
 	}
 
 	return results, totalCount, nil
@@ -388,13 +395,7 @@ func GetTargetConfigs(ctx context.Context, kind, id, config string, limit, page 
 		logrus.Errorf("parsing total count result: %s", err)
 	}
 
-	// Apply pagination if limit and page are set
-	if limit < totalCount && limit > 0 {
-		query.Apply(
-			sm.Limit(limit),
-			sm.Offset((page-1)*limit),
-		)
-	}
+	applyPagination(&query, limit, page)
 
 	queryString, args, err := query.Build(ctx)
 	if err != nil {
@@ -402,12 +403,13 @@ func GetTargetConfigs(ctx context.Context, kind, id, config string, limit, page 
 		return nil, 0, err
 	}
 
-	rows, err := DB.Query(context.Background(), queryString, args...)
+	rows, err := DB.Query(ctx, queryString, args...)
 
 	if err != nil {
 		logrus.Errorf("query failed: %q\n\t%s", queryString, err)
 		return nil, 0, err
 	}
+	defer rows.Close()
 
 	results := []model.ConfigTarget{}
 
@@ -430,6 +432,11 @@ func GetTargetConfigs(ctx context.Context, kind, id, config string, limit, page 
 		}
 
 		results = append(results, r)
+	}
+
+	if err := rows.Err(); err != nil {
+		logrus.Errorf("reading config targets: %s", err)
+		return nil, 0, err
 	}
 
 	return results, totalCount, nil

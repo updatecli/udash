@@ -9,12 +9,14 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"sort"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stephenafamo/bob/dialect/psql"
 	"github.com/stephenafamo/bob/dialect/psql/dm"
 	"github.com/stretchr/testify/assert"
@@ -22,6 +24,7 @@ import (
 	"github.com/updatecli/udash/pkg/database"
 	"github.com/updatecli/udash/test"
 	"github.com/updatecli/updatecli/pkg/core/reports"
+	"github.com/updatecli/updatecli/pkg/core/result"
 )
 
 func TestEndpoints(t *testing.T) {
@@ -1087,6 +1090,189 @@ func TestEndpoints(t *testing.T) {
 				assert.Equal(t, map[string]any{}, branch["total_result_by_type"])
 				assert.Equal(t, map[string]any{}, branch["total_open_action_by_result"])
 			})
+		})
+	})
+
+	t.Run("pagination", func(t *testing.T) {
+		truncateReports(t)
+
+		for range 3 {
+			id, err := database.InsertReport(ctx, reports.Report{
+				Name: "paginated", Result: "✔", ID: "paginated", PipelineID: "paginated",
+			})
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				deleteReport(t, id)
+			})
+		}
+
+		reportsOf := func(t *testing.T, body map[string]any) []any {
+			t.Helper()
+
+			resp := doPostRequest(t, srv, "/api/pipeline/reports/search", body)
+			defer resp.Body.Close()
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+
+			blob := map[string]any{}
+			require.NoError(t, json.NewDecoder(resp.Body).Decode(&blob))
+			require.Equal(t, float64(3), blob["total_count"])
+
+			return blob["data"].([]any)
+		}
+
+		t.Run("a limit without a page returns the first page", func(t *testing.T) {
+			// Pages are one based, so an unset page used to build "OFFSET -1". Postgres
+			// rejects it, and because that error only surfaces when the rows are read it
+			// was reported as an empty, successful result.
+			assert.Len(t, reportsOf(t, map[string]any{"limit": 1}), 1)
+		})
+
+		t.Run("an explicit page is honoured", func(t *testing.T) {
+			assert.Len(t, reportsOf(t, map[string]any{"limit": 2, "page": 1}), 2)
+			assert.Len(t, reportsOf(t, map[string]any{"limit": 2, "page": 2}), 1)
+		})
+
+		t.Run("a page past the end returns nothing", func(t *testing.T) {
+			// The limit used to be ignored whenever it reached the total count, which
+			// answered any page with the whole dataset.
+			assert.Empty(t, reportsOf(t, map[string]any{"limit": 3, "page": 2}))
+		})
+
+		t.Run("an invalid limit is reported once", func(t *testing.T) {
+			// The helper reporting the mistake used to answer the request itself and
+			// still hand the caller a nil error, appending a second body to the 400.
+			for _, query := range []string{"limit=abc", "limit=2000", "page=xyz"} {
+				resp := doGetRequest(t, srv, "/api/pipeline/reports?"+query)
+				defer resp.Body.Close()
+
+				require.Equal(t, http.StatusBadRequest, resp.StatusCode, query)
+
+				body, err := io.ReadAll(resp.Body)
+				require.NoError(t, err)
+
+				trailing := json.NewDecoder(bytes.NewReader(body))
+				blob := map[string]any{}
+				require.NoError(t, trailing.Decode(&blob), query)
+				assert.Contains(t, blob[errMessageType], ErrInvalidPaginationParams)
+				assert.False(t, trailing.More(), "%s: more than one body was written: %s", query, body)
+			}
+		})
+	})
+
+	t.Run("POST /api/pipeline/reports/search combining resource filters", func(t *testing.T) {
+		truncateReports(t)
+
+		reportID, err := database.InsertReport(ctx, reports.Report{
+			Name: "combined", Result: "✔", ID: "combined", PipelineID: "combined",
+			Sources: map[string]*result.Source{
+				"src": {Config: map[string]any{"Kind": "shell", "Spec": map[string]any{"command": "echo"}}},
+			},
+			Targets: map[string]*result.Target{
+				"tgt": {Config: map[string]any{"Kind": "file", "Spec": map[string]any{"file": "combined.txt"}}},
+			},
+		})
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			deleteReport(t, reportID)
+		})
+
+		sourceIDs, targetIDs := pgtype.Hstore{}, pgtype.Hstore{}
+		require.NoError(t, database.DB.QueryRow(ctx,
+			"SELECT config_source_ids, config_target_ids FROM pipelineReports WHERE id = $1", reportID,
+		).Scan(&sourceIDs, &targetIDs))
+
+		firstKeyOf := func(h pgtype.Hstore) string {
+			for key := range h {
+				return key
+			}
+			return ""
+		}
+
+		sourceID, targetID := firstKeyOf(sourceIDs), firstKeyOf(targetIDs)
+		require.NotEmpty(t, sourceID)
+		require.NotEmpty(t, targetID)
+
+		// Each filter adds a column to the select, so combining two of them used to
+		// build a query returning more columns than the scan expected.
+		resp := doPostRequest(t, srv, "/api/pipeline/reports/search", map[string]any{
+			"sourceid": sourceID,
+			"targetid": targetID,
+		})
+		defer resp.Body.Close()
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		blob := map[string]any{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&blob))
+
+		data := blob["data"].([]any)
+		require.Len(t, data, 1)
+		// The last applied filter names the matched resource, as it did when a single
+		// one could be applied.
+		assert.Equal(t, "tgt", data[0].(map[string]any)["FilteredResourceID"])
+	})
+
+	t.Run("GET /api/pipeline/reports with an invalid latest", func(t *testing.T) {
+		// An unparsable value used to be warned about and then read as false, which is
+		// the opposite of the documented default.
+		resp := doGetRequest(t, srv, "/api/pipeline/reports?latest=notabool")
+		assertErrorResponse(t, resp, http.StatusBadRequest, ErrInvalidLatestParam)
+	})
+
+	t.Run("GET /api/pipeline/scms with a time range", func(t *testing.T) {
+		truncateReports(t)
+
+		scmID, err := database.InsertSCM(ctx, "https://example.com/timerange.git", "main")
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			deleteSCM(t, scmID)
+		})
+
+		reportID, err := database.InsertReport(ctx, reports.Report{
+			Name: "timerange", Result: "✔", ID: "timerange", PipelineID: "timerange",
+		})
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			deleteReport(t, reportID)
+		})
+
+		// The scms are dated by the reports published for them, which the trigger of
+		// migration 000009 records on insert.
+		_, err = database.DB.Exec(ctx,
+			"UPDATE scms SET last_pipeline_report_at = $1 WHERE id = $2",
+			time.Date(2026, 3, 15, 12, 0, 0, 0, time.UTC), scmID)
+		require.NoError(t, err)
+
+		scmsIn := func(t *testing.T, start, end time.Time) []any {
+			t.Helper()
+
+			resp := doGetRequest(t, srv, fmt.Sprintf("/api/pipeline/scms?start_time=%s&end_time=%s",
+				url.QueryEscape(start.Format(timeRangeLayout)),
+				url.QueryEscape(end.Format(timeRangeLayout))))
+			defer resp.Body.Close()
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+
+			blob := map[string]any{}
+			require.NoError(t, json.NewDecoder(resp.Body).Decode(&blob))
+
+			return blob["scms"].([]any)
+		}
+
+		t.Run("keeps the scms reported within the range", func(t *testing.T) {
+			assert.Len(t, scmsIn(t,
+				time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
+				time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)), 1)
+		})
+
+		t.Run("drops the scms reported outside of it", func(t *testing.T) {
+			// The range used to be accepted and then ignored, returning every scm.
+			assert.Empty(t, scmsIn(t,
+				time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+				time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)))
+		})
+
+		t.Run("rejects a half open range", func(t *testing.T) {
+			resp := doGetRequest(t, srv, "/api/pipeline/scms?start_time=2026-03-01+00:00:00Z")
+			assertErrorResponse(t, resp, http.StatusBadRequest, ErrInvalidTimeRangeParams)
 		})
 	})
 }

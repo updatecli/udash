@@ -188,6 +188,53 @@ func TestDatabase(t *testing.T) {
 		}
 	})
 
+	t.Run("republishing a report reuses its scm", func(t *testing.T) {
+		// The scm of a target used to be looked up by Branch.Target and inserted with
+		// Branch.Source, so as soon as the two differed the lookup of the next report
+		// missed the row just written and appended a duplicate. Updatecli pushes its
+		// changes to a dedicated branch, which is exactly when they differ, so the scms
+		// table grew by one row per published report.
+		report := reports.Report{
+			Name:       "ci: bump Venom version",
+			Result:     result.SUCCESS,
+			ID:         "scm-reuse",
+			PipelineID: "venom",
+			Targets: map[string]*result.Target{
+				"venom": {
+					Scm: result.SCM{
+						URL: "https://example.com/scm-reuse.git",
+						Branch: struct {
+							Source  string
+							Working string
+							Target  string
+						}{Source: "main", Working: "updatecli_main", Target: "updatecli_bump"},
+					},
+				},
+			},
+		}
+
+		for range 3 {
+			id, err := InsertReport(ctx, report)
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				_, err := DB.Exec(ctx, "DELETE FROM pipelineReports WHERE id = $1", id)
+				assert.NoError(t, err)
+			})
+		}
+
+		scms, _, err := GetSCM(ctx, GetSCMParams{URL: "https://example.com/scm-reuse.git"})
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			_, err := DB.Exec(ctx, "DELETE FROM scms WHERE url = $1", "https://example.com/scm-reuse.git")
+			assert.NoError(t, err)
+		})
+
+		require.Len(t, scms, 1)
+		// The branch stored has to be the one the lookup uses, otherwise the next report
+		// misses it again.
+		assert.Equal(t, "updatecli_bump", scms[0].Branch)
+	})
+
 	t.Run("migration 000011 indexes the open action expression", func(t *testing.T) {
 		// The jsonpath is inlined in openActionSQLExpr so that it matches the index
 		// expression. Binding it as a parameter would still return the right reports while

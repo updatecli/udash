@@ -157,20 +157,25 @@ func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReport
 		return nil, 0, fmt.Errorf("applying updated_at range filter: %w", err)
 	}
 
+	// Every applied filter adds a column to the select, so the filters are collected
+	// here and the rows are scanned against that same list further down. Reading the
+	// three of them independently would build a query returning more columns than the
+	// scan expects as soon as two are combined.
+	resourceFilters := []resourceConfigFilter{}
 	if params.SourceID != "" {
-		if err := applyResourceConfigFilter(&query, params.SourceID, configSourceType); err != nil {
-			return nil, 0, err
-		}
+		resourceFilters = append(resourceFilters, resourceConfigFilter{ID: params.SourceID, Kind: configSourceType})
 	}
 
 	if params.ConditionID != "" {
-		if err := applyResourceConfigFilter(&query, params.ConditionID, configConditionType); err != nil {
-			return nil, 0, err
-		}
+		resourceFilters = append(resourceFilters, resourceConfigFilter{ID: params.ConditionID, Kind: configConditionType})
 	}
 
 	if params.TargetID != "" {
-		if err := applyResourceConfigFilter(&query, params.TargetID, configTargetType); err != nil {
+		resourceFilters = append(resourceFilters, resourceConfigFilter{ID: params.TargetID, Kind: configTargetType})
+	}
+
+	for _, filter := range resourceFilters {
+		if err := applyResourceConfigFilter(&query, filter.ID, filter.Kind); err != nil {
 			return nil, 0, err
 		}
 	}
@@ -199,13 +204,7 @@ func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReport
 		logrus.Errorf("get reports: %s", err)
 	}
 
-	// If limit and page are not set, we do not apply pagination.
-	if params.Limit < totalCount && params.Limit > 0 {
-		query.Apply(
-			sm.Limit(params.Limit),
-			sm.Offset((params.Page-1)*params.Limit),
-		)
-	}
+	applyPagination(&query, params.Limit, params.Page)
 
 	queryString, args, err = query.Build(params.Ctx)
 	if err != nil {
@@ -216,47 +215,35 @@ func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReport
 	if err != nil {
 		return nil, 0, fmt.Errorf("query failed: %q\n\t%s", queryString, err)
 	}
+	defer rows.Close()
 
 	dataset := []SearchLatestReportData{}
 	for rows.Next() {
 		p := model.PipelineReport{}
 
-		filteredResources := pgtype.Hstore{}
+		// One extra column per applied resource config filter, in the order they were
+		// applied to the query.
+		filteredResources := make([]pgtype.Hstore, len(resourceFilters))
 
-		if params.SourceID != "" || params.ConditionID != "" || params.TargetID != "" {
-			err = rows.Scan(
-				&p.ReportID,
-				&p.ID,
-				&p.PipelineID,
-				&p.Result,
-				&p.Pipeline,
-				&p.Created_at,
-				&p.Updated_at,
-				&p.TargetConfigIDs,
-				&p.ConditionConfigIDs,
-				&p.SourceConfigIDs,
-				&filteredResources,
-			)
-			if err != nil {
-				return nil, 0, fmt.Errorf("parsing result: %s", err)
-			}
+		scanTargets := []any{
+			&p.ReportID,
+			&p.ID,
+			&p.PipelineID,
+			&p.Result,
+			&p.Pipeline,
+			&p.Created_at,
+			&p.Updated_at,
+			&p.TargetConfigIDs,
+			&p.ConditionConfigIDs,
+			&p.SourceConfigIDs,
+		}
 
-		} else {
-			err = rows.Scan(
-				&p.ReportID,
-				&p.ID,
-				&p.PipelineID,
-				&p.Result,
-				&p.Pipeline,
-				&p.Created_at,
-				&p.Updated_at,
-				&p.TargetConfigIDs,
-				&p.ConditionConfigIDs,
-				&p.SourceConfigIDs,
-			)
-			if err != nil {
-				return nil, 0, fmt.Errorf("parsing result: %s", err)
-			}
+		for i := range filteredResources {
+			scanTargets = append(scanTargets, &filteredResources[i])
+		}
+
+		if err := rows.Scan(scanTargets...); err != nil {
+			return nil, 0, fmt.Errorf("parsing result: %s", err)
 		}
 
 		data := SearchLatestReportData{
@@ -271,28 +258,22 @@ func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReport
 			SourceConfigIDs:    p.SourceConfigIDs,
 		}
 
-		if params.SourceID != "" {
-			if _, ok := filteredResources[params.SourceID]; !ok {
-				return nil, 0, fmt.Errorf("sourceID %s not found in pipeline report", params.SourceID)
+		// When several filters are combined the last one wins, as it did when they were
+		// read one after the other.
+		for i, filter := range resourceFilters {
+			resourceID, ok := filteredResources[i][filter.ID]
+			if !ok || resourceID == nil {
+				return nil, 0, fmt.Errorf("%sID %s not found in pipeline report", filter.Kind, filter.ID)
 			}
-			data.FilteredResourceID = *filteredResources[params.SourceID]
-		}
 
-		if params.ConditionID != "" {
-			if _, ok := filteredResources[params.ConditionID]; !ok {
-				return nil, 0, fmt.Errorf("conditionID %s not found in pipeline report", params.ConditionID)
-			}
-			data.FilteredResourceID = *filteredResources[params.ConditionID]
-		}
-
-		if params.TargetID != "" {
-			if _, ok := filteredResources[params.TargetID]; !ok {
-				return nil, 0, fmt.Errorf("targetID %s not found in pipeline report", params.TargetID)
-			}
-			data.FilteredResourceID = *filteredResources[params.TargetID]
+			data.FilteredResourceID = *resourceID
 		}
 
 		dataset = append(dataset, data)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("reading results: %s", err)
 	}
 
 	return dataset, totalCount, nil
@@ -717,7 +698,7 @@ func InsertReport(ctx context.Context, report reports.Report) (string, error) {
 			url := target.Scm.URL
 			branch := target.Scm.Branch.Target
 
-			ids, _, err := GetSCM(ctx, "", url, branch, 0, 1)
+			ids, _, err := GetSCM(ctx, GetSCMParams{URL: url, Branch: branch})
 			if err != nil {
 				logrus.Errorf("query failed: %s", err)
 				return "", err
@@ -726,7 +707,12 @@ func InsertReport(ctx context.Context, report reports.Report) (string, error) {
 			switch len(ids) {
 			// If no scm is found, we insert it
 			case 0:
-				id, err := InsertSCM(ctx, target.Scm.URL, target.Scm.Branch.Source)
+				// The branch inserted must be the one looked up above. Storing
+				// Branch.Source instead made the lookup of the next report miss the row
+				// every time the two differ, which is the normal case when Updatecli
+				// pushes its changes to a dedicated branch, and appended a duplicate scm
+				// on every published report.
+				id, err := InsertSCM(ctx, url, branch)
 				if err != nil {
 					logrus.Errorf("insert scm data: %s", err)
 					continue
@@ -995,7 +981,18 @@ func SearchLatestReportByPipelineID(ctx context.Context, id string) (*model.Pipe
 	return &report, nil
 }
 
+// resourceConfigFilter identifies a resource config a reports search is restricted to.
+type resourceConfigFilter struct {
+	// ID is the config resource id the reports must reference.
+	ID string
+	// Kind is one of configSourceType, configConditionType or configTargetType.
+	Kind string
+}
+
 // applyResourceConfigFilters applies resource config filters to the given query.
+//
+// It also selects the matching hstore column so that the caller can report which resource
+// of the pipeline matched, which means every call adds one column to the query.
 func applyResourceConfigFilter(query *bob.BaseQuery[*dialect.SelectQuery], id, kind string) error {
 
 	// Ensure resource id is a valid UUID
@@ -1086,7 +1083,7 @@ func applyScmFilter(ctx context.Context, query *bob.BaseQuery[*dialect.SelectQue
 		)
 
 	default:
-		scm, _, err := GetSCM(ctx, scmID, "", "", 0, 1)
+		scm, _, err := GetSCM(ctx, GetSCMParams{ID: scmID})
 		if err != nil {
 			logrus.Errorf("get scm data: %s", err)
 			return err

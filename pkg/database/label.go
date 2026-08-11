@@ -78,12 +78,7 @@ func GetLabelKeyOnlyRecords(ctx context.Context, startTime, endTime string, limi
 		logrus.Errorf("parsing total count result: %s", err)
 	}
 
-	if limit < totalCount && limit > 0 {
-		query.Apply(
-			sm.Limit(limit),
-			sm.Offset((page-1)*limit),
-		)
-	}
+	applyPagination(&query, limit, page)
 
 	queryString, args, err := query.Build(ctx)
 
@@ -173,12 +168,7 @@ func GetLabelRecords(ctx context.Context, id, key, value, startTime, endTime str
 		logrus.Errorf("parsing total count result: %s", err)
 	}
 
-	if limit < totalCount && limit > 0 {
-		query.Apply(
-			sm.Limit(limit),
-			sm.Offset((page-1)*limit),
-		)
-	}
+	applyPagination(&query, limit, page)
 
 	queryString, args, err := query.Build(ctx)
 

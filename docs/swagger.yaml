@@ -1484,6 +1484,10 @@ paths:
         in: query
         name: end_time
         type: string
+      - description: Only return the latest report per pipeline ID, default is true
+        in: query
+        name: latest
+        type: string
       produces:
       - application/json
       responses:
@@ -1491,6 +1495,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/server.GetPipelineReportsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
         "500":
           description: Internal Server Error
           schema:

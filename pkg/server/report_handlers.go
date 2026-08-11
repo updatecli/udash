@@ -156,6 +156,13 @@ func SearchPipelineReports(c *gin.Context) {
 		return
 	}
 
+	if err := validateTimeRangeParams(queryParams.StartTime, queryParams.EndTime); err != nil {
+		c.JSON(http.StatusBadRequest, DefaultResponseModel{
+			Err: err.Error(),
+		})
+		return
+	}
+
 	dataset, totalCount, err := database.SearchLatestReports(
 		database.SearchLatestReportsParams{
 			Ctx:         c,
@@ -321,11 +328,9 @@ func SearchPipelineReportsSummary(c *gin.Context) {
 		return
 	}
 
-	// Catching this here returns a 400 instead of the 500 that the database layer
-	// would return for the same mistake.
-	if (queryParams.StartTime == "") != (queryParams.EndTime == "") {
+	if err := validateTimeRangeParams(queryParams.StartTime, queryParams.EndTime); err != nil {
 		c.JSON(http.StatusBadRequest, DefaultResponseModel{
-			Err: ErrInvalidTimeRangeParams,
+			Err: err.Error(),
 		})
 		return
 	}
@@ -389,9 +394,11 @@ func SearchPipelineReportsSummary(c *gin.Context) {
 // @Param page query string false "Page number for pagination, default is 1"
 // @Param start_time query string false "Start time for filtering reports (RFC3339 format)"
 // @Param end_time query string false "End time for filtering reports (RFC3339 format)"
+// @Param latest query string false "Only return the latest report per pipeline ID, default is true"
 // @Accept json
 // @Produce json
 // @Success 200 {object} GetPipelineReportsResponse
+// @Failure 400 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
 // @Router /api/pipeline/reports [get]
 func ListPipelineReports(c *gin.Context) {
@@ -399,21 +406,34 @@ func ListPipelineReports(c *gin.Context) {
 	scmID := queryParams.Get("scmid")
 	startTime := queryParams.Get("start_time")
 	endTime := queryParams.Get("end_time")
-	lateststr := queryParams.Get("latest")
 
-	if lateststr == "" {
-		lateststr = "true"
+	// A value which cannot be parsed is rejected rather than ignored: falling through
+	// used to leave latest at false, which is the opposite of the documented default.
+	latest := true
+	if lateststr := queryParams.Get("latest"); lateststr != "" {
+		parsedLatest, err := strconv.ParseBool(lateststr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, DefaultResponseModel{
+				Err: ErrInvalidLatestParam,
+			})
+			return
+		}
+
+		latest = parsedLatest
 	}
-	latest, err := strconv.ParseBool(lateststr)
-	if err != nil {
-		logrus.Warningf("ignoring latest param due to: %s", err)
+
+	if err := validateTimeRangeParams(startTime, endTime); err != nil {
+		c.JSON(http.StatusBadRequest, DefaultResponseModel{
+			Err: err.Error(),
+		})
+		return
 	}
 
 	limit, page, err := getPaginationParamFromURLQuery(c)
 	if err != nil {
 		logrus.Errorf("getting pagination params: %s", err)
 		c.JSON(http.StatusBadRequest, DefaultResponseModel{
-			Err: ErrInvalidPaginationParams,
+			Err: ErrInvalidPaginationParams + ": " + err.Error(),
 		})
 		return
 	}

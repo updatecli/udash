@@ -609,6 +609,12 @@ const docTemplate = `{
                         "description": "End time for filtering reports (RFC3339 format)",
                         "name": "end_time",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Only return the latest report per pipeline ID, default is true",
+                        "name": "latest",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -616,6 +622,12 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/server.GetPipelineReportsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
                         }
                     },
                     "500": {

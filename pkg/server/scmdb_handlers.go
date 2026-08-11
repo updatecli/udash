@@ -72,6 +72,13 @@ func SearchSCMs(c *gin.Context) {
 		return
 	}
 
+	if err := validateTimeRangeParams(queryParams.StartTime, queryParams.EndTime); err != nil {
+		c.JSON(http.StatusBadRequest, DefaultResponseModel{
+			Err: err.Error(),
+		})
+		return
+	}
+
 	rows, totalCount, err := getSCMRows(c, queryParams)
 	if err != nil {
 		logrus.Errorf("searching for scms: %s", err)
@@ -138,7 +145,17 @@ func ListSCMs(c *gin.Context) {
 	if err != nil {
 		logrus.Errorf("getting pagination params: %s", err)
 		c.JSON(http.StatusBadRequest, DefaultResponseModel{
-			Err: ErrInvalidPaginationParams,
+			Err: ErrInvalidPaginationParams + ": " + err.Error(),
+		})
+		return
+	}
+
+	startTime := queryValues.Get("start_time")
+	endTime := queryValues.Get("end_time")
+
+	if err := validateTimeRangeParams(startTime, endTime); err != nil {
+		c.JSON(http.StatusBadRequest, DefaultResponseModel{
+			Err: err.Error(),
 		})
 		return
 	}
@@ -147,8 +164,8 @@ func ListSCMs(c *gin.Context) {
 		ScmID:     queryValues.Get("scmid"),
 		URL:       queryValues.Get("url"),
 		Branch:    queryValues.Get("branch"),
-		StartTime: queryValues.Get("start_time"),
-		EndTime:   queryValues.Get("end_time"),
+		StartTime: startTime,
+		EndTime:   endTime,
 		Summary:   summary,
 		Limit:     limit,
 		Page:      page,
@@ -187,7 +204,18 @@ func getSCMRows(c *gin.Context, params SearchSCMsRequest) ([]model.SCM, int, err
 		page = 0
 	}
 
-	return database.GetSCM(c, params.ScmID, params.URL, params.Branch, limit, page)
+	return database.GetSCM(c, database.GetSCMParams{
+		ID:     params.ScmID,
+		URL:    params.URL,
+		Branch: params.Branch,
+		// An scm which saw no report during the requested range has nothing to show for
+		// it, so the range narrows the listing itself and not only the summary built
+		// from it.
+		StartTime: params.StartTime,
+		EndTime:   params.EndTime,
+		Limit:     limit,
+		Page:      page,
+	})
 }
 
 // FindSCMSummaryResponse represents the response for the FindSCMSummary endpoint.
