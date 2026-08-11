@@ -1,8 +1,11 @@
 package server
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	jwtmiddleware "github.com/auth0/go-jwt-middleware/v2"
@@ -23,13 +26,48 @@ var (
 	authOption = AuthOptions{}
 )
 
-// checkJWT is a gin.HandlerFunc middleware
-// that will check the validity of our JWT.
-func checkJWT() gin.HandlerFunc {
+// parseIssuerURL turns a configured issuer into a URL, accepting it either as a bare host
+// ("example.eu.auth0.com") or as a full URL ("https://example.eu.auth0.com"). https is
+// assumed when no scheme is given.
+//
+// Beyond that the value is used verbatim, in particular its trailing slash. The validator
+// compares the token's `iss` claim against this string exactly, and providers disagree on
+// the trailing slash — Auth0 issues one, Zitadel and Keycloak do not — so rewriting it
+// would reject otherwise valid tokens.
+func parseIssuerURL(issuer string) (*url.URL, error) {
+	if issuer == "" {
+		return nil, errors.New("no issuer configured")
+	}
 
-	issuerURL, err := url.Parse("https://" + authOption.Oauth.Issuer + "/")
+	if !strings.Contains(issuer, "://") {
+		issuer = "https://" + issuer
+	}
+
+	issuerURL, err := url.Parse(issuer)
 	if err != nil {
-		logrus.Errorf("Failed to parse the issuer url: %v", err)
+		return nil, err
+	}
+
+	if issuerURL.Host == "" {
+		return nil, fmt.Errorf("issuer %q has no host", issuer)
+	}
+
+	return issuerURL, nil
+}
+
+// checkJWT builds a gin.HandlerFunc middleware that will check the validity of our JWT.
+//
+// It must be called once, when the routes are set up, and the returned middleware reused
+// for every request: the JWKS provider it builds caches the signing keys of the issuer,
+// and rebuilding it per request means fetching them again on every single call.
+//
+// A setup failure is reported rather than logged: carrying on would leave a nil validator
+// behind, which panics on the first request it is asked to authenticate.
+func checkJWT() (gin.HandlerFunc, error) {
+
+	issuerURL, err := parseIssuerURL(authOption.Oauth.Issuer)
+	if err != nil {
+		return nil, fmt.Errorf("parsing the issuer url: %w", err)
 	}
 	provider := jwks.NewCachingProvider(issuerURL, 5*time.Minute)
 
@@ -44,7 +82,7 @@ func checkJWT() gin.HandlerFunc {
 	)
 
 	if err != nil {
-		logrus.Errorf("failed to set up the validator: %v", err)
+		return nil, fmt.Errorf("setting up the validator: %w", err)
 	}
 
 	errorHandler := func(w http.ResponseWriter, r *http.Request, err error) {
@@ -72,5 +110,5 @@ func checkJWT() gin.HandlerFunc {
 				map[string]string{errMessageType: ErrInvalidJWT},
 			)
 		}
-	}
+	}, nil
 }

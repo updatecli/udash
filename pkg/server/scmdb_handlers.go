@@ -30,6 +30,14 @@ type SearchSCMsRequest struct {
 	EndTime string `json:"end_time"`
 	// Labels filters SCM summaries by report labels.
 	Labels map[string]string `json:"labels,omitempty"`
+	// Results filters SCM summaries by pipeline result, such as "✔", "✗", "⚠" or
+	// "-". An empty list does not filter anything out.
+	Results []string `json:"results,omitempty"`
+	// OpenAction filters SCM summaries by whether a pipeline carries an action left open,
+	// such as a pull request still waiting to be merged. This is optional: unset does not
+	// filter anything out, true only keeps the pipelines with an open action and false only
+	// the ones without.
+	OpenAction *bool `json:"open_action,omitempty"`
 	// URL is the SCM URL to filter by.
 	URL string `json:"url,omitempty"`
 	// Branch is the SCM branch to filter by.
@@ -64,6 +72,13 @@ func SearchSCMs(c *gin.Context) {
 		return
 	}
 
+	if err := validateTimeRangeParams(queryParams.StartTime, queryParams.EndTime); err != nil {
+		c.JSON(http.StatusBadRequest, DefaultResponseModel{
+			Err: err.Error(),
+		})
+		return
+	}
+
 	rows, totalCount, err := getSCMRows(c, queryParams)
 	if err != nil {
 		logrus.Errorf("searching for scms: %s", err)
@@ -75,14 +90,15 @@ func SearchSCMs(c *gin.Context) {
 	}
 
 	if queryParams.Summary {
-		findSCMSummary(
-			c,
-			rows,
-			totalCount,
-			queryParams.StartTime,
-			queryParams.EndTime,
-			queryParams.Labels,
-		)
+		findSCMSummary(c, findSCMSummaryParams{
+			ScmRows:    rows,
+			TotalCount: totalCount,
+			StartTime:  queryParams.StartTime,
+			EndTime:    queryParams.EndTime,
+			Labels:     queryParams.Labels,
+			Results:    queryParams.Results,
+			OpenAction: queryParams.OpenAction,
+		})
 		return
 	}
 
@@ -129,7 +145,17 @@ func ListSCMs(c *gin.Context) {
 	if err != nil {
 		logrus.Errorf("getting pagination params: %s", err)
 		c.JSON(http.StatusBadRequest, DefaultResponseModel{
-			Err: ErrInvalidPaginationParams,
+			Err: ErrInvalidPaginationParams + ": " + err.Error(),
+		})
+		return
+	}
+
+	startTime := queryValues.Get("start_time")
+	endTime := queryValues.Get("end_time")
+
+	if err := validateTimeRangeParams(startTime, endTime); err != nil {
+		c.JSON(http.StatusBadRequest, DefaultResponseModel{
+			Err: err.Error(),
 		})
 		return
 	}
@@ -138,8 +164,8 @@ func ListSCMs(c *gin.Context) {
 		ScmID:     queryValues.Get("scmid"),
 		URL:       queryValues.Get("url"),
 		Branch:    queryValues.Get("branch"),
-		StartTime: queryValues.Get("start_time"),
-		EndTime:   queryValues.Get("end_time"),
+		StartTime: startTime,
+		EndTime:   endTime,
 		Summary:   summary,
 		Limit:     limit,
 		Page:      page,
@@ -154,7 +180,13 @@ func ListSCMs(c *gin.Context) {
 	}
 
 	if summary {
-		findSCMSummary(c, rows, totalCount, queryValues.Get("start_time"), queryValues.Get("end_time"), map[string]string{})
+		findSCMSummary(c, findSCMSummaryParams{
+			ScmRows:    rows,
+			TotalCount: totalCount,
+			StartTime:  queryValues.Get("start_time"),
+			EndTime:    queryValues.Get("end_time"),
+			Labels:     map[string]string{},
+		})
 		return
 	}
 
@@ -172,7 +204,18 @@ func getSCMRows(c *gin.Context, params SearchSCMsRequest) ([]model.SCM, int, err
 		page = 0
 	}
 
-	return database.GetSCM(c, params.ScmID, params.URL, params.Branch, limit, page)
+	return database.GetSCM(c, database.GetSCMParams{
+		ID:     params.ScmID,
+		URL:    params.URL,
+		Branch: params.Branch,
+		// An scm which saw no report during the requested range has nothing to show for
+		// it, so the range narrows the listing itself and not only the summary built
+		// from it.
+		StartTime: params.StartTime,
+		EndTime:   params.EndTime,
+		Limit:     limit,
+		Page:      page,
+	})
 }
 
 // FindSCMSummaryResponse represents the response for the FindSCMSummary endpoint.
@@ -181,18 +224,39 @@ type FindSCMSummaryResponse struct {
 	Data       map[string]database.SCMBranchDataset `json:"data"`
 }
 
+// findSCMSummaryParams contains the filters applied to a git repositories summary.
+type findSCMSummaryParams struct {
+	// ScmRows are the SCMs to summarize.
+	ScmRows []model.SCM
+	// TotalCount is the number of SCMs matching the search, before pagination.
+	TotalCount int
+	// StartTime and EndTime define the time range the reports are summarized over.
+	StartTime string
+	EndTime   string
+	// Labels restricts the summary to the reports matching those labels.
+	Labels map[string]string
+	// Results restricts the summary to the pipelines whose result is one of them. An empty
+	// list does not filter anything out.
+	Results []string
+	// OpenAction restricts the summary to the pipelines which carry an open action, or to
+	// the ones which do not. A nil value does not filter anything out.
+	OpenAction *bool
+}
+
 // findSCMSummary returns a summary of all git repositories detected.
-func findSCMSummary(c *gin.Context, scmRows []model.SCM, totalCount int, startTime, endTime string, labels map[string]string) {
+func findSCMSummary(c *gin.Context, params findSCMSummaryParams) {
 	var data map[string]database.SCMBranchDataset
 
 	dataset, err := database.GetSCMSummary(database.GetSCMSummaryParams{
 		Ctx:                    c,
-		ScmRows:                scmRows,
-		TotalCount:             totalCount,
+		ScmRows:                params.ScmRows,
+		TotalCount:             params.TotalCount,
 		MonitoringDurationDays: monitoringDurationDays,
-		StartTime:              startTime,
-		EndTime:                endTime,
-		Labels:                 labels,
+		StartTime:              params.StartTime,
+		EndTime:                params.EndTime,
+		Labels:                 params.Labels,
+		Results:                params.Results,
+		OpenAction:             params.OpenAction,
 	})
 	if err != nil {
 		logrus.Errorf("getting scm summary failed: %s", err)
@@ -208,6 +272,6 @@ func findSCMSummary(c *gin.Context, scmRows []model.SCM, totalCount int, startTi
 
 	c.JSON(http.StatusOK, FindSCMSummaryResponse{
 		Data:       data,
-		TotalCount: totalCount,
+		TotalCount: params.TotalCount,
 	})
 }
