@@ -1,5 +1,5 @@
 = Udash
-Another Updatecli Dashboard
+An Updatecli Dashboard
 
 IMPORTANT: This project is still experimental, feel free to share feedback
 
@@ -25,9 +25,16 @@ Deploy Udash with the following steps:
 
 1. Make sure you have Docker and Docker Compose installed.
 2. Run `docker compose up -d` in the directory `demo`.
-3. Configure your browser to access Udash at `http://localhost:8080`.
+3. Configure your browser to access Udash at `http://localhost`. Traefik serves the frontend on
+   port 80 and the API on `http://localhost/api`, its own dashboard is the one on port 8080.
 4. Run `updatecli udash login "http://localhost" --experimental` to configure Updatecli to upload reports to Udash.
 5. Then you can run any updatecli command (apply/diff) to start publishing reports to Udash
+
+The demo runs with authentication disabled. Because no OAuth flag is passed, `udash login` skips the
+authorization flow and simply records the endpoint in the Updatecli configuration file.
+
+Please be aware that the UI is designed to visualize pipelines per git repository, so without an
+`scmid` pipelines will be hard to discover.
 
 INFO: You may have to run `docker compose restart server` if the postgresql database
  wasn't ready in time to receive connections when the Udash server started.
@@ -48,7 +55,8 @@ You can run the following commands to configure Updatecli to use the policies de
 
 === Requirements
 
-Udash application requires a postgresql database to store the various pipeline reports, and an oauth provider to handle authorization.
+Udash requires a postgresql database to store the various pipeline reports. An oauth provider is
+only required when authentication is enabled, which it is not by default.
 
 **Postgresql Database**
 
@@ -56,6 +64,7 @@ Udash application requires a postgresql database to store the various pipeline r
 
 The oauth provider **must** allow the PKCE flow.
 
+* link:https://zitadel.com[Zitadel] (the reference deployment, and the provider behind the dedicated `zitadel` mode)
 * Auth0 (tested)
 * GitHub link:https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#1-request-a-users-github-identity[Not supported yet]
 * link:https://docs.gitlab.com/ee/api/oauth2.html[GitLab]
@@ -75,101 +84,121 @@ Udash must be configured via a configuration file, and some settings can be over
 
 **Config File**
 
-The configuration file must be one of ["/etc/udash/config.yaml", "~/.udash/config.yaml","~/config.yaml"]
+The configuration file is named `config.yaml` and is looked up, in order, in the working directory,
+then `$HOME/.udash/`, then `/etc/udash/`. The first one found wins. A different name can be passed
+with `--config`.
 
-```
-    server:
-      auth:
-        #  If mode is unset then authentication is disabled
-        mode: "oauth"
-        issuer: "auth0 auth URL"
-        audience: "udash URL"
-    database:
-      # uri defines the postgresql URI used to connect with its database
-      uri: "postgresql URI"
+```yaml
+server:
+  auth:
+    # mode selects the authentication backend.
+    # Accepted values are "oauth", "zitadel", and "none".
+    # Unset or "none" disables authentication entirely.
+    mode: "oauth"
+    # visibility controls which endpoints require a token.
+    # "public" (the default) leaves the read endpoints open and requires
+    # authentication for anything that writes.
+    # "private" requires authentication everywhere.
+    visibility: "public"
+    # oauth settings, used when mode is "oauth"
+    oauth:
+      # issuer is compared to the "iss" claim of the token, verbatim.
+      # A scheme is optional, https is assumed when it is omitted, but the
+      # trailing slash is significant: Auth0 issues one, Zitadel and Keycloak
+      # do not. A mismatch rejects every token.
+      issuer: "https://example.eu.auth0.com/"
+      # audience is a list, and every entry is accepted.
+      audience:
+        - "https://udash.example/api"
+    # zitadel settings, used when mode is "zitadel"
+    zitadel:
+      domain: "xxx.region.zitadel.cloud"
+      # keyfile is the path to a service account key file
+      keyfile: "/etc/udash/zitadel-key.json"
+      # role required to access the API. Empty means any authenticated user.
+      role: ""
+database:
+  # uri defines the postgresql URI used to connect with its database
+  uri: "postgres://udash:password@db:5432/udash?sslmode=disable"
+  # migrationdisabled skips the schema migrations run at startup
+  migrationdisabled: false
 ```
 
 **Environment**
 
-* **UDASH_AUTH_MODE**: Enable authentication Accept value ["","none","oauth"]
-* **UDASH_AUTH_ISSUER**: Define oauth domain url require `UDASH_AUTH_MODE` set to "oauth"
-* **UDASH_AUTH_AUDIENCE**: Define oauth audience require `UDASH_AUTH_MODE` set to "oauth"
+Each variable below is only a fallback: it is read when the matching key is absent from the
+configuration file, so the file always wins.
+
+* **UDASH_AUTH_MODE**: Authentication mode. Accepted values are ["", "none", "oauth", "zitadel"]
+* **UDASH_AUTH_OAUTH_ISSUER**: Oauth issuer URL, requires `UDASH_AUTH_MODE` set to "oauth"
+* **UDASH_AUTH_OAUTH_AUDIENCE**: Oauth audience, requires `UDASH_AUTH_MODE` set to "oauth"
+* **UDASH_AUTH_ZITADEL_DOMAIN**: Zitadel domain, requires `UDASH_AUTH_MODE` set to "zitadel"
+* **UDASH_AUTH_ZITADEL_FILEKEY**: Path to the Zitadel service account key file, requires `UDASH_AUTH_MODE` set to "zitadel"
 * **UDASH_DB_URI**: Define the postgresql URI
 
 === Udash Frontend
 
 ==== Option
 
-Even though the Udash frontend is a client-side javascript application, it expects two configuration files that must exist in the `public` directory.
+Even though the Udash frontend is a client-side javascript application, it is configured entirely
+at runtime through a single `config.json`, served next to the application at
+`/usr/share/nginx/html/config.json`. The page fetches it before loading the bundle, so the same
+image serves an open deployment and an authenticated one without a rebuild.
 
-** config.js
-
-```
-const config = (() => {
-  return {
-    "OAUTH_DOMAIN": "updatecli.example.oauth.com",
-    "OAUTH_CLIENTID": "86FVLxxxxxxxxxxxxxxxxxx",
-    "OAUTH_AUDIENCE": "http://app.updatecli.io/api"
-  };
-})();
-```
-
-`config.js` is used by the frontend application for the login
-
-** config.json
-
-```
+```json
 {
-  "OAUTH_DOMAIN": "updatecli.example.oauth.com",
+  "AUTH_ENABLED": false,
+  "OAUTH_DOMAIN": "https://your-instance.zitadel.cloud",
   "OAUTH_CLIENTID": "86FVLxxxxxxxxxxxxxxxxxx",
-  "OAUTH_AUDIENCE": "http://app.updatecli.io/api"
+  "OAUTH_SCOPE": "openid profile email offline_access urn:zitadel:iam:org:project:id:PROJECT_ID:aud",
+  "OAUTH_AUDIENCE": "https://app.updatecli.io/api",
+  "API_BASE_URL": "/api",
+  "APP_BASE_PATH": "/",
+  "MAX_HISTORY_DAYS": 30
 }
 ```
 
-`config.json` is used by the Updatecli application to retrieve oauth setting when running:
+* **AUTH_ENABLED**: Require authentication. Defaults to `false`.
+* **OAUTH_DOMAIN**: The provider issuer URL.
+* **OAUTH_CLIENTID**: The client ID of the SPA application.
+* **OAUTH_SCOPE**: Requested scopes. Defaults to `openid profile email offline_access`, where
+  `offline_access` is what enables silent token renewal. Zitadel additionally requires the project
+  audience scope `urn:zitadel:iam:org:project:id:<PROJECT_ID>:aud`.
+* **OAUTH_AUDIENCE**: Not used by the frontend itself. It is read by Updatecli, see below.
+* **API_BASE_URL**: Where the browser reaches the API. Relative (`/api`) for same-host routing, or
+  an absolute URL when the API lives on its own domain. Defaults to `/api`.
+* **APP_BASE_PATH**: Base path of the SPA, for mounting it below a subpath such as `/udash/`.
+  Defaults to `/`.
+* **MAX_HISTORY_DAYS**: How far back the date filter and the activity chart may reach. Defaults to
+  `30` and is capped at the API's own maximum of `366`.
 
-`updatecli login http://app.updatecli.io`
+`config.json` is also what Updatecli reads to discover the oauth settings when running
+`updatecli udash login`. It fetches `<url>/config.json` and takes `OAUTH_DOMAIN`, `OAUTH_CLIENTID`,
+and `OAUTH_AUDIENCE` from it, so an authenticated deployment has to publish `OAUTH_AUDIENCE` there
+even though the frontend never reads it. The value doubles as the API URL Updatecli stores, so it
+should be the API base URL the CLI is expected to publish to.
 
 === Updatecli
 
-Updatecli is expected to run as usual from CI environment. 
+Updatecli is expected to run as usual from CI environment.
 
-But it must be authenticated before uploading any reports, by running:
+But it must know where to publish before uploading any reports, by running:
 
-`updatecli login "https://app.updatecli.io" --experimental`
+`updatecli udash login "https://app.updatecli.io" --experimental`
 
-Then any apply/diff command will upload pipeline reports
+Then any apply/diff command will upload pipeline reports, as long as it is also run with
+`--experimental`. Without that flag the upload is skipped silently.
 
+Against a deployment with authentication enabled, pass at least one oauth flag so the command runs
+the PKCE flow rather than just recording the endpoint:
 
+`updatecli udash login --oauth-clientId "<client id>" "https://app.updatecli.io" --experimental`
 
-=== Demo
+The remaining oauth settings are then discovered from `<url>/config.json`.
 
-You can try Udash yourself by running the following steps:
-
-==== 1. Start Udash
-
-Udash is composed of a Postgresql database, an Updatecli API, and an Updatecli Frontend.
-
-Using Docker, you can start all services with the following command:
-
-`docker compose --file docker-compose.example.yaml up`
-
-Please keep in mind that no authentication is enabled in this example.
-
-Udash is now available on `udash.localhost` and the API on `udash.localhost/api`
-
-==== 2. Configure Updatecli
-
-Once Udash is running, you can configure Updatecli to upload reports to Udash by running:
-
-`updatecli udash login --api-url http://udash.localhost/api http://udash.localhost --experimental`
-
-==== 3. Run Updatecli
-
-You can now run Updatecli as usual, and it will upload the pipeline report to Udash.
-
-Please be aware that currently the UI is designed to visualize pipelines per git repository so without a scmid
-pipelines will be hard to discover.
+`--api-url` sets the API endpoint, defaulting to `<url>/api`. Note that the PKCE flow stores the
+oauth audience as the API URL instead, so on an authenticated deployment the audience and the API
+base URL have to be the same value.
 
 === Links
 
