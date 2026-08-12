@@ -55,7 +55,7 @@ func ListLabels(c *gin.Context) {
 	if err != nil {
 		logrus.Errorf("getting pagination params: %s", err)
 		c.JSON(http.StatusBadRequest, DefaultResponseModel{
-			Err: ErrInvalidPaginationParams,
+			Err: ErrInvalidPaginationParams + ": " + err.Error(),
 		})
 		return
 	}
@@ -112,10 +112,36 @@ func ListLabels(c *gin.Context) {
 	}
 }
 
+// SearchLabelsRequest represents the filters used to search labels.
+type SearchLabelsRequest struct {
+	// Id is the unique identifier of the label.
+	Id string `json:"id"`
+	// Key is the key of the label.
+	Key string `json:"key"`
+	// Value is the value of the label.
+	Value string `json:"value"`
+	// Limit is the maximum number of labels to return
+	// This is optional and can be used to limit the number of labels returned
+	Limit int `json:"limit"`
+	// Page is the page number for pagination
+	// This is optional and can be used to paginate the results
+	Page int `json:"page"`
+	// StartTime is the start time for the time range filter
+	// This is optional and can be used to filter labels by a specific start time
+	// Time format is RFC3339: 2006-01-02T15:04:05Z07:00
+	StartTime string `json:"start_time"`
+	// EndTime is the end time for the time range filter
+	// This is optional and can be used to filter labels by a specific end time
+	// Time format is RFC3339: 2006-01-02T15:04:05Z07:00
+	EndTime string `json:"end_time"`
+	// KeyOnly specifies if we only need to retrieve a list of uniq Label keys
+	KeyOnly bool `json:"key_only"`
+}
+
 // SearchLabels searches labels from the database using advanced filtering
 // @Summary Search labels
 // @Description Search labels in the database using advanced filtering
-// @Param body body queryData true "Search parameters"
+// @Param body body SearchLabelsRequest true "Search parameters"
 // @Tags Labels
 // @Accept json
 // @Produce json
@@ -125,32 +151,7 @@ func ListLabels(c *gin.Context) {
 // @Router /api/pipeline/labels/search [post]
 func SearchLabels(c *gin.Context) {
 
-	type queryData struct {
-		// Id is the unique identifier of the label.
-		Id string `json:"id"`
-		// Key is the key of the label.
-		Key string `json:"key"`
-		// Value is the value of the label.
-		Value string `json:"value"`
-		// Limit is the maximum number of labels to return
-		// This is optional and can be used to limit the number of labels returned
-		Limit int `json:"limit"`
-		// Page is the page number for pagination
-		// This is optional and can be used to paginate the results
-		Page int `json:"page"`
-		// StartTime is the start time for the time range filter
-		// This is optional and can be used to filter labels by a specific start time
-		// Time format is RFC3339: 2006-01-02T15:04:05Z07:00
-		StartTime string `json:"start_time"`
-		// EndTime is the end time for the time range filter
-		// This is optional and can be used to filter labels by a specific end time
-		// Time format is RFC3339: 2006-01-02T15:04:05Z07:00
-		EndTime string `json:"end_time"`
-		// KeyOnly specifies if we only need to retrieve a list of uniq Label keys
-		KeyOnly bool `json:"key_only"`
-	}
-
-	queryParams := queryData{}
+	queryParams := SearchLabelsRequest{}
 
 	if err := c.ShouldBindJSON(&queryParams); err != nil {
 		logrus.Errorf("failed to read json body: %s", err)
