@@ -13,4 +13,4 @@ jobs:
         with:
           persist-credentials: false
       - name: Check spelling of file.txt
-        uses: crate-ci/typos@37bb98842b0d8c4ffebdb75301a13db0267cef89 # v1.47.2
+        uses: crate-ci/typos@8a48f81b6c64dcfea44b3633223084c4be58ac5f # v1.49.0
