@@ -15,16 +15,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	// We want this struct to be filled in with
-	// our custom claims from the token.
-	customClaims = func() validator.CustomClaims {
-		return &CustomClaims{}
-	}
-
-	// jwtOptions holds the JWT options
-	authOption = AuthOptions{}
-)
+// We want this struct to be filled in with
+// our custom claims from the token.
+var customClaims = func() validator.CustomClaims {
+	return &CustomClaims{}
+}
 
 // parseIssuerURL turns a configured issuer into a URL, accepting it either as a bare host
 // ("example.eu.auth0.com") or as a full URL ("https://example.eu.auth0.com"). https is
@@ -63,9 +58,9 @@ func parseIssuerURL(issuer string) (*url.URL, error) {
 //
 // A setup failure is reported rather than logged: carrying on would leave a nil validator
 // behind, which panics on the first request it is asked to authenticate.
-func checkJWT() (gin.HandlerFunc, error) {
+func checkJWT(opts AuthOptions) (gin.HandlerFunc, error) {
 
-	issuerURL, err := parseIssuerURL(authOption.Oauth.Issuer)
+	issuerURL, err := parseIssuerURL(opts.OIDC.Issuer)
 	if err != nil {
 		return nil, fmt.Errorf("parsing the issuer url: %w", err)
 	}
@@ -76,7 +71,7 @@ func checkJWT() (gin.HandlerFunc, error) {
 		provider.KeyFunc,
 		validator.RS256,
 		issuerURL.String(),
-		authOption.Oauth.Audience,
+		opts.OIDC.Audience,
 		validator.WithCustomClaims(customClaims),
 		validator.WithAllowedClockSkew(30*time.Second),
 	)
@@ -99,6 +94,7 @@ func checkJWT() (gin.HandlerFunc, error) {
 		var handler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
 			encounteredError = false
 			ctx.Request = r
+			setPrincipal(ctx, principalFromValidatedClaims(r, opts.Roles))
 			ctx.Next()
 		}
 
@@ -111,4 +107,31 @@ func checkJWT() (gin.HandlerFunc, error) {
 			)
 		}
 	}, nil
+}
+
+// principalFromValidatedClaims turns the claims the middleware validated into the
+// identity the handlers work with.
+func principalFromValidatedClaims(r *http.Request, roles RolesOptions) Principal {
+	validated, ok := r.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
+	if !ok || validated == nil {
+		return Principal{Permission: ParsePermission(roles.Default)}
+	}
+
+	principal := Principal{
+		Subject:    validated.RegisteredClaims.Subject,
+		Permission: ParsePermission(roles.Default),
+	}
+
+	claims, ok := validated.CustomClaims.(*CustomClaims)
+	if !ok || claims == nil {
+		return principal
+	}
+
+	principal.Name = claims.Name
+	if principal.Name == "" {
+		principal.Name = claims.Username
+	}
+	principal.Permission = permissionFromRoles(rolesFromClaims(claims.All, roles.Claim), roles)
+
+	return principal
 }

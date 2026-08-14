@@ -30,8 +30,8 @@ Deploy Udash with the following steps:
 4. Run `updatecli udash login "http://localhost" --experimental` to configure Updatecli to upload reports to Udash.
 5. Then you can run any updatecli command (apply/diff) to start publishing reports to Udash
 
-The demo runs with authentication disabled. Because no OAuth flag is passed, `udash login` skips the
-authorization flow and simply records the endpoint in the Updatecli configuration file.
+The demo runs with authentication disabled. `udash login` notices this, skips the token prompt,
+and simply records the endpoint in the Updatecli configuration file.
 
 Please be aware that the UI is designed to visualize pipelines per git repository, so without an
 `scmid` pipelines will be hard to discover.
@@ -91,17 +91,20 @@ with `--config`.
 ```yaml
 server:
   auth:
-    # mode selects the authentication backend.
-    # Accepted values are "oauth", "zitadel", and "none".
+    # mode selects how incoming tokens are validated.
+    # Accepted values are "oidc", "zitadel", and "none".
     # Unset or "none" disables authentication entirely.
-    mode: "oauth"
+    # An unrecognised value stops the server rather than serving an open API.
+    mode: "oidc"
     # visibility controls which endpoints require a token.
     # "public" (the default) leaves the read endpoints open and requires
     # authentication for anything that writes.
     # "private" requires authentication everywhere.
     visibility: "public"
-    # oauth settings, used when mode is "oauth"
-    oauth:
+    # oidc settings, used when mode is "oidc".
+    # Tokens are verified locally against the issuer signing keys, so this mode
+    # only accepts JWT access tokens.
+    oidc:
       # issuer is compared to the "iss" claim of the token, verbatim.
       # A scheme is optional, https is assumed when it is omitted, but the
       # trailing slash is significant: Auth0 issues one, Zitadel and Keycloak
@@ -110,13 +113,43 @@ server:
       # audience is a list, and every entry is accepted.
       audience:
         - "https://udash.example/api"
-    # zitadel settings, used when mode is "zitadel"
+    # zitadel settings, used when mode is "zitadel".
+    # Tokens are validated by introspection, which also accepts opaque ones such
+    # as Zitadel personal access tokens.
     zitadel:
       domain: "xxx.region.zitadel.cloud"
       # keyfile is the path to a service account key file
       keyfile: "/etc/udash/zitadel-key.json"
-      # role required to access the API. Empty means any authenticated user.
-      role: ""
+    # roles maps the roles carried by a token onto Udash permissions.
+    roles:
+      # claim is the token claim holding the identity provider roles. It defaults
+      # to Zitadel's claim in "zitadel" mode and must be set otherwise.
+      # Both shapes are accepted: an object keyed by role name, as Zitadel emits,
+      # and an array of strings, as Keycloak and Auth0 emit.
+      # Zitadel:  "urn:zitadel:iam:org:project:roles"
+      # Keycloak: "realm_access.roles"
+      # Auth0:    "https://udash/roles"
+      claim: "realm_access.roles"
+      # mapping lists, per permission, the provider roles granting it.
+      mapping:
+        admin: ["udash.admin"]
+        publisher: ["udash.publisher"]
+        viewer: ["udash.viewer"]
+      # default is granted to an authenticated identity matching no role at all.
+      # It is deliberately the least privileged one: without it, everybody who can
+      # sign in could publish reports and mint API tokens.
+      default: "viewer"
+      # resolver decides how the permission behind an Udash API token is resolved,
+      # since such a request carries no provider token to read roles from.
+      # "zitadel" asks Zitadel for the current grants, so revoking a role takes
+      # effect on tokens created before it. It requires mode "zitadel", and the
+      # service user behind keyfile must be allowed to read user grants.
+      # "snapshot" trusts the permission recorded when the token was created, and
+      # is the only option for other providers. Offboarding somebody then means
+      # deleting their tokens.
+      resolver: "snapshot"
+      # cacheTTL is how long a resolved permission is reused.
+      cacheTTL: "60s"
 database:
   # uri defines the postgresql URI used to connect with its database
   uri: "postgres://udash:password@db:5432/udash?sslmode=disable"
@@ -129,12 +162,67 @@ database:
 Each variable below is only a fallback: it is read when the matching key is absent from the
 configuration file, so the file always wins.
 
-* **UDASH_AUTH_MODE**: Authentication mode. Accepted values are ["", "none", "oauth", "zitadel"]
-* **UDASH_AUTH_OAUTH_ISSUER**: Oauth issuer URL, requires `UDASH_AUTH_MODE` set to "oauth"
-* **UDASH_AUTH_OAUTH_AUDIENCE**: Oauth audience, requires `UDASH_AUTH_MODE` set to "oauth"
+* **UDASH_AUTH_MODE**: Authentication mode. Accepted values are ["", "none", "oidc", "zitadel"]
+* **UDASH_AUTH_OIDC_ISSUER**: OIDC issuer URL, requires `UDASH_AUTH_MODE` set to "oidc"
+* **UDASH_AUTH_OIDC_AUDIENCE**: OIDC audience, requires `UDASH_AUTH_MODE` set to "oidc"
 * **UDASH_AUTH_ZITADEL_DOMAIN**: Zitadel domain, requires `UDASH_AUTH_MODE` set to "zitadel"
-* **UDASH_AUTH_ZITADEL_FILEKEY**: Path to the Zitadel service account key file, requires `UDASH_AUTH_MODE` set to "zitadel"
+* **UDASH_AUTH_ZITADEL_KEYFILE**: Path to the Zitadel service account key file, requires `UDASH_AUTH_MODE` set to "zitadel"
+* **UDASH_AUTH_ROLES_CLAIM**: Token claim holding the identity provider roles
+* **UDASH_AUTH_ROLES_DEFAULT**: Permission granted to an identity matching no role
+* **UDASH_AUTH_ROLES_RESOLVER**: How an API token's permission is resolved ["zitadel", "snapshot"]
 * **UDASH_DB_URI**: Define the postgresql URI
+
+==== Permissions
+
+Authorization has two axes: what a *person* may do, and what a given *token* may do.
+
+Permissions come from the identity provider roles, mapped by `server.auth.roles.mapping`:
+
+[cols="1,3"]
+|===
+| Permission | Grants
+
+| `viewer`    | read pipeline reports
+| `publisher` | publish pipeline reports, and create API tokens
+| `admin`     | everything, plus managing any identity's tokens
+|===
+
+Token scopes are chosen when a token is created and can never exceed what its creator is
+allowed to do: `reports:read` and `reports:write`. There is deliberately no scope for
+managing tokens, so a token can never mint another one.
+
+==== API tokens
+
+An access token from an identity provider always expires, while an unattended pipeline needs
+a credential it can keep. Udash therefore issues its own tokens, validates them itself, and
+lets them live forever unless an expiry is set.
+
+They are created from **Profile ▸ Tokens** in the frontend, by anybody with the `publisher`
+permission, and shown exactly once — only a sha256 of the token is stored. They are prefixed
+`udash_pat_` so they can be told apart from a provider token, and recognised by secret
+scanners if one ever leaks.
+
+Point Updatecli at one with either:
+
+```bash
+updatecli udash login --experimental https://udash.example   # prompts for the token
+export UPDATECLI_UDASH_ACCESS_TOKEN="udash_pat_..."          # for CI
+```
+
+==== Non-expiring tokens without the frontend
+
+In `zitadel` mode, tokens are validated by introspection, which accepts opaque tokens. A
+Zitadel **personal access token** on a machine user therefore works as a permanent
+credential with no Udash-side setup at all:
+
+1. In Zitadel, create a *service user*, grant it the project role mapped to `publisher`
+   (`udash.publisher` by default), and create a personal access token leaving the expiration
+   field empty.
+2. Set `UPDATECLI_UDASH_ACCESS_TOKEN` to it in CI.
+
+The trade-offs against an Udash API token: every request costs an introspection round-trip to
+Zitadel, and minting one needs Zitadel administrator rights, so it does not scale to letting
+each team issue their own.
 
 === Udash Frontend
 
