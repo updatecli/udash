@@ -52,6 +52,23 @@ const (
 	ErrTooManyBuckets = "requested time range and granularity produce too many buckets"
 	ErrInvalidJWT     = "JWT is invalid"
 
+	// ErrUnauthenticated is returned when a request carries no usable credential.
+	ErrUnauthenticated = "authentication required"
+	// ErrInsufficientPermission is returned when the caller is authenticated but not
+	// privileged enough for the endpoint.
+	ErrInsufficientPermission = "insufficient permission"
+	// ErrInsufficientScope is returned when the token used is not allowed to perform
+	// the requested action, even though the identity behind it would be.
+	ErrInsufficientScope = "token is not allowed to perform this action"
+	// ErrTokenCannotMintToken is returned when an API token is used to create another
+	// one, which must require an identity provider login.
+	ErrTokenCannotMintToken = "creating a token requires signing in, it cannot be done with a token"
+	// ErrTokenNotFound is returned when the requested API token does not exist, or
+	// belongs to somebody else.
+	ErrTokenNotFound = "token not found"
+	// ErrInvalidTokenRequest is returned when a token creation request is malformed.
+	ErrInvalidTokenRequest = "invalid token request"
+
 	// summaryMetricResult counts the pipeline reports per Updatecli result. It is the
 	// only metric supported by the reports summary so far.
 	summaryMetricResult = "result"

@@ -633,7 +633,18 @@ func nextBucket(t time.Time, granularity SummaryGranularity) time.Time {
 }
 
 // InsertReport inserts a new report into the database.
-func InsertReport(ctx context.Context, report reports.Report) (string, error) {
+// Publisher identifies who published a report.
+//
+// Both fields are optional: an instance running without authentication has nobody
+// to attribute a report to, and a report published from the browser has no token.
+type Publisher struct {
+	// Subject is the identity provider subject which published the report.
+	Subject *string
+	// TokenID is the API token used, when one was.
+	TokenID *uuid.UUID
+}
+
+func InsertReport(ctx context.Context, report reports.Report, publisher Publisher) (string, error) {
 	var err error
 	configTargetIDs := pgtype.Hstore{}
 	configConditionIDs := pgtype.Hstore{}
@@ -803,6 +814,8 @@ func InsertReport(ctx context.Context, report reports.Report) (string, error) {
 			"config_condition_ids",
 			"config_target_ids",
 			"label_ids",
+			"created_by_subject",
+			"created_by_token_id",
 		),
 		im.Values(
 			psql.Arg(report),
@@ -814,6 +827,8 @@ func InsertReport(ctx context.Context, report reports.Report) (string, error) {
 			psql.Arg(configConditionIDs),
 			psql.Arg(configTargetIDs),
 			psql.Arg(labelIDs),
+			psql.Arg(publisher.Subject),
+			psql.Arg(publisher.TokenID),
 		),
 		im.Returning("id"),
 	)
