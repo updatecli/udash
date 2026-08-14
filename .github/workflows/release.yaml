@@ -1,16 +1,19 @@
 ---
 name: Publish Release Assets
 on:
-  workflow_dispatch: null
-  release:
-    types: [published]
-permissions:
-  contents: write
-  id-token: write
-  packages: write
+  push:
+    tags:
+      - "v*"
+permissions: {}
 jobs:
   build:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      packages: write
+      attestations: write
+      artifact-metadata: write
     env:
       DOCKER_CLI_EXPERIMENTAL: "enabled"
       DOCKER_BUILDKIT: 1
@@ -54,16 +57,10 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: tibdex/github-app-token@3beb63f4bd073e61482598c45c71c1019b59b73a # v2.1.0
-        id: generate_homebrew_token
-        with:
-          app_id: ${{ secrets.UPDATECLIBOT_APP_ID }}
-          private_key: ${{ secrets.UPDATECLIBOT_APP_PRIVKEY }}
       - name: GoReleaser
         if: success()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_GITHUB_TOKEN: ${{ steps.generate_homebrew_token.outputs.token }}
         run: |
           make release
       - name: Clean up
