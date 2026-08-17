@@ -48,8 +48,6 @@ require (
 	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/apparentlymart/go-textseg/v17 v17.0.1 // indirect
-	github.com/aquasecurity/go-pep440-version v0.0.1 // indirect
-	github.com/aquasecurity/go-version v0.0.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.43.0 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.32.31 // indirect
@@ -86,7 +84,6 @@ require (
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/platforms v1.0.0-rc.4 // indirect
 	github.com/containerd/typeurl/v2 v2.3.0 // indirect
-	github.com/coreos/go-systemd/v22 v22.7.0 // indirect
 	github.com/cpuguy83/dockercfg v0.3.2 // indirect
 	github.com/cyphar/filepath-securejoin v0.7.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
@@ -156,9 +153,7 @@ require (
 	github.com/goware/urlx v0.3.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
-	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
-	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
 	github.com/hashicorp/go-version v1.9.0 // indirect
 	github.com/hashicorp/golang-lru/arc/v2 v2.0.7 // indirect
 	github.com/hashicorp/hcl v1.0.1-vault-7 // indirect
@@ -190,7 +185,6 @@ require (
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.23 // indirect
 	github.com/mattn/go-runewidth v0.0.21 // indirect
-	github.com/microsoft/azure-devops-go-api/azuredevops/v7 v7.1.0 // indirect
 	github.com/minamijoyo/hcledit v0.2.18 // indirect
 	github.com/minamijoyo/tfupdate v0.8.0 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
@@ -248,7 +242,6 @@ require (
 	github.com/tklauser/numcpus v0.12.0 // indirect
 	github.com/tomwright/dasel v1.27.3 // indirect
 	github.com/tomwright/dasel/v2 v2.8.1 // indirect
-	github.com/tomwright/dasel/v3 v3.11.2 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.1 // indirect
 	github.com/vmware-labs/yaml-jsonpath v0.3.2 // indirect
@@ -260,7 +253,6 @@ require (
 	github.com/zclconf/go-cty v1.19.0 // indirect
 	github.com/zitadel/oidc/v3 v3.49.2 // indirect
 	github.com/zitadel/schema v1.3.2 // indirect
-	gitlab.com/gitlab-org/api/client-go v1.46.0 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.70.0 // indirect
@@ -282,7 +274,6 @@ require (
 	golang.org/x/text v0.40.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.48.0 // indirect
-	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260803160001-6ac0973c030d // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260803160001-6ac0973c030d // indirect
 	google.golang.org/grpc v1.83.0 // indirect
