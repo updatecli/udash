@@ -176,7 +176,7 @@ func newGinEngine(opts Options) (*gin.Engine, error) {
 		logrus.Warningf("No authentication configured, every API endpoint is open")
 
 	default:
-		// Never fail open: an unrecognised mode used to register no middleware at
+		// Never fail open: an unrecognized mode used to register no middleware at
 		// all, silently leaving every write endpoint unauthenticated.
 		return nil, fmt.Errorf("unknown authentication mode %q", opts.Auth.Mode)
 	}

@@ -21,7 +21,7 @@ func TestAuthOptionsInit(t *testing.T) {
 	})
 
 	t.Run("an unknown mode is rejected", func(t *testing.T) {
-		// Regression: an unrecognised mode used to be logged and then ignored,
+		// Regression: an unrecognized mode used to be logged and then ignored,
 		// registering no middleware at all and leaving every write endpoint open.
 		opts := AuthOptions{Mode: "zitadelx"}
 		require.ErrorContains(t, opts.Init(), "unknown authentication mode")

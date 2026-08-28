@@ -19,7 +19,7 @@ import (
 // APITokenPrefix marks a bearer token as one Udash issued itself.
 //
 // The prefix is what lets the middleware tell an Udash token from an identity
-// provider one without having to try both, and lets secret scanners recognise one
+// provider one without having to try both, and lets secret scanners recognize one
 // if it ever leaks into a public repository.
 const APITokenPrefix = "udash_pat_"
 

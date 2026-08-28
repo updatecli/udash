@@ -16,7 +16,7 @@ import (
 // A request authenticating with an Udash API token carries no Zitadel token, so
 // there are no claims to read the roles from and they have to be asked for. The
 // service user behind the key file needs permission to read user grants in the
-// organisation, otherwise every lookup fails and the resolver falls back on the
+// organization, otherwise every lookup fails and the resolver falls back on the
 // permission recorded when the token was created.
 func newZitadelUserRoles(ctx context.Context, opts ZitadelOptions) (zitadelUserRoles, error) {
 	api, err := client.New(ctx, zitadel.New(opts.Domain),
@@ -31,6 +31,10 @@ func newZitadelUserRoles(ctx context.Context, opts ZitadelOptions) (zitadelUserR
 	}
 
 	return func(ctx context.Context, subject string) ([]string, error) {
+		// ListUserGrants is deprecated in favor of the v2 authorization service,
+		// but switching over would require a Zitadel instance new enough to serve
+		// it. Kept until the minimum supported instance version is raised.
+		//nolint:staticcheck // SA1019: see above.
 		resp, err := api.ManagementService().ListUserGrants(ctx, &management.ListUserGrantRequest{
 			Queries: []*user.UserGrantQuery{
 				{

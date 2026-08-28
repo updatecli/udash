@@ -13,7 +13,7 @@ import (
 // rolesFromClaims reads the identity provider roles out of a token's claims.
 //
 // Providers disagree on the shape of that claim. Zitadel uses an object keyed by
-// role name, mapping to the organisations granting it:
+// role name, mapping to the organizations granting it:
 //
 //	{"urn:zitadel:iam:org:project:roles": {"udash.admin": {"orgID": "org.domain"}}}
 //
