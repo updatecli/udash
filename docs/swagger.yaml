@@ -140,6 +140,38 @@ definitions:
         description: UpdatedAt represents the last update date of the report.
         type: string
     type: object
+  model.APIToken:
+    properties:
+      created_at:
+        description: CreatedAt is when the token was issued.
+        type: string
+      expires_at:
+        description: ExpiresAt is when the token stops working. Nil means it never
+          expires.
+        type: string
+      id:
+        type: string
+      last_used_at:
+        description: LastUsedAt is when the token last authenticated a request, if
+          ever.
+        type: string
+      name:
+        description: Name is what the token is for, chosen by whoever created it.
+        type: string
+      permission:
+        description: Permission is what that identity could do when the token was
+          issued.
+        type: string
+      scopes:
+        description: Scopes is what the token may do, always a subset of what Permission
+          allows.
+        items:
+          type: string
+        type: array
+      subject:
+        description: Subject is the identity provider subject which created the token.
+        type: string
+    type: object
   model.ConfigCondition:
     properties:
       config:
@@ -596,6 +628,63 @@ definitions:
       reportid:
         type: string
     type: object
+  server.CreateTokenRequest:
+    properties:
+      expires_at:
+        description: |-
+          ExpiresAt is when the token stops working. Leave it out for a token which
+          never expires, which is what an unattended pipeline needs.
+        type: string
+      name:
+        description: Name is what the token is for, shown back in the token list.
+        type: string
+      scopes:
+        description: |-
+          Scopes is what the token may do. It defaults to publishing reports, and may
+          never exceed what the identity creating it is allowed to do.
+        items:
+          type: string
+        type: array
+    required:
+    - name
+    type: object
+  server.CreateTokenResponse:
+    properties:
+      created_at:
+        description: CreatedAt is when the token was issued.
+        type: string
+      expires_at:
+        description: ExpiresAt is when the token stops working. Nil means it never
+          expires.
+        type: string
+      id:
+        type: string
+      last_used_at:
+        description: LastUsedAt is when the token last authenticated a request, if
+          ever.
+        type: string
+      name:
+        description: Name is what the token is for, chosen by whoever created it.
+        type: string
+      permission:
+        description: Permission is what that identity could do when the token was
+          issued.
+        type: string
+      scopes:
+        description: Scopes is what the token may do, always a subset of what Permission
+          allows.
+        items:
+          type: string
+        type: array
+      subject:
+        description: Subject is the identity provider subject which created the token.
+        type: string
+      token:
+        description: |-
+          Token is the credential itself. It is returned here once and never again:
+          only its hash is stored.
+        type: string
+    type: object
   server.DefaultResponseModel:
     properties:
       error:
@@ -834,6 +923,21 @@ definitions:
       total_count:
         description: TotalCount is the total number of targets for pagination.
         type: integer
+    type: object
+  server.WhoamiResponse:
+    properties:
+      name:
+        type: string
+      permission:
+        type: string
+      scopes:
+        items:
+          type: string
+        type: array
+      subject:
+        type: string
+      tokenName:
+        type: string
     type: object
   source.Config:
     properties:
@@ -1095,6 +1199,9 @@ definitions:
     type: object
 info:
   contact: {}
+  description: API for managing Updatecli pipeline reports.
+  title: Udash API
+  version: "1.0"
 paths:
   /api/:
     get:
@@ -1744,4 +1851,154 @@ paths:
       summary: Search SCMs
       tags:
       - SCMs
+  /api/tokens:
+    delete:
+      description: Revoke all API tokens created by a given identity, which is what
+        offboarding somebody needs. Administrators only.
+      parameters:
+      - description: identity provider subject
+        in: query
+        name: subject
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      security:
+      - BearerAuth: []
+      summary: Revoke every token of an identity
+      tags:
+      - Tokens
+    get:
+      description: List the caller's API tokens. Administrators may list everybody's
+        with all=true. The tokens themselves are never returned.
+      parameters:
+      - description: list every identity's tokens, administrators only
+        in: query
+        name: all
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.APIToken'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      security:
+      - BearerAuth: []
+      summary: List API tokens
+      tags:
+      - Tokens
+    post:
+      consumes:
+      - application/json
+      description: Issue a long lived token to authenticate against the Udash API.
+        The token is returned once and cannot be recovered afterwards.
+      parameters:
+      - description: token to create
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/server.CreateTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/server.CreateTokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      security:
+      - BearerAuth: []
+      summary: Create an API token
+      tags:
+      - Tokens
+  /api/tokens/{id}:
+    delete:
+      description: Revoke one of the caller's API tokens. Administrators may revoke
+        anybody's.
+      parameters:
+      - description: token id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      security:
+      - BearerAuth: []
+      summary: Revoke an API token
+      tags:
+      - Tokens
+  /api/whoami:
+    get:
+      description: Return the identity, permission and token scopes behind the credential
+        used. Updatecli calls it to validate a token at login time.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.WhoamiResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      security:
+      - BearerAuth: []
+      summary: Describe the current identity
+      tags:
+      - Tokens
+securityDefinitions:
+  BearerAuth:
+    description: Either an Udash API token, created from the tokens page and prefixed
+      with "udash_pat_", or an access token from the configured identity provider.
+      Send it as "Bearer <token>".
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

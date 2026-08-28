@@ -5,6 +5,7 @@ type Options struct {
 	Auth AuthOptions
 }
 
-func (o *Options) Init() {
-	o.Auth.Init()
+// Init fills in the defaults and reports what it cannot make sense of.
+func (o *Options) Init() error {
+	return o.Auth.Init()
 }

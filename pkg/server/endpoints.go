@@ -2,10 +2,8 @@ package server
 
 import (
 	"context"
-	"log/slog"
+	"fmt"
 	"net/http"
-	"os"
-	"strings"
 
 	_ "github.com/updatecli/udash/docs"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization"
@@ -78,12 +76,20 @@ func About(c *gin.Context) {
 // @title Udash API
 // @version 1.0
 // @description API for managing Updatecli pipeline reports.
-// @BasePath /api/
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Either an Udash API token, created from the tokens page and prefixed with "udash_pat_", or an access token from the configured identity provider. Send it as "Bearer <token>".
 func (s *Server) Run() error {
 	// Init Server Option
-	s.Options.Init()
+	if err := s.Options.Init(); err != nil {
+		return fmt.Errorf("invalid server options: %w", err)
+	}
 
-	r := newGinEngine(s.Options)
+	r, err := newGinEngine(s.Options)
+	if err != nil {
+		return err
+	}
 
 	// listen and server on 0.0.0.0:8080
 	return r.Run()
@@ -106,22 +112,7 @@ func publicReadOnly(auth gin.HandlerFunc) gin.HandlerFunc {
 	}
 }
 
-// zitadelAuthorization requires a valid token, and the configured role when there is one.
-//
-// An empty role must not be passed to authorization.WithRole: it checks the token against
-// a role which is granted to nobody, so it rejects every request instead of accepting any
-// authenticated one.
-func zitadelAuthorization[T authorization.Ctx](interceptor *Interceptor[T], role string) gin.HandlerFunc {
-	if role == "" {
-		logrus.Debugf("No role required to access the API")
-		return interceptor.RequireAuthorization()
-	}
-
-	logrus.Debugf("Requiring role %q to access the API", role)
-	return interceptor.RequireAuthorization(authorization.WithRole(role))
-}
-
-func newGinEngine(opts Options) *gin.Engine {
+func newGinEngine(opts Options) (*gin.Engine, error) {
 	r := gin.Default()
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
@@ -132,39 +123,69 @@ func newGinEngine(opts Options) *gin.Engine {
 
 	apiPipeline := r.Group("/api/pipeline")
 
-	switch strings.ToLower(opts.Auth.Mode) {
-	case "oauth":
-		logrus.Debugf("Using OAuth authentication mode: %s", opts.Auth.Mode)
+	// auth authenticates a request against the identity provider. It stays nil when
+	// no authentication is configured.
+	var auth gin.HandlerFunc
+	// resolver reports the current permission behind an Udash API token.
+	var resolver RoleResolver = snapshotResolver{}
+
+	ctx := context.Background()
+
+	switch opts.Auth.Mode {
+	case ModeOIDC:
+		logrus.Debugf("Using OpenID Connect authentication mode")
 
 		// Built once: the middleware caches the signing keys of the issuer, so building
 		// it per request would refetch them on every call.
-		auth, err := checkJWT()
+		checked, err := checkJWT(opts.Auth)
 		if err != nil {
-			slog.Error("jwt middleware could not initialize", "error", err)
-			os.Exit(1)
+			return nil, fmt.Errorf("jwt middleware could not initialize: %w", err)
+		}
+		auth = checked
+
+		resolver, err = newRoleResolver(opts.Auth, nil)
+		if err != nil {
+			return nil, fmt.Errorf("role resolver could not initialize: %w", err)
 		}
 
-		switch opts.Auth.Visibility {
-		case VisibilityPublic:
-			logrus.Debugf("API visibility set to public, no authentication required for read endpoints")
-			apiPipeline.Use(publicReadOnly(auth))
-		case VisibilityPrivate:
-			logrus.Debugf("API visibility set to private, authentication required for all endpoints")
-			apiPipeline.Use(auth)
-		}
-
-	case "zitadel":
-		logrus.Debugf("Using ZITADEL authentication mode: %s", opts.Auth.Mode)
-		ctx := context.Background()
+	case ModeZitadel:
+		logrus.Debugf("Using ZITADEL authentication mode")
 
 		authZ, err := authorization.New(ctx, zitadel.New(opts.Auth.Zitadel.Domain), oauth.DefaultAuthorization(opts.Auth.Zitadel.KeyFile))
 		if err != nil {
-			slog.Error("zitadel sdk could not initialize", "error", err)
-			os.Exit(1)
+			return nil, fmt.Errorf("zitadel sdk could not initialize: %w", err)
 		}
 
-		zitadelInterceptor := NewZitadelGin(authZ)
-		auth := zitadelAuthorization(zitadelInterceptor, opts.Auth.Zitadel.Role)
+		zitadelInterceptor := NewZitadelGin(authZ, opts.Auth.Roles)
+		auth = zitadelInterceptor.RequireAuthorization()
+
+		var roles zitadelUserRoles
+		if opts.Auth.Roles.Resolver == ResolverZitadel {
+			roles, err = newZitadelUserRoles(ctx, opts.Auth.Zitadel)
+			if err != nil {
+				return nil, fmt.Errorf("zitadel management client could not initialize: %w", err)
+			}
+		}
+
+		resolver, err = newRoleResolver(opts.Auth, roles)
+		if err != nil {
+			return nil, fmt.Errorf("role resolver could not initialize: %w", err)
+		}
+
+	case ModeNone, "":
+		logrus.Warningf("No authentication configured, every API endpoint is open")
+
+	default:
+		// Never fail open: an unrecognized mode used to register no middleware at
+		// all, silently leaving every write endpoint unauthenticated.
+		return nil, fmt.Errorf("unknown authentication mode %q", opts.Auth.Mode)
+	}
+
+	if auth != nil {
+		// An Udash API token is checked first and independently of the mode: Udash
+		// issues and validates those itself, so they work the same whichever
+		// identity provider is configured.
+		auth = udashTokenAuth(resolver, auth)
 
 		switch opts.Auth.Visibility {
 		case VisibilityPublic:
@@ -174,6 +195,8 @@ func newGinEngine(opts Options) *gin.Engine {
 			logrus.Debugf("API visibility set to private, authentication required for all endpoints")
 			apiPipeline.Use(auth)
 		}
+
+		registerTokenRoutes(r, auth)
 	}
 
 	apiPipeline.GET("/labels", ListLabels)
@@ -204,9 +227,16 @@ func newGinEngine(opts Options) *gin.Engine {
 		apiPipeline.POST("/scms/search", SearchSCMs)
 	}
 
-	apiPipeline.POST("/reports", CreatePipelineReport)
-	apiPipeline.PUT("/reports/:id", UpdatePipelineReport)
-	apiPipeline.DELETE("/reports/:id", DeletePipelineReport)
+	// Writing a report needs more than a valid token: the caller must be allowed to
+	// publish, and a token must have been granted the scope to do it.
+	write := []gin.HandlerFunc{}
+	if auth != nil {
+		write = append(write, requireScope(ScopeReportsWrite))
+	}
 
-	return r
+	apiPipeline.POST("/reports", append(write, CreatePipelineReport)...)
+	apiPipeline.PUT("/reports/:id", append(write, UpdatePipelineReport)...)
+	apiPipeline.DELETE("/reports/:id", append(write, DeletePipelineReport)...)
+
+	return r, nil
 }
