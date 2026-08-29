@@ -64,4 +64,4 @@ test: ## Execute the Golang's tests for updatecli
 
 .PHONY: docs
 docs: ## Generate api documentation
-	swag init --parseDependencyLevel 1
+	swag init --generalInfo pkg/server/endpoints.go --parseDependencyLevel 1
