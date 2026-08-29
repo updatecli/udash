@@ -1,10 +1,7 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "API for managing Updatecli pipeline reports.",
-        "title": "Udash API",
-        "contact": {},
-        "version": "1.0"
+        "contact": {}
     },
     "paths": {
         "/api/": {
@@ -2644,14 +2641,6 @@
                     "type": "boolean"
                 }
             }
-        }
-    },
-    "securityDefinitions": {
-        "BearerAuth": {
-            "description": "Either an Udash API token, created from the tokens page and prefixed with \"udash_pat_\", or an access token from the configured identity provider. Send it as \"Bearer \u003ctoken\u003e\".",
-            "type": "apiKey",
-            "name": "Authorization",
-            "in": "header"
         }
     }
 }
