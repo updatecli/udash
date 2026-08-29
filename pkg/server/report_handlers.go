@@ -39,7 +39,7 @@ func CreatePipelineReport(c *gin.Context) {
 		return
 	}
 
-	newReportID, err := database.InsertReport(c, p)
+	newReportID, err := database.InsertReport(c, p, publisherFromContext(c))
 	if err != nil {
 		logrus.Errorf("insert reports: %s", err)
 		c.JSON(

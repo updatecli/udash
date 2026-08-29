@@ -989,6 +989,224 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/api/tokens": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "List the caller's API tokens. Administrators may list everybody's with all=true. The tokens themselves are never returned.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tokens"
+                ],
+                "summary": "List API tokens",
+                "parameters": [
+                    {
+                        "type": "boolean",
+                        "description": "list every identity's tokens, administrators only",
+                        "name": "all",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.APIToken"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Issue a long lived token to authenticate against the Udash API. The token is returned once and cannot be recovered afterwards.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tokens"
+                ],
+                "summary": "Create an API token",
+                "parameters": [
+                    {
+                        "description": "token to create",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/server.CreateTokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/server.CreateTokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Revoke all API tokens created by a given identity, which is what offboarding somebody needs. Administrators only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tokens"
+                ],
+                "summary": "Revoke every token of an identity",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "identity provider subject",
+                        "name": "subject",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/tokens/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Revoke one of the caller's API tokens. Administrators may revoke anybody's.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tokens"
+                ],
+                "summary": "Revoke an API token",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "token id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/whoami": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return the identity, permission and token scopes behind the credential used. Updatecli calls it to validate a token at login time.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tokens"
+                ],
+                "summary": "Describe the current identity",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.WhoamiResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -1137,6 +1355,45 @@ const docTemplate = `{
                 },
                 "updatedAt": {
                     "description": "UpdatedAt represents the last update date of the report.",
+                    "type": "string"
+                }
+            }
+        },
+        "model.APIToken": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "description": "CreatedAt is when the token was issued.",
+                    "type": "string"
+                },
+                "expires_at": {
+                    "description": "ExpiresAt is when the token stops working. Nil means it never expires.",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last_used_at": {
+                    "description": "LastUsedAt is when the token last authenticated a request, if ever.",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is what the token is for, chosen by whoever created it.",
+                    "type": "string"
+                },
+                "permission": {
+                    "description": "Permission is what that identity could do when the token was issued.",
+                    "type": "string"
+                },
+                "scopes": {
+                    "description": "Scopes is what the token may do, always a subset of what Permission allows.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "subject": {
+                    "description": "Subject is the identity provider subject which created the token.",
                     "type": "string"
                 }
             }
@@ -1785,6 +2042,72 @@ const docTemplate = `{
                 }
             }
         },
+        "server.CreateTokenRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "expires_at": {
+                    "description": "ExpiresAt is when the token stops working. Leave it out for a token which\nnever expires, which is what an unattended pipeline needs.",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is what the token is for, shown back in the token list.",
+                    "type": "string"
+                },
+                "scopes": {
+                    "description": "Scopes is what the token may do. It defaults to publishing reports, and may\nnever exceed what the identity creating it is allowed to do.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "server.CreateTokenResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "description": "CreatedAt is when the token was issued.",
+                    "type": "string"
+                },
+                "expires_at": {
+                    "description": "ExpiresAt is when the token stops working. Nil means it never expires.",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last_used_at": {
+                    "description": "LastUsedAt is when the token last authenticated a request, if ever.",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is what the token is for, chosen by whoever created it.",
+                    "type": "string"
+                },
+                "permission": {
+                    "description": "Permission is what that identity could do when the token was issued.",
+                    "type": "string"
+                },
+                "scopes": {
+                    "description": "Scopes is what the token may do, always a subset of what Permission allows.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "subject": {
+                    "description": "Subject is the identity provider subject which created the token.",
+                    "type": "string"
+                },
+                "token": {
+                    "description": "Token is the credential itself. It is returned here once and never again:\nonly its hash is stored.",
+                    "type": "string"
+                }
+            }
+        },
         "server.DefaultResponseModel": {
             "type": "object",
             "properties": {
@@ -2058,6 +2381,29 @@ const docTemplate = `{
                 }
             }
         },
+        "server.WhoamiResponse": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "permission": {
+                    "type": "string"
+                },
+                "scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "subject": {
+                    "type": "string"
+                },
+                "tokenName": {
+                    "type": "string"
+                }
+            }
+        },
         "source.Config": {
             "type": "object",
             "properties": {
@@ -2307,17 +2653,25 @@ const docTemplate = `{
                 }
             }
         }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Either an Udash API token, created from the tokens page and prefixed with \"udash_pat_\", or an access token from the configured identity provider. Send it as \"Bearer \u003ctoken\u003e\".",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "",
+	Version:          "1.0",
 	Host:             "",
 	BasePath:         "",
 	Schemes:          []string{},
-	Title:            "",
-	Description:      "",
+	Title:            "Udash API",
+	Description:      "API for managing Updatecli pipeline reports.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

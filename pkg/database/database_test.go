@@ -74,7 +74,7 @@ func TestDatabase(t *testing.T) {
 			Result:     result.SUCCESS,
 			ID:         "1de1797bbc925e08e473178425b11eb16fc547291f4b45274da24c2b00e2afc3",
 			PipelineID: "venom",
-		})
+		}, Publisher{})
 		require.NoError(t, err)
 		t.Cleanup(func() {
 			_, err := DB.Exec(ctx, "DELETE FROM pipelineReports WHERE id = $1", id)
@@ -171,7 +171,7 @@ func TestDatabase(t *testing.T) {
 
 		for _, tt := range testdata {
 			t.Run(tt.name, func(t *testing.T) {
-				id, err := InsertReport(ctx, tt.report)
+				id, err := InsertReport(ctx, tt.report, Publisher{})
 				require.NoError(t, err)
 				t.Cleanup(func() {
 					_, err := DB.Exec(ctx, "DELETE FROM pipelineReports WHERE id = $1", id)
@@ -214,7 +214,7 @@ func TestDatabase(t *testing.T) {
 		}
 
 		for range 3 {
-			id, err := InsertReport(ctx, report)
+			id, err := InsertReport(ctx, report, Publisher{})
 			require.NoError(t, err)
 			t.Cleanup(func() {
 				_, err := DB.Exec(ctx, "DELETE FROM pipelineReports WHERE id = $1", id)

@@ -28,7 +28,8 @@ import (
 )
 
 func TestEndpoints(t *testing.T) {
-	eng := newGinEngine(Options{})
+	eng, err := newGinEngine(Options{})
+	require.NoError(t, err)
 	srv := httptest.NewServer(eng)
 	defer srv.Close()
 
@@ -142,7 +143,7 @@ func TestEndpoints(t *testing.T) {
 						ID: "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
 					},
 				},
-			})
+			}, database.Publisher{})
 			require.NoError(t, err)
 
 			resp := doGetRequest(t, srv, "/api/pipeline/reports")
@@ -191,7 +192,7 @@ func TestEndpoints(t *testing.T) {
 						ID: "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
 					},
 				},
-			})
+			}, database.Publisher{})
 			require.NoError(t, err)
 
 			report2ID, err = database.InsertReport(context.TODO(), reports.Report{
@@ -204,7 +205,7 @@ func TestEndpoints(t *testing.T) {
 						ID: "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
 					},
 				},
-			})
+			}, database.Publisher{})
 			require.NoError(t, err)
 
 			resp := doGetRequest(t, srv, "/api/pipeline/reports?limit=1")
@@ -257,7 +258,7 @@ func TestEndpoints(t *testing.T) {
 						ID: "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
 					},
 				},
-			})
+			}, database.Publisher{})
 			require.NoError(t, err)
 
 			resp := doGetRequest(t, srv, "/api/pipeline/reports/"+reportID)
@@ -518,7 +519,7 @@ func TestEndpoints(t *testing.T) {
 				Result:     pipelineResult,
 				ID:         "1de1797bbc925e08e473178425b11eb16fc547291f4b45274da24c2b00e2afc3",
 				PipelineID: "venom",
-			})
+			}, database.Publisher{})
 			require.NoError(t, err)
 
 			setReportTimestamp(t, id, now.AddDate(0, 0, dayOffset))
@@ -819,7 +820,7 @@ func TestEndpoints(t *testing.T) {
 					Result:     pipelineResult,
 					ID:         "1de1797bbc925e08e473178425b11eb16fc547291f4b45274da24c2b00e2afc3",
 					PipelineID: "venom",
-				})
+				}, database.Publisher{})
 				require.NoError(t, err)
 
 				setReportTimestamp(t, id, at)
@@ -896,7 +897,7 @@ func TestEndpoints(t *testing.T) {
 				Actions: map[string]*reports.Action{
 					"default": {ID: "default", Link: actionURL},
 				},
-			})
+			}, database.Publisher{})
 			require.NoError(t, err)
 
 			return id
@@ -1099,7 +1100,7 @@ func TestEndpoints(t *testing.T) {
 		for range 3 {
 			id, err := database.InsertReport(ctx, reports.Report{
 				Name: "paginated", Result: "✔", ID: "paginated", PipelineID: "paginated",
-			})
+			}, database.Publisher{})
 			require.NoError(t, err)
 			t.Cleanup(func() {
 				deleteReport(t, id)
@@ -1170,7 +1171,7 @@ func TestEndpoints(t *testing.T) {
 			Targets: map[string]*result.Target{
 				"tgt": {Config: map[string]any{"Kind": "file", "Spec": map[string]any{"file": "combined.txt"}}},
 			},
-		})
+		}, database.Publisher{})
 		require.NoError(t, err)
 		t.Cleanup(func() {
 			deleteReport(t, reportID)
@@ -1229,7 +1230,7 @@ func TestEndpoints(t *testing.T) {
 
 		reportID, err := database.InsertReport(ctx, reports.Report{
 			Name: "timerange", Result: "✔", ID: "timerange", PipelineID: "timerange",
-		})
+		}, database.Publisher{})
 		require.NoError(t, err)
 		t.Cleanup(func() {
 			deleteReport(t, reportID)
