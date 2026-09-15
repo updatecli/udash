@@ -59,4 +59,18 @@ func TestMigrationsAreReversible(t *testing.T) {
 		   AND column_name IN ('created_by_subject', 'created_by_token_id')`,
 	).Scan(&count))
 	require.Equal(t, 2, count, "the attribution columns must exist after migrating back up")
+
+	// The indexes the garbage collector relies on.
+	for _, index := range []string{
+		"idx_pipelinereports_label_ids",
+		"idx_config_sources_updated_at",
+		"idx_config_conditions_updated_at",
+		"idx_config_targets_updated_at",
+	} {
+		var exists bool
+		require.NoError(t, DB.QueryRow(ctx,
+			"SELECT EXISTS (SELECT FROM pg_indexes WHERE indexname = $1)", index,
+		).Scan(&exists))
+		require.True(t, exists, "index %q must exist after migrating back up", index)
+	}
 }
