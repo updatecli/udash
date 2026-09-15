@@ -9,6 +9,8 @@ import (
 var (
 	// Verbose allows to enable/disable debug logging
 	verbose bool
+	// Configuration file, shared by every command reading one
+	cfgFile string
 	rootCmd = &cobra.Command{
 		Use:   "udash",
 		Short: "udash is another Update monitoring platform",
@@ -26,6 +28,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "debug", "", false, "set log level")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "set config file")
 
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
 		if verbose {
@@ -36,16 +39,21 @@ func init() {
 	rootCmd.AddCommand(
 		versionCmd,
 		serverCmd,
+		gcCmd,
 	)
 }
 
 func initConfig() {
-	viper.SetConfigName("config") // name of config file (without extension)
+	viper.SetConfigType("yaml") // REQUIRED if the config file does not have the extension in the name
+
+	// An explicit file is read from its path, and reported when missing, rather than
+	// looked up by name in the paths below.
 	if cfgFile != "" {
-		viper.SetConfigName(cfgFile)
+		viper.SetConfigFile(cfgFile)
+		return
 	}
 
-	viper.SetConfigType("yaml")         // REQUIRED if the config file does not have the extension in the name
+	viper.SetConfigName("config")       // name of config file (without extension)
 	viper.AddConfigPath(".")            // optionally look for config in the working directory
 	viper.AddConfigPath("$HOME/.udash") // call multiple times to add many search paths
 	viper.AddConfigPath("/etc/udash/")  // path to look for the config file in
