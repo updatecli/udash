@@ -72,6 +72,67 @@ func InsertConfigResource(ctx context.Context, resourceType, resourceKind string
 	return configID.String(), nil
 }
 
+// configTableName returns the table storing the configs of a resource type.
+func configTableName(resourceType string) (string, error) {
+	switch resourceType {
+	case configSourceType:
+		return configSourceTableName, nil
+	case configConditionType:
+		return configConditionTableName, nil
+	case configTargetType:
+		return configTargetTableName, nil
+	default:
+		return "", fmt.Errorf("unknown resource type %q", resourceType)
+	}
+}
+
+// findConfigIDs returns the ids of the stored configs of a resource type matching kind and
+// config, a json document. It returns two ids at most.
+//
+// Publishing a report only needs to know whether a config is stored not at all, once, or
+// several times, so unlike GetSourceConfigs and its siblings it neither counts nor reads
+// every match. The containment lookup is served by the GIN index on config.
+func findConfigIDs(ctx context.Context, resourceType, kind, config string) ([]uuid.UUID, error) {
+	table, err := configTableName(resourceType)
+	if err != nil {
+		return nil, err
+	}
+
+	query := psql.Select(
+		sm.Columns("id"),
+		sm.From(table),
+		sm.Where(psql.Quote("kind").EQ(psql.Arg(kind))),
+		sm.Where(psql.Raw("config @> ?", config)),
+		sm.Limit(2),
+	)
+
+	queryString, args, err := query.Build(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("building query failed: %s\n\t%s", queryString, err)
+	}
+
+	rows, err := DB.Query(ctx, queryString, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query failed: %q\n\t%s", queryString, err)
+	}
+	defer rows.Close()
+
+	ids := []uuid.UUID{}
+	for rows.Next() {
+		id := uuid.UUID{}
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("parsing config %s id: %w", resourceType, err)
+		}
+		ids = append(ids, id)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reading config %s ids: %w", resourceType, err)
+	}
+
+	return ids, nil
+}
+
 // DeleteConfigResource deletes a resource configuration from the database.
 func DeleteConfigResource(ctx context.Context, resourceType string, id string) error {
 	table := ""

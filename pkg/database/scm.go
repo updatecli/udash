@@ -207,121 +207,165 @@ type GetSCMSummaryParams struct {
 }
 
 // GetSCMSummary returns a list of scms summary from the scm database table.
+//
+// Every scm is summarized by a single query. A summary covers every scm reported within
+// its range, so running the query, and the label lookup, once per scm made it slower with
+// every repository.
 func GetSCMSummary(params GetSCMSummaryParams) (*SCMDataset, error) {
 
 	dataset := SCMDataset{}
 
+	summaries := map[uuid.UUID]*scmSummary{}
+	scmIDs := []uuid.UUID{}
+
 	for _, row := range params.ScmRows {
-
-		scmURL := row.URL
-		scmBranch := row.Branch
-
-		if scmBranch == "" || scmURL == "" {
+		if row.Branch == "" || row.URL == "" {
 			logrus.Debugf("skipping scm %s, missing branch or url", row.ID)
 			continue
 		}
 
-		data, err := getSingleSCMSummary(params, row)
-		if err != nil {
+		if _, ok := summaries[row.ID]; !ok {
+			summaries[row.ID] = newSCMSummary(row.ID)
+			scmIDs = append(scmIDs, row.ID)
+		}
+	}
+
+	if len(scmIDs) > 0 {
+		if err := summarizeSCMs(params, scmIDs, summaries); err != nil {
 			return nil, err
+		}
+	}
+
+	for _, row := range params.ScmRows {
+		summary, ok := summaries[row.ID]
+		if !ok {
+			continue
 		}
 
 		if dataset.Data == nil {
 			dataset.Data = make(map[string]SCMBranchDataset)
 		}
 
-		if dataset.Data[scmURL] == nil {
-			dataset.Data[scmURL] = make(map[string]ScmSummaryData)
+		if dataset.Data[row.URL] == nil {
+			dataset.Data[row.URL] = make(map[string]ScmSummaryData)
 		}
 
-		dataset.Data[scmURL][scmBranch] = data
+		dataset.Data[row.URL][row.Branch] = summary.data()
 	}
+
 	return &dataset, nil
 }
 
-// getSingleSCMSummary summarizes the reports of a single scm.
-//
-// It is a function of its own so that the rows of an scm are released as soon as it is
-// summarized: closing them from the loop of GetSCMSummary would instead hold one pooled
-// connection per scm until the whole summary is built.
-func getSingleSCMSummary(params GetSCMSummaryParams, row model.SCM) (ScmSummaryData, error) {
+// scmSummary accumulates the summary of a single scm.
+type scmSummary struct {
+	ScmSummaryData
+	// actionURLs contains every distinct action URL found for the scm.
+	actionURLs map[string]bool
+}
 
-	scmID := row.ID
-
-	data := ScmSummaryData{
-		ID:                      scmID.String(),
-		TotalResultByType:       make(map[string]int),
-		TotalOpenActionByResult: make(map[string]int),
+func newSCMSummary(id uuid.UUID) *scmSummary {
+	return &scmSummary{
+		ScmSummaryData: ScmSummaryData{
+			ID:                      id.String(),
+			TotalResultByType:       make(map[string]int),
+			TotalOpenActionByResult: make(map[string]int),
+		},
+		actionURLs: make(map[string]bool),
 	}
+}
 
-	filteredSCMsQuery := psql.Select(
+// data returns the summary with its totals computed.
+func (s *scmSummary) data() ScmSummaryData {
+	data := s.ScmSummaryData
+	for r := range data.TotalResultByType {
+		data.TotalResult += data.TotalResultByType[r]
+	}
+	data.TotalActionURLs = len(s.actionURLs)
+
+	return data
+}
+
+// summarizeSCMs adds to the summary of each scm where every pipeline reporting to it
+// stands, according to its latest report within the range.
+func summarizeSCMs(params GetSCMSummaryParams, scmIDs []uuid.UUID, summaries map[uuid.UUID]*scmSummary) error {
+
+	filteredReports := psql.Select(
 		sm.From("pipelineReports"),
-		sm.Where(
-			psql.Raw("target_db_scm_ids && ?",
-				psql.Arg(fmt.Sprintf("{%s}", scmID)),
-			),
-		),
-		sm.Columns("id", "data", "updated_at"),
+		sm.Columns("id", "pipeline_id", "pipeline_result", "updated_at", "target_db_scm_ids"),
+		sm.Where(psql.Raw("target_db_scm_ids && ?", psql.Arg(scmIDs))),
 	)
 
 	if err := applyRangeFilter(
 		"updated_at",
 		dateRangeFilterParams{
-			Query:         &filteredSCMsQuery,
+			Query:         &filteredReports,
 			DateRangeDays: params.MonitoringDurationDays,
 			StartTime:     params.StartTime,
 			EndTime:       params.EndTime,
 		}); err != nil {
-		return data, fmt.Errorf("applying updated_at range filter: %w", err)
+		return fmt.Errorf("applying updated_at range filter: %w", err)
 	}
 
 	if len(params.Labels) > 0 {
 		if err := applyLabelFilter(labelFilterParams{
 			Ctx:       params.Ctx,
-			Query:     &filteredSCMsQuery,
+			Query:     &filteredReports,
 			Labels:    params.Labels,
 			StartTime: params.StartTime,
 			EndTime:   params.EndTime,
 		}); err != nil {
-			return data, fmt.Errorf("applying label filter: %w", err)
+			return fmt.Errorf("applying label filter: %w", err)
 		}
 	}
 
+	// A report may belong to several scms, so it is repeated once per scm before the latest
+	// report of every pipeline is picked, per scm. That choice only reads columns: the
+	// payload is read afterwards, for the reports picked only.
+	latestReports := psql.Select(
+		sm.Distinct("s.scm_id", "r.pipeline_id"),
+		sm.Columns("s.scm_id", "r.id", "r.pipeline_result"),
+		sm.From(psql.Raw("filtered_reports AS r CROSS JOIN LATERAL unnest(r.target_db_scm_ids) AS s(scm_id)")),
+		sm.Where(psql.Raw("s.scm_id = ANY(?)", psql.Arg(scmIDs))),
+		sm.OrderBy("s.scm_id"),
+		sm.OrderBy("r.pipeline_id"),
+		sm.OrderBy("r.updated_at").Desc(),
+	)
+
 	query := psql.Select(
-		sm.Distinct(
-			psql.Raw("data ->> 'ID'"),
-		),
-		sm.With("filtered_reports").As(filteredSCMsQuery),
+		sm.With("filtered_reports").As(filteredReports),
+		sm.With("latest_reports").As(latestReports),
 		// The action URLs are read with the same jsonpath as openActionSQLExpr, so that
 		// a pipeline counted as carrying an open action here is the one the reports
 		// search and the reports summary would return too.
-		sm.Columns("id", "data ->> 'Result'", "jsonb_path_query_array(data, '$.Actions.*.actionUrl')"),
-		sm.From("filtered_reports"),
-		sm.OrderBy(psql.Raw("data ->> 'ID'")),
-		sm.OrderBy(psql.Quote("updated_at")).Desc(),
+		sm.Columns("l.scm_id", "l.pipeline_result", "jsonb_path_query_array(p.data, '$.Actions.*.actionUrl')"),
+		sm.From("latest_reports").As("l"),
+		sm.InnerJoin("pipelineReports").As("p").On(psql.Raw("p.id = l.id")),
 	)
 
 	queryString, queryArgs, err := query.Build(params.Ctx)
 	if err != nil {
-		return data, fmt.Errorf("building scm summary query: %w", err)
+		return fmt.Errorf("building scm summary query: %w", err)
 	}
 
 	rows, err := DB.Query(params.Ctx, queryString, queryArgs...)
 	if err != nil {
-		return data, fmt.Errorf("querying scm summary: %w", err)
+		return fmt.Errorf("querying scm summary: %w", err)
 	}
 	defer rows.Close()
 
-	isActionURLsFound := make(map[string]bool)
-
 	for rows.Next() {
 
-		id := ""
+		scmID := uuid.UUID{}
 		result := ""
 		actionUrls := []string{}
 
-		if err := rows.Scan(&id, &result, &actionUrls); err != nil {
-			return data, fmt.Errorf("scanning scm summary row: %w", err)
+		if err := rows.Scan(&scmID, &result, &actionUrls); err != nil {
+			return fmt.Errorf("scanning scm summary row: %w", err)
+		}
+
+		summary, ok := summaries[scmID]
+		if !ok {
+			continue
 		}
 
 		hasOpenAction := len(actionUrls) > 0
@@ -340,25 +384,20 @@ func getSingleSCMSummary(params GetSCMSummaryParams, row model.SCM) (ScmSummaryD
 			continue
 		}
 
-		data.TotalResultByType[result]++
+		summary.TotalResultByType[result]++
 
 		if hasOpenAction {
-			data.TotalOpenActionByResult[result]++
+			summary.TotalOpenActionByResult[result]++
 		}
 
 		for i := range actionUrls {
-			isActionURLsFound[actionUrls[i]] = true
+			summary.actionURLs[actionUrls[i]] = true
 		}
 	}
 
 	if err := rows.Err(); err != nil {
-		return data, fmt.Errorf("reading scm summary: %w", err)
+		return fmt.Errorf("reading scm summary: %w", err)
 	}
 
-	for r := range data.TotalResultByType {
-		data.TotalResult += data.TotalResultByType[r]
-	}
-	data.TotalActionURLs = len(isActionURLsFound)
-
-	return data, nil
+	return nil
 }

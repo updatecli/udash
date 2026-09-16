@@ -60,17 +60,44 @@ func TestMigrationsAreReversible(t *testing.T) {
 	).Scan(&count))
 	require.Equal(t, 2, count, "the attribution columns must exist after migrating back up")
 
-	// The indexes the garbage collector relies on.
+	// The indexes the report queries rely on must be back, and the unused ones gone again.
+	indexExists := func(name string) bool {
+		exists := false
+		require.NoError(t, DB.QueryRow(ctx,
+			"SELECT EXISTS (SELECT FROM pg_indexes WHERE indexname = $1)", name,
+		).Scan(&exists))
+		return exists
+	}
+
+	for _, index := range []string{
+		"idx_pipelinereports_id",
+		"idx_pipelinereports_pipeline_id_updated_at",
+		"idx_pipelinereports_open_action",
+		"idx_config_sources_config",
+		"idx_config_conditions_config",
+		"idx_config_targets_config",
+	} {
+		require.True(t, indexExists(index), "index %q must exist after migrating back up", index)
+	}
+
+	// The indexes the garbage collector relies on. Migration 000015 leaves them alone, so
+	// they must survive the roll back and forth just like the ones above.
 	for _, index := range []string{
 		"idx_pipelinereports_label_ids",
 		"idx_config_sources_updated_at",
 		"idx_config_conditions_updated_at",
 		"idx_config_targets_updated_at",
 	} {
-		var exists bool
-		require.NoError(t, DB.QueryRow(ctx,
-			"SELECT EXISTS (SELECT FROM pg_indexes WHERE indexname = $1)", index,
-		).Scan(&exists))
-		require.True(t, exists, "index %q must exist after migrating back up", index)
+		require.True(t, indexExists(index), "index %q must exist after migrating back up", index)
+	}
+
+	for _, index := range []string{
+		"idx_pipelinereports_updated_at_result_open_action",
+		"idx_pipelinereports_data_jsonb",
+		"idx_pipelinereports_data_name",
+		"idx_pipelinereports_data_result",
+		"idx_pipelinereports_distinct",
+	} {
+		require.False(t, indexExists(index), "index %q must be dropped after migrating back up", index)
 	}
 }
