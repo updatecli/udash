@@ -5,8 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/updatecli/udash/pkg/model"
 	"github.com/updatecli/udash/test"
 	"github.com/updatecli/updatecli/pkg/core/reports"
 	"github.com/updatecli/updatecli/pkg/core/result"
@@ -235,19 +237,256 @@ func TestDatabase(t *testing.T) {
 		assert.Equal(t, "updatecli_bump", scms[0].Branch)
 	})
 
-	t.Run("migration 000011 indexes the open action expression", func(t *testing.T) {
-		// The jsonpath is inlined in openActionSQLExpr so that it matches the index
-		// expression. Binding it as a parameter would still return the right reports while
-		// silently falling back to a sequential scan over every stored payload.
+	t.Run("migration 000015 indexes the reports carrying an open action", func(t *testing.T) {
+		// The jsonpath is inlined in openActionSQLExpr so that it matches the predicate of
+		// the partial index. Binding it as a parameter would still return the right counts
+		// while silently reading every stored payload again.
 		indexed := false
 		require.NoError(t, DB.QueryRow(ctx, `
 			SELECT count(*) = 1
 			FROM pg_indexes
 			WHERE tablename = 'pipelinereports'
-			  AND indexname = 'idx_pipelinereports_updated_at_result_open_action'
-			  AND indexdef LIKE '%jsonb_path_exists%'`,
+			  AND indexname = 'idx_pipelinereports_open_action'
+			  AND indexdef LIKE '%WHERE jsonb_path_exists%'`,
 		).Scan(&indexed))
 
 		assert.True(t, indexed)
+	})
+
+	deleteReport := func(t *testing.T, id string) {
+		t.Helper()
+		t.Cleanup(func() {
+			_, err := DB.Exec(ctx, "DELETE FROM pipelineReports WHERE id = $1", id)
+			assert.NoError(t, err)
+		})
+	}
+
+	t.Run("republishing a report reuses its condition config", func(t *testing.T) {
+		// Conditions used to be looked up among the target configs, so none was ever found
+		// and every published report stored one more copy of each of its conditions.
+		report := reports.Report{
+			Name:       "condition-reuse",
+			Result:     result.SUCCESS,
+			ID:         "condition-reuse",
+			PipelineID: "condition-reuse",
+			Conditions: map[string]*result.Condition{
+				"exists": {
+					Config: map[string]any{
+						"Kind": "shell",
+						"Spec": map[string]any{"command": "test -f condition-reuse"},
+					},
+				},
+			},
+		}
+
+		conditionConfigIDs := map[string]bool{}
+		for range 3 {
+			id, err := InsertReport(ctx, report, Publisher{})
+			require.NoError(t, err)
+			deleteReport(t, id)
+
+			stored, err := SearchReport(ctx, id)
+			require.NoError(t, err)
+
+			for conditionConfigID := range stored.ConditionConfigIDs {
+				conditionConfigIDs[conditionConfigID] = true
+			}
+		}
+
+		for conditionConfigID := range conditionConfigIDs {
+			t.Cleanup(func() {
+				_, err := DB.Exec(ctx, "DELETE FROM config_conditions WHERE id = $1", conditionConfigID)
+				assert.NoError(t, err)
+			})
+		}
+
+		assert.Len(t, conditionConfigIDs, 1, "every report must reference the same condition config")
+	})
+
+	t.Run("latest reports keep the latest report of every pipeline", func(t *testing.T) {
+		search := func(latest bool) ([]string, int) {
+			t.Helper()
+			data, totalCount, err := SearchLatestReports(SearchLatestReportsParams{
+				Ctx:     ctx,
+				Latest:  latest,
+				Options: ReportSearchOptions{Days: 1},
+			})
+			require.NoError(t, err)
+
+			ids := make([]string, 0, len(data))
+			for _, report := range data {
+				ids = append(ids, report.ID)
+			}
+			assert.Len(t, ids, totalCount, "a page without limit must hold every counted report")
+
+			return ids, totalCount
+		}
+
+		insert := func(pipeline string, age time.Duration) string {
+			t.Helper()
+			id, err := InsertReport(ctx, reports.Report{
+				Name: pipeline, Result: result.SUCCESS, ID: pipeline, PipelineID: pipeline,
+			}, Publisher{})
+			require.NoError(t, err)
+			deleteReport(t, id)
+
+			_, err = DB.Exec(ctx,
+				"UPDATE pipelineReports SET created_at = $1, updated_at = $1 WHERE id = $2",
+				time.Now().UTC().Add(-age), id)
+			require.NoError(t, err)
+
+			return id
+		}
+
+		_, latestBefore := search(true)
+		_, allBefore := search(false)
+
+		olderA := insert("latest-a", 3*time.Hour)
+		oldA := insert("latest-a", 2*time.Hour)
+		latestA := insert("latest-a", time.Hour)
+		latestB := insert("latest-b", time.Hour)
+
+		latestIDs, latestCount := search(true)
+		assert.Equal(t, latestBefore+2, latestCount)
+		assert.Subset(t, latestIDs, []string{latestA, latestB})
+		assert.NotContains(t, latestIDs, olderA)
+		assert.NotContains(t, latestIDs, oldA)
+
+		allIDs, allCount := search(false)
+		assert.Equal(t, allBefore+4, allCount)
+		assert.Subset(t, allIDs, []string{olderA, oldA, latestA, latestB})
+	})
+
+	t.Run("summarizes several scms sharing a pipeline", func(t *testing.T) {
+		newSCM := func(url string) model.SCM {
+			t.Helper()
+			id, err := InsertSCM(ctx, url, "main")
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				_, err := DB.Exec(ctx, "DELETE FROM scms WHERE id = $1", id)
+				assert.NoError(t, err)
+			})
+
+			scms, _, err := GetSCM(ctx, GetSCMParams{ID: id})
+			require.NoError(t, err)
+			require.Len(t, scms, 1)
+
+			return scms[0]
+		}
+
+		insert := func(pipeline, pipelineResult, actionURL string, age time.Duration, scms ...model.SCM) {
+			t.Helper()
+			report := reports.Report{Name: pipeline, Result: pipelineResult, ID: pipeline, PipelineID: pipeline}
+			if actionURL != "" {
+				report.Actions = map[string]*reports.Action{"default": {ID: "default", Link: actionURL}}
+			}
+
+			id, err := InsertReport(ctx, report, Publisher{})
+			require.NoError(t, err)
+			deleteReport(t, id)
+
+			scmIDs := []uuid.UUID{}
+			for _, scm := range scms {
+				scmIDs = append(scmIDs, scm.ID)
+			}
+
+			_, err = DB.Exec(ctx,
+				"UPDATE pipelineReports SET created_at = $1, updated_at = $1, target_db_scm_ids = $2 WHERE id = $3",
+				time.Now().UTC().Add(-age), scmIDs, id)
+			require.NoError(t, err)
+		}
+
+		shared := newSCM("https://example.com/summary-shared.git")
+		other := newSCM("https://example.com/summary-other.git")
+		idle := newSCM("https://example.com/summary-idle.git")
+
+		// A pipeline reporting to both scms, which failed before recovering: only its latest
+		// report counts, for each of them.
+		insert("summary-both", result.FAILURE, "", 2*time.Hour, shared, other)
+		insert("summary-both", result.SUCCESS, "", time.Hour, shared, other)
+		// A pipeline reporting to one of them only, with a pull request still open.
+		insert("summary-one", result.ATTENTION, "https://example.com/pull/1", time.Hour, shared)
+
+		dataset, err := GetSCMSummary(GetSCMSummaryParams{
+			Ctx:                    ctx,
+			MonitoringDurationDays: 1,
+			ScmRows:                []model.SCM{shared, other, idle},
+		})
+		require.NoError(t, err)
+
+		assert.Equal(t, ScmSummaryData{
+			ID:                      shared.ID.String(),
+			TotalResultByType:       map[string]int{result.SUCCESS: 1, result.ATTENTION: 1},
+			TotalResult:             2,
+			TotalActionURLs:         1,
+			TotalOpenActionByResult: map[string]int{result.ATTENTION: 1},
+		}, dataset.Data[shared.URL]["main"])
+
+		assert.Equal(t, ScmSummaryData{
+			ID:                      other.ID.String(),
+			TotalResultByType:       map[string]int{result.SUCCESS: 1},
+			TotalResult:             1,
+			TotalOpenActionByResult: map[string]int{},
+		}, dataset.Data[other.URL]["main"])
+
+		// An scm without any report within the range is still listed, with empty counts.
+		assert.Equal(t, ScmSummaryData{
+			ID:                      idle.ID.String(),
+			TotalResultByType:       map[string]int{},
+			TotalOpenActionByResult: map[string]int{},
+		}, dataset.Data[idle.URL]["main"])
+	})
+
+	t.Run("an unknown scm filters every report out", func(t *testing.T) {
+		// An scm which resolves to no row used to apply no predicate at all, which widened
+		// the search to every report in the table instead of narrowing it to none.
+		scmID, err := InsertSCM(ctx, "https://example.com/unknown-scm.git", "main")
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			_, err := DB.Exec(ctx, "DELETE FROM scms WHERE id = $1", scmID)
+			assert.NoError(t, err)
+		})
+
+		scms, _, err := GetSCM(ctx, GetSCMParams{ID: scmID})
+		require.NoError(t, err)
+		require.Len(t, scms, 1)
+
+		reportID, err := InsertReport(ctx, reports.Report{
+			Name: "unknown-scm", Result: result.SUCCESS, ID: "unknown-scm", PipelineID: "unknown-scm",
+		}, Publisher{})
+		require.NoError(t, err)
+		deleteReport(t, reportID)
+
+		// InsertReport relies on the database defaults for its timestamps, so attaching the
+		// scm and moving the report inside the search window both happen here.
+		_, err = DB.Exec(ctx,
+			"UPDATE pipelineReports SET created_at = $1, updated_at = $1, target_db_scm_ids = $2 WHERE id = $3",
+			time.Now().UTC().Add(-time.Hour), []uuid.UUID{scms[0].ID}, reportID)
+		require.NoError(t, err)
+
+		search := func(scmID string) ([]SearchLatestReportData, int) {
+			t.Helper()
+			data, totalCount, err := SearchLatestReports(SearchLatestReportsParams{
+				Ctx:     ctx,
+				ScmID:   scmID,
+				Options: ReportSearchOptions{Days: 1},
+			})
+			require.NoError(t, err)
+
+			return data, totalCount
+		}
+
+		// The scm exists, so its own report is still returned: the filter must exclude
+		// without over-filtering.
+		data, totalCount := search(scmID)
+		assert.Equal(t, 1, totalCount)
+		require.Len(t, data, 1)
+		assert.Equal(t, reportID, data[0].ID)
+
+		// A well formed uuid matching no scm. Zero is the right answer whatever else the
+		// table holds, so this stays independent of the other subtests.
+		data, totalCount = search("00000000-0000-0000-0000-000000000000")
+		assert.Empty(t, data)
+		assert.Equal(t, 0, totalCount)
 	})
 }

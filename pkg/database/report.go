@@ -109,26 +109,20 @@ type SearchLatestReportsParams struct {
 }
 
 // SearchLatestReports searches the latest reports according some parameters.
+//
+// The reports are filtered, deduplicated, counted and paginated from their columns alone,
+// and only the page is joined back to read the payloads. Deduplicating on the payload
+// instead read the payload of every report within the range, twice, while a page only
+// returns a few of them.
 func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReportData, int, error) {
-	queryString := ""
-	var args []any
-
 	query := psql.Select(
 		sm.From("pipelineReports"),
-		sm.Columns(
-			"data -> 'ID'",
-			"ID",
-			"data -> 'PipelineID'",
-			"data -> 'Result'",
-			"data",
-			"created_at",
-			"updated_at",
-			"config_target_ids", "config_condition_ids", "config_source_ids",
-		),
+		sm.Columns("id", "pipeline_id", "updated_at"),
 	)
 
 	if params.Latest {
-		query.Apply(sm.Distinct("data -> 'ID'"), sm.OrderBy("data -> 'ID'"))
+		// pipeline_id is written from the ID of the report, which identifies its pipeline.
+		query.Apply(sm.Distinct("pipeline_id"), sm.OrderBy("pipeline_id"))
 	}
 
 	if len(params.Labels) > 0 {
@@ -157,9 +151,9 @@ func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReport
 		return nil, 0, fmt.Errorf("applying updated_at range filter: %w", err)
 	}
 
-	// Every applied filter adds a column to the select, so the filters are collected
-	// here and the rows are scanned against that same list further down. Reading the
-	// three of them independently would build a query returning more columns than the
+	// Every applied filter makes the page select its hstore column too, so the filters are
+	// collected here and the rows are scanned against that same list further down. Reading
+	// the three of them independently would build a query returning more columns than the
 	// scan expects as soon as two are combined.
 	resourceFilters := []resourceConfigFilter{}
 	if params.SourceID != "" {
@@ -206,7 +200,35 @@ func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReport
 
 	applyPagination(&query, params.Limit, params.Page)
 
-	queryString, args, err = query.Build(params.Ctx)
+	columns := []any{
+		"r.data -> 'ID'",
+		"r.id",
+		"r.data -> 'PipelineID'",
+		"r.data -> 'Result'",
+		"r.data",
+		"r.created_at",
+		"r.updated_at",
+		"r.config_target_ids", "r.config_condition_ids", "r.config_source_ids",
+	}
+
+	for _, filter := range resourceFilters {
+		columns = append(columns, fmt.Sprintf("r.config_%s_ids", filter.Kind))
+	}
+
+	// The page is ordered again once joined, since a join does not preserve the order of
+	// its subquery.
+	pageQuery := psql.Select(
+		sm.Columns(columns...),
+		sm.From(query).As("page"),
+		sm.InnerJoin("pipelineReports").As("r").On(psql.Raw("r.id = page.id")),
+	)
+
+	if params.Latest {
+		pageQuery.Apply(sm.OrderBy("page.pipeline_id"))
+	}
+	pageQuery.Apply(sm.OrderBy("page.updated_at").Desc())
+
+	queryString, args, err := pageQuery.Build(params.Ctx)
 	if err != nil {
 		return nil, 0, fmt.Errorf("building query failed: %s\n\t%s", queryString, err)
 	}
@@ -409,6 +431,9 @@ func SearchReportsSummary(params ReportSummaryParams) ([]ReportResultSummaryEntr
 	// caller, so it cannot inject anything into the query.
 	dateTrunc := fmt.Sprintf("date_trunc('%s', updated_at)", granularity)
 
+	// Only the bucket, the result and the count are selected, which lets postgres count
+	// from idx_pipelinereports_updated_at_pipeline_result alone rather than reading the
+	// payload of every report in the range.
 	query := psql.Select(
 		sm.From("pipelineReports"),
 		sm.Columns(
@@ -416,7 +441,6 @@ func SearchReportsSummary(params ReportSummaryParams) ([]ReportResultSummaryEntr
 			// pipeline_result is denormalized from data ->> 'Result' when the report is
 			// inserted, grouping on it avoids parsing the jsonb document of every report.
 			"pipeline_result",
-			openActionSQLExpr,
 			"count(*)",
 		),
 		sm.Where(
@@ -424,7 +448,6 @@ func SearchReportsSummary(params ReportSummaryParams) ([]ReportResultSummaryEntr
 		),
 		sm.GroupBy(dateTrunc),
 		sm.GroupBy("pipeline_result"),
-		sm.GroupBy(openActionSQLExpr),
 		sm.OrderBy(dateTrunc),
 	)
 
@@ -457,48 +480,67 @@ func SearchReportsSummary(params ReportSummaryParams) ([]ReportResultSummaryEntr
 		}
 	}
 
-	queryString, args, err := query.Build(params.Ctx)
-	if err != nil {
-		return nil, 0, fmt.Errorf("building query failed: %s\n\t%s", queryString, err)
-	}
+	// countPerBucket runs the summary query and hands every count it returns to add.
+	countPerBucket := func(add func(date, resultKey string, count int)) error {
+		queryString, args, err := query.Build(params.Ctx)
+		if err != nil {
+			return fmt.Errorf("building query failed: %s\n\t%s", queryString, err)
+		}
 
-	rows, err := DB.Query(params.Ctx, queryString, args...)
-	if err != nil {
-		return nil, 0, fmt.Errorf("query failed: %q\n\t%s", queryString, err)
+		rows, err := DB.Query(params.Ctx, queryString, args...)
+		if err != nil {
+			return fmt.Errorf("query failed: %q\n\t%s", queryString, err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			bucket := time.Time{}
+			reportResult := ""
+			count := 0
+
+			if err := rows.Scan(&bucket, &reportResult, &count); err != nil {
+				return fmt.Errorf("parsing result: %s", err)
+			}
+
+			add(bucket.UTC().Format(summaryDateFormat), summaryResultKey(reportResult), count)
+		}
+
+		if err := rows.Err(); err != nil {
+			return fmt.Errorf("reading results: %s", err)
+		}
+
+		return nil
 	}
-	defer rows.Close()
 
 	countByDate := map[string]map[string]int{}
-	openActionCountByDate := map[string]map[string]int{}
 	totalCount := 0
 
-	for rows.Next() {
-		bucket := time.Time{}
-		reportResult := ""
-		hasOpenAction := false
-		count := 0
-
-		if err := rows.Scan(&bucket, &reportResult, &hasOpenAction, &count); err != nil {
-			return nil, 0, fmt.Errorf("parsing result: %s", err)
-		}
-
-		date := bucket.UTC().Format(summaryDateFormat)
+	if err := countPerBucket(func(date, resultKey string, count int) {
 		if countByDate[date] == nil {
 			countByDate[date] = map[string]int{}
-			openActionCountByDate[date] = map[string]int{}
 		}
-
-		resultKey := summaryResultKey(reportResult)
-
 		countByDate[date][resultKey] += count
-		if hasOpenAction {
-			openActionCountByDate[date][resultKey] += count
-		}
 		totalCount += count
+	}); err != nil {
+		return nil, 0, err
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, 0, fmt.Errorf("reading results: %s", err)
+	// The open actions are a breakdown of those counts, so they are counted by the same
+	// query restricted to the reports carrying one. idx_pipelinereports_open_action serves
+	// it without reading any payload, where grouping on openActionSQLExpr would evaluate it
+	// on every report of the range.
+	hasOpenAction := true
+	applyOpenActionFilter(&query, &hasOpenAction)
+
+	openActionCountByDate := map[string]map[string]int{}
+
+	if err := countPerBucket(func(date, resultKey string, count int) {
+		if openActionCountByDate[date] == nil {
+			openActionCountByDate[date] = map[string]int{}
+		}
+		openActionCountByDate[date][resultKey] += count
+	}); err != nil {
+		return nil, 0, err
 	}
 
 	dataset := []ReportResultSummaryEntry{}
@@ -646,60 +688,19 @@ type Publisher struct {
 
 func InsertReport(ctx context.Context, report reports.Report, publisher Publisher) (string, error) {
 	var err error
-	configTargetIDs := pgtype.Hstore{}
+	configSourceIDs := pgtype.Hstore{}
 	configConditionIDs := pgtype.Hstore{}
+	configTargetIDs := pgtype.Hstore{}
 
-	configSourceIDs := buildConfigSources(ctx, report)
+	for sourceID, source := range report.Sources {
+		if configID, ok := resolveConfigID(ctx, configSourceType, sourceID, source.Config); ok {
+			configSourceIDs[configID] = stringPtr(sourceID)
+		}
+	}
 
 	for conditionID, condition := range report.Conditions {
-		if condition.Config == nil {
-			continue
-		}
-
-		c, ok := condition.Config.(map[string]interface{})
-		if !ok {
-			logrus.Errorf("wrong config condition")
-			continue
-		}
-
-		kind, ok := c["Kind"].(string)
-		if !ok || kind == "" {
-			continue
-		}
-
-		data, err := json.Marshal(c)
-		if err != nil {
-			logrus.Errorf("marshaling target config: %s", err)
-			continue
-		}
-
-		results, _, err := GetTargetConfigs(ctx, kind, "", string(data), 0, 1)
-		if err != nil {
-			logrus.Errorf("failed: %s", err)
-			continue
-		}
-
-		switch len(results) {
-		case 0:
-			id, err := InsertConfigResource(ctx, "condition", kind, string(data))
-			if err != nil {
-				logrus.Errorf("insert config condition data: %s", err)
-				continue
-			}
-
-			parsedID, err := uuid.Parse(id)
-			if err != nil {
-				logrus.Errorf("parsing id: %s", err)
-			}
-
-			configConditionIDs[parsedID.String()] = stringPtr(conditionID)
-		case 1:
-			configConditionIDs[results[0].ID.String()] = stringPtr(conditionID)
-		default:
-			logrus.Warningf("multiple config condition found for %s", conditionID)
-			for _, result := range results {
-				logrus.Warningf("config condition %s", result.ID)
-			}
+		if configID, ok := resolveConfigID(ctx, configConditionType, conditionID, condition.Config); ok {
+			configConditionIDs[configID] = stringPtr(conditionID)
 		}
 	}
 
@@ -744,53 +745,8 @@ func InsertReport(ctx context.Context, report reports.Report, publisher Publishe
 			}
 		}
 
-		if target.Config != nil {
-			t, ok := target.Config.(map[string]interface{})
-			if !ok {
-				logrus.Errorf("wrong config target:\n\t%s:\n%v", targetID, target.Config)
-				continue
-			}
-
-			kind, ok := t["Kind"].(string)
-			if !ok || kind == "" {
-				logrus.Errorf("wrong config target kind:\n\t%s:\n%v", targetID, target.Config)
-				continue
-			}
-
-			data, err := json.Marshal(t)
-			if err != nil {
-				logrus.Errorf("marshaling target config: %s", err)
-				continue
-			}
-
-			results, _, err := GetTargetConfigs(ctx, kind, "", string(data), 0, 1)
-			if err != nil {
-				logrus.Errorf("failed: %s", err)
-				continue
-			}
-
-			switch len(results) {
-			case 0:
-				id, err := InsertConfigResource(ctx, "target", kind, string(data))
-				if err != nil {
-					logrus.Errorf("insert config target data: %s", err)
-					continue
-				}
-
-				parsedID, err := uuid.Parse(id)
-				if err != nil {
-					logrus.Errorf("parsing id: %s", err)
-				}
-
-				configTargetIDs[parsedID.String()] = stringPtr(targetID)
-			case 1:
-				configTargetIDs[results[0].ID.String()] = stringPtr(targetID)
-			default:
-				logrus.Warningf("multiple config target found for %s", targetID)
-				for _, result := range results {
-					logrus.Warningf("config target %s", result.ID)
-				}
-			}
+		if configID, ok := resolveConfigID(ctx, configTargetType, targetID, target.Config); ok {
+			configTargetIDs[configID] = stringPtr(targetID)
 		}
 	}
 
@@ -851,61 +807,58 @@ func InsertReport(ctx context.Context, report reports.Report, publisher Publishe
 	return reportID.String(), nil
 }
 
-func buildConfigSources(ctx context.Context, report reports.Report) pgtype.Hstore {
-	configSourceIDs := pgtype.Hstore{}
-	for sourceID, source := range report.Sources {
-		if source.Config == nil {
-			continue
-		}
-
-		s, ok := source.Config.(map[string]interface{})
-		if !ok {
-			logrus.Errorf("wrong config source:\n\t%s:\n%v", sourceID, source.Config)
-			continue
-		}
-
-		data, err := json.Marshal(s)
-		if err != nil {
-			logrus.Errorf("marshaling source config: %s", err)
-			continue
-		}
-
-		kind, ok := s["Kind"].(string)
-		if !ok || kind == "" {
-			continue
-		}
-
-		results, _, err := GetSourceConfigs(ctx, kind, "", string(data), 0, 1)
-		if err != nil {
-			logrus.Errorf("failed: %s", err)
-			continue
-		}
-
-		switch len(results) {
-		case 0:
-			id, err := InsertConfigResource(ctx, "source", kind, string(data))
-			if err != nil {
-				logrus.Errorf("insert config source data: %s", err)
-				continue
-			}
-
-			parsedID, err := uuid.Parse(id)
-			if err != nil {
-				logrus.Errorf("parsing id: %s", err)
-			}
-
-			configSourceIDs[parsedID.String()] = stringPtr(sourceID)
-		case 1:
-			configSourceIDs[results[0].ID.String()] = stringPtr(sourceID)
-		default:
-			logrus.Warningf("multiple config source found for %s", sourceID)
-			for _, result := range results {
-				logrus.Warningf("config source %s", result.ID)
-			}
-		}
+// resolveConfigID returns the id of the stored config of a pipeline resource, storing the
+// config first when no stored config matches it yet.
+//
+// It reports false when the resource carries no usable config, or when several stored
+// configs match it and none can be told apart as its own.
+func resolveConfigID(ctx context.Context, resourceType, resourceID string, config any) (string, bool) {
+	if config == nil {
+		return "", false
 	}
 
-	return configSourceIDs
+	c, ok := config.(map[string]any)
+	if !ok {
+		logrus.Errorf("wrong config %s:\n\t%s:\n%v", resourceType, resourceID, config)
+		return "", false
+	}
+
+	kind, ok := c["Kind"].(string)
+	if !ok || kind == "" {
+		return "", false
+	}
+
+	data, err := json.Marshal(c)
+	if err != nil {
+		logrus.Errorf("marshaling %s config: %s", resourceType, err)
+		return "", false
+	}
+
+	ids, err := findConfigIDs(ctx, resourceType, kind, string(data))
+	if err != nil {
+		logrus.Errorf("looking up config %s %s: %s", resourceType, resourceID, err)
+		return "", false
+	}
+
+	switch len(ids) {
+	case 0:
+		id, err := InsertConfigResource(ctx, resourceType, kind, string(data))
+		if err != nil {
+			logrus.Errorf("insert config %s data: %s", resourceType, err)
+			return "", false
+		}
+
+		return id, true
+	case 1:
+		return ids[0].String(), true
+	default:
+		logrus.Warningf("multiple config %s found for %s", resourceType, resourceID)
+		for _, id := range ids {
+			logrus.Warningf("config %s %s", resourceType, id)
+		}
+
+		return "", false
+	}
 }
 
 // DeleteReport deletes a report from the database.
@@ -1004,10 +957,11 @@ type resourceConfigFilter struct {
 	Kind string
 }
 
-// applyResourceConfigFilters applies resource config filters to the given query.
+// applyResourceConfigFilter restricts the given query to the reports referencing a
+// resource config.
 //
-// It also selects the matching hstore column so that the caller can report which resource
-// of the pipeline matched, which means every call adds one column to the query.
+// The caller selects the matching hstore column itself, from the reports it reads the
+// payload of, so that it can report which resource of the pipeline matched.
 func applyResourceConfigFilter(query *bob.BaseQuery[*dialect.SelectQuery], id, kind string) error {
 
 	// Ensure resource id is a valid UUID
@@ -1019,7 +973,6 @@ func applyResourceConfigFilter(query *bob.BaseQuery[*dialect.SelectQuery], id, k
 		sm.Where(
 			psql.Raw(fmt.Sprintf(`config_%s_ids \? ?`, kind), id),
 		),
-		sm.Columns(fmt.Sprintf("config_%s_ids", kind)),
 	)
 	return nil
 }
@@ -1053,9 +1006,9 @@ func applyResultFilter(query *bob.BaseQuery[*dialect.SelectQuery], results []str
 // the presence of that key is a self clearing marker, and it is already true of every report
 // stored so far rather than only of the ones produced from now on.
 //
-// The jsonpath is inlined rather than bound as a parameter on purpose: an expression index
-// only matches a literal expression, so binding it would cost
-// idx_pipelinereports_updated_at_result_open_action. It contains no user input.
+// The jsonpath is inlined rather than bound as a parameter on purpose: a partial index only
+// serves the queries whose predicate is literally its own, so binding it would cost
+// idx_pipelinereports_open_action. It contains no user input.
 //
 // It must also stay free of the jsonpath filter operator: bob reads "?" as a placeholder,
 // so a path such as '$.Actions.*.actionUrl ? (@ != "")' silently consumes an argument and
@@ -1075,7 +1028,14 @@ func applyOpenActionFilter(query *bob.BaseQuery[*dialect.SelectQuery], openActio
 		return
 	}
 
-	query.Apply(sm.Where(psql.Raw(openActionSQLExpr+" = ?", psql.Arg(*openAction))))
+	// The expression is applied as is rather than compared to a boolean, which is the form
+	// the predicate of idx_pipelinereports_open_action is matched against.
+	if *openAction {
+		query.Apply(sm.Where(psql.Raw(openActionSQLExpr)))
+		return
+	}
+
+	query.Apply(sm.Where(psql.Raw("NOT " + openActionSQLExpr)))
 }
 
 // applyScmFilter restricts the given query to the reports associated to a specific scm.
@@ -1105,8 +1065,6 @@ func applyScmFilter(ctx context.Context, query *bob.BaseQuery[*dialect.SelectQue
 		}
 
 		switch len(scm) {
-		case 0:
-			logrus.Errorf("scm data not found")
 		case 1:
 			query.Apply(
 				sm.Where(
@@ -1114,9 +1072,18 @@ func applyScmFilter(ctx context.Context, query *bob.BaseQuery[*dialect.SelectQue
 				),
 			)
 		default:
-			// Normally we should never have multiple scms with the same id
-			// so we should never reach this point.
-			logrus.Errorf("unexpected behavior: multiple scms found")
+			// Zero rows means the caller asked for an scm which does not exist, and more
+			// than one should be impossible since the id is the primary key. Either way the
+			// filter cannot be built, and matching nothing is the only safe answer: applying
+			// no predicate at all would widen the query to every report instead of narrowing
+			// it to none.
+			if len(scm) == 0 {
+				logrus.Errorf("scm data not found")
+			} else {
+				logrus.Errorf("unexpected behavior: multiple scms found")
+			}
+
+			query.Apply(sm.Where(psql.Raw("false")))
 		}
 	}
 
