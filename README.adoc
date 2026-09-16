@@ -85,8 +85,8 @@ Udash must be configured via a configuration file, and some settings can be over
 **Config File**
 
 The configuration file is named `config.yaml` and is looked up, in order, in the working directory,
-then `$HOME/.udash/`, then `/etc/udash/`. The first one found wins. A different name can be passed
-with `--config`.
+then `$HOME/.udash/`, then `/etc/udash/`. The first one found wins. `--config` takes the path of a
+different file instead, which then must exist.
 
 ```yaml
 server:
@@ -155,6 +155,14 @@ database:
   uri: "postgres://udash:password@db:5432/udash?sslmode=disable"
   # migrationdisabled skips the schema migrations run at startup
   migrationdisabled: false
+gc:
+  # maxHistoryDays is how many days of reports are kept, see "Data retention".
+  # 0, the default, keeps everything.
+  maxHistoryDays: 0
+  # interval is the time between two garbage collections run by the server.
+  interval: "24h"
+  # batchSize is the maximum number of reports deleted by a single statement.
+  batchSize: 5000
 ```
 
 **Environment**
@@ -171,6 +179,34 @@ configuration file, so the file always wins.
 * **UDASH_AUTH_ROLES_DEFAULT**: Permission granted to an identity matching no role
 * **UDASH_AUTH_ROLES_RESOLVER**: How an API token's permission is resolved ["zitadel", "snapshot"]
 * **UDASH_DB_URI**: Define the postgresql URI
+* **UDASH_GC_MAX_HISTORY_DAYS**: Days of reports to keep, `0` keeps everything
+* **UDASH_GC_INTERVAL**: Time between two garbage collections run by the server, such as `24h`
+* **UDASH_GC_BATCH_SIZE**: Maximum number of reports deleted by a single statement
+
+==== Data retention
+
+By default Udash keeps every report forever. Setting `gc.maxHistoryDays` enables a garbage
+collector, run by the server a minute after it starts and then every `gc.interval`, which deletes:
+
+* every report older than `gc.maxHistoryDays`, including the last report of a pipeline which
+  stopped running, so that pipeline disappears from the dashboard;
+* then the scms, labels, and source, condition and target configs which no remaining report
+  references anymore, and which were not used within the retention period either.
+
+When several Udash instances share a database, a postgres advisory lock ensures only one of them
+collects at a time.
+
+The same garbage collection can be run once from the command line, for instance from a scheduled
+job, with `--dry-run` to only count what would be deleted. It reads the same configuration file and
+environment variables, and `--max-history-days` overrides the retention. Unlike the server, it never
+migrates the database schema, so it must run against a database the server already migrated:
+
+```shell
+udash gc --config config.yaml --max-history-days 90 --dry-run
+```
+
+The frontend `MAX_HISTORY_DAYS` should not exceed `gc.maxHistoryDays`, or the date filter would
+offer a range with no report left in it.
 
 ==== Permissions
 

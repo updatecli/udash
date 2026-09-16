@@ -9,9 +9,6 @@ import (
 )
 
 var (
-	// Server configuration file
-	cfgFile string
-
 	serverCmd = &cobra.Command{
 		Use:   "server",
 		Short: "The Udash server",
@@ -35,7 +32,6 @@ var (
 )
 
 func init() {
-	serverCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "set config file")
 	serverCmd.AddCommand(
 		serverStartCmd,
 	)
