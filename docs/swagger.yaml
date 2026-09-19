@@ -1199,9 +1199,6 @@ definitions:
     type: object
 info:
   contact: {}
-  description: API for managing Updatecli pipeline reports.
-  title: Udash API
-  version: "1.0"
 paths:
   /api/:
     get:
@@ -1993,12 +1990,4 @@ paths:
       summary: Describe the current identity
       tags:
       - Tokens
-securityDefinitions:
-  BearerAuth:
-    description: Either an Udash API token, created from the tokens page and prefixed
-      with "udash_pat_", or an access token from the configured identity provider.
-      Send it as "Bearer <token>".
-    in: header
-    name: Authorization
-    type: apiKey
 swagger: "2.0"
