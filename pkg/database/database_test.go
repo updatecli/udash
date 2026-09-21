@@ -412,6 +412,67 @@ func TestDatabase(t *testing.T) {
 		assert.Equal(t, []string{newest}, search(1))
 	})
 
+	t.Run("latest reports are filtered on the latest report of every pipeline", func(t *testing.T) {
+		insert := func(pipeline, pipelineResult, actionURL string, age time.Duration) string {
+			t.Helper()
+			report := reports.Report{Name: pipeline, Result: pipelineResult, ID: pipeline, PipelineID: pipeline}
+			if actionURL != "" {
+				report.Actions = map[string]*reports.Action{"default": {ID: "default", Link: actionURL}}
+			}
+
+			id, err := InsertReport(ctx, report, Publisher{})
+			require.NoError(t, err)
+			deleteReport(t, id)
+
+			_, err = DB.Exec(ctx,
+				"UPDATE pipelineReports SET created_at = $1, updated_at = $1 WHERE id = $2",
+				time.Now().UTC().Add(-age), id)
+			require.NoError(t, err)
+
+			return id
+		}
+
+		search := func(results []string, openAction *bool) []string {
+			t.Helper()
+			data, totalCount, err := SearchLatestReports(SearchLatestReportsParams{
+				Ctx:        ctx,
+				Latest:     true,
+				Results:    results,
+				OpenAction: openAction,
+				Options:    ReportSearchOptions{Days: 1},
+			})
+			require.NoError(t, err)
+			assert.Len(t, data, totalCount, "the count must match the filtered reports")
+
+			ids := []string{}
+			for _, report := range data {
+				ids = append(ids, report.ID)
+			}
+			return ids
+		}
+
+		// Failed, then fixed: its latest report succeeded, so it is no longer failing.
+		fixedFailure := insert("filter-fixed", result.FAILURE, "", 2*time.Hour)
+		fixedSuccess := insert("filter-fixed", result.SUCCESS, "", time.Hour)
+		// Still failing.
+		stillFailing := insert("filter-failing", result.FAILURE, "", time.Hour)
+		// A pull request that has since been merged: the latest report carries none.
+		mergedOpen := insert("filter-merged", result.ATTENTION, "https://example.com/pr/1", 2*time.Hour)
+		insert("filter-merged", result.SUCCESS, "", time.Hour)
+		// A pull request still waiting.
+		waiting := insert("filter-waiting", result.SUCCESS, "https://example.com/pr/2", time.Hour)
+
+		failing := search([]string{result.FAILURE}, nil)
+		assert.Contains(t, failing, stillFailing)
+		assert.NotContains(t, failing, fixedFailure, "a pipeline fixed since must not be listed as failing")
+		assert.NotContains(t, failing, fixedSuccess)
+
+		open := true
+		withOpenAction := search(nil, &open)
+		assert.Contains(t, withOpenAction, waiting)
+		assert.NotContains(t, withOpenAction, mergedOpen, "a pull request merged since must not be listed as waiting")
+	})
+
 	t.Run("summarizes several scms sharing a pipeline", func(t *testing.T) {
 		newSCM := func(url string) model.SCM {
 			t.Helper()

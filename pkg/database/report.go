@@ -178,10 +178,13 @@ func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReport
 		return nil, 0, err
 	}
 
-	applyResultFilter(&query, params.Results)
-	applyOpenActionFilter(&query, params.OpenAction)
-
 	if params.Latest {
+		// The result and open action filters apply to the latest report of every pipeline,
+		// once it is picked: "failing" means failing now, not failing at some point in the
+		// range. Filtering first would pick the latest failed report of a pipeline fixed
+		// since. The scm summary reads its latest reports the same way.
+		query.Apply(sm.Columns("pipeline_result", openActionSQLExpr+" AS open_action"))
+
 		// DISTINCT ON has to be ordered by pipeline_id first, which is how it keeps the
 		// latest report of every pipeline, but it also left the results and their pages
 		// ordered by pipeline. Wrapping it lets them be ordered by date like every other
@@ -192,6 +195,18 @@ func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReport
 			sm.OrderBy("latest.updated_at").Desc(),
 			sm.OrderBy("latest.id"),
 		)
+
+		applyResultFilter(&query, params.Results)
+		if params.OpenAction != nil {
+			if *params.OpenAction {
+				query.Apply(sm.Where(psql.Raw("latest.open_action")))
+			} else {
+				query.Apply(sm.Where(psql.Raw("NOT latest.open_action")))
+			}
+		}
+	} else {
+		applyResultFilter(&query, params.Results)
+		applyOpenActionFilter(&query, params.OpenAction)
 	}
 
 	// Total counter query must be built before applying pagination
