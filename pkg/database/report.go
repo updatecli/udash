@@ -178,8 +178,36 @@ func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReport
 		return nil, 0, err
 	}
 
-	applyResultFilter(&query, params.Results)
-	applyOpenActionFilter(&query, params.OpenAction)
+	if params.Latest {
+		// The result and open action filters apply to the latest report of every pipeline,
+		// once it is picked: "failing" means failing now, not failing at some point in the
+		// range. Filtering first would pick the latest failed report of a pipeline fixed
+		// since. The scm summary reads its latest reports the same way.
+		query.Apply(sm.Columns("pipeline_result", openActionSQLExpr+" AS open_action"))
+
+		// DISTINCT ON has to be ordered by pipeline_id first, which is how it keeps the
+		// latest report of every pipeline, but it also left the results and their pages
+		// ordered by pipeline. Wrapping it lets them be ordered by date like every other
+		// search, so the first page holds the most recent reports.
+		query = psql.Select(
+			sm.Columns("latest.id", "latest.pipeline_id", "latest.updated_at"),
+			sm.From(query).As("latest"),
+			sm.OrderBy("latest.updated_at").Desc(),
+			sm.OrderBy("latest.id"),
+		)
+
+		applyResultFilter(&query, params.Results)
+		if params.OpenAction != nil {
+			if *params.OpenAction {
+				query.Apply(sm.Where(psql.Raw("latest.open_action")))
+			} else {
+				query.Apply(sm.Where(psql.Raw("NOT latest.open_action")))
+			}
+		}
+	} else {
+		applyResultFilter(&query, params.Results)
+		applyOpenActionFilter(&query, params.OpenAction)
+	}
 
 	// Total counter query must be built before applying pagination
 	// because it needs to count all the reports matching the query.
@@ -223,10 +251,10 @@ func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReport
 		sm.InnerJoin("pipelineReports").As("r").On(psql.Raw("r.id = page.id")),
 	)
 
-	if params.Latest {
-		pageQuery.Apply(sm.OrderBy("page.pipeline_id"))
-	}
-	pageQuery.Apply(sm.OrderBy("page.updated_at").Desc())
+	pageQuery.Apply(
+		sm.OrderBy("page.updated_at").Desc(),
+		sm.OrderBy("page.id"),
+	)
 
 	queryString, args, err := pageQuery.Build(params.Ctx)
 	if err != nil {
