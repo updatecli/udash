@@ -357,6 +357,61 @@ func TestDatabase(t *testing.T) {
 		assert.Subset(t, allIDs, []string{olderA, oldA, latestA, latestB})
 	})
 
+	t.Run("latest reports are ordered newest first", func(t *testing.T) {
+		insert := func(pipeline string, age time.Duration) string {
+			t.Helper()
+			id, err := InsertReport(ctx, reports.Report{
+				Name: pipeline, Result: result.FAILURE, ID: pipeline, PipelineID: pipeline,
+			}, Publisher{})
+			require.NoError(t, err)
+			deleteReport(t, id)
+
+			_, err = DB.Exec(ctx,
+				"UPDATE pipelineReports SET created_at = $1, updated_at = $1 WHERE id = $2",
+				time.Now().UTC().Add(-age), id)
+			require.NoError(t, err)
+
+			return id
+		}
+
+		// Pipeline ids are chosen so that their alphabetical order differs from their
+		// date order: sorting by pipeline would put "order-a" first.
+		oldest := insert("order-a", 3*time.Hour)
+		insert("order-b", 5*time.Hour)
+		newest := insert("order-b", 30*time.Minute)
+		middle := insert("order-c", 2*time.Hour)
+
+		search := func(limit int) []string {
+			t.Helper()
+			data, _, err := SearchLatestReports(SearchLatestReportsParams{
+				Ctx:     ctx,
+				Latest:  true,
+				Results: []string{result.FAILURE},
+				Options: ReportSearchOptions{Days: 1},
+				Limit:   limit,
+				Page:    1,
+			})
+			require.NoError(t, err)
+
+			ids := []string{}
+			for _, report := range data {
+				ids = append(ids, report.ID)
+			}
+			return ids
+		}
+
+		ours := []string{}
+		for _, id := range search(0) {
+			if id == oldest || id == middle || id == newest {
+				ours = append(ours, id)
+			}
+		}
+		assert.Equal(t, []string{newest, middle, oldest}, ours)
+
+		// Pages follow the same order, so the first page holds the most recent report.
+		assert.Equal(t, []string{newest}, search(1))
+	})
+
 	t.Run("summarizes several scms sharing a pipeline", func(t *testing.T) {
 		newSCM := func(url string) model.SCM {
 			t.Helper()
