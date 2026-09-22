@@ -138,7 +138,10 @@ func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReport
 		}
 	}
 
-	query.Apply(sm.OrderBy(psql.Quote("updated_at")).Desc())
+	query.Apply(
+		sm.OrderBy(psql.Quote("updated_at")).Desc(),
+		sm.OrderBy(psql.Quote("id")),
+	)
 
 	if err := applyRangeFilter(
 		"updated_at",
