@@ -1020,12 +1020,17 @@ func applyResultFilter(query *bob.BaseQuery[*dialect.SelectQuery], results []str
 		return
 	}
 
+	query.Apply(sm.Where(resultInExpr(results)))
+}
+
+// resultInExpr is true of the rows whose pipeline_result is one of the given results.
+func resultInExpr(results []string) bob.Expression {
 	args := make([]bob.Expression, len(results))
 	for i := range results {
 		args[i] = psql.Arg(results[i])
 	}
 
-	query.Apply(sm.Where(psql.Quote("pipeline_result").In(args...)))
+	return psql.Quote("pipeline_result").In(args...)
 }
 
 // openActionSQLExpr is true of the reports carrying at least one action left open, which is

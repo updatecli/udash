@@ -70,6 +70,50 @@ definitions:
           $ref: '#/definitions/transformer.Transformer'
         type: array
     type: object
+  database.OpenActionData:
+    properties:
+      branch:
+        description: Branch is the target branch of that same scm, which the pull
+          request is merged into.
+        type: string
+      pipelines:
+        description: Pipelines contains every pipeline feeding the action, most recent
+          first.
+        items:
+          $ref: '#/definitions/database.OpenActionPipeline'
+        type: array
+      repository:
+        description: |-
+          Repository is the url of the git repository of the first target of the action carrying
+          an scm, as reported by its most recent pipeline. It is empty when none does.
+        type: string
+      title:
+        description: Title is the title of the action, as reported by its most recent
+          pipeline.
+        type: string
+      updated_at:
+        description: UpdatedAt is the last update date of its most recent pipeline.
+        type: string
+      url:
+        description: URL is the link of the action, which identifies it.
+        type: string
+    type: object
+  database.OpenActionPipeline:
+    properties:
+      id:
+        description: ID is the database record id of the latest report of the pipeline.
+        type: string
+      name:
+        description: Name is the name of the pipeline.
+        type: string
+      result:
+        description: Result is the result of the latest report of the pipeline.
+        type: string
+      updated_at:
+        description: UpdatedAt is the last update date of the latest report of the
+          pipeline.
+        type: string
+    type: object
   database.ReportResultSummaryEntry:
     properties:
       date:
@@ -772,6 +816,15 @@ definitions:
         description: Value is the value of the label.
         type: string
     type: object
+  server.SearchOpenActionsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/database.OpenActionData'
+        type: array
+      total_count:
+        type: integer
+    type: object
   server.SearchPipelineReportsSummaryRequest:
     properties:
       days:
@@ -1223,6 +1276,30 @@ paths:
       summary: Ping the API
       tags:
       - Ping
+  /api/pipeline/actions/search:
+    post:
+      consumes:
+      - application/json
+      description: Search the actions left open by the latest report of every pipeline,
+        one entry per action URL along with the pipelines feeding it
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.SearchOpenActionsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: Search open actions
+      tags:
+      - Pipeline Actions
   /api/pipeline/config/conditions:
     delete:
       description: Delete a configuration condition from the database
