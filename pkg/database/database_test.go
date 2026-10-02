@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"strings"
 	"testing"
@@ -527,35 +528,35 @@ func TestDatabase(t *testing.T) {
 		insert("open-actions-d", result.ATTENTION, prefix+"3", 2*time.Hour)
 		insert("open-actions-d", result.SUCCESS, "", time.Hour)
 
-		// A single pipeline updating two repositories, which opens a pull request in each.
+		// Two pipelines, each opening a pull request in its own repository. Updatecli lists
+		// the targets of an action by the sha256 of their ID, which the repository lookup
+		// must not depend on.
 		scmURLs := []string{"https://example.com/open-actions-a.git", "https://example.com/open-actions-b.git"}
-		multiRepo := reports.Report{
-			Name: "open-actions-f", Result: result.ATTENTION, ID: "open-actions-f", PipelineID: "shared",
-			Targets: map[string]*result.Target{},
-			Actions: map[string]*reports.Action{},
-		}
 		for i, url := range scmURLs {
-			targetID := fmt.Sprintf("target-%d", i)
-			multiRepo.Targets[targetID] = &result.Target{
-				Scm: result.SCM{
-					URL: url,
-					Branch: struct {
-						Source  string
-						Working string
-						Target  string
-					}{Source: "updatecli_open_actions", Working: "updatecli_open_actions", Target: "main"},
+			targetID := "target-0"
+			report := reports.Report{
+				Name: fmt.Sprintf("open-actions-repo-%d", i), Result: result.ATTENTION,
+				ID: fmt.Sprintf("open-actions-repo-%d", i), PipelineID: "shared",
+				Targets: map[string]*result.Target{
+					targetID: {Scm: result.SCM{
+						URL: url,
+						Branch: struct {
+							Source  string
+							Working string
+							Target  string
+						}{Source: "main", Working: "updatecli_open_actions", Target: "main"},
+					}},
 				},
+				Actions: map[string]*reports.Action{"default": {
+					ID:      "default",
+					Link:    fmt.Sprintf("%s%d", prefix, 4+i),
+					Targets: []reports.ActionTarget{{ID: fmt.Sprintf("%x", sha256.Sum256([]byte(targetID)))}},
+				}},
 			}
-			actionID := fmt.Sprintf("action-%d", i)
-			multiRepo.Actions[actionID] = &reports.Action{
-				ID:      actionID,
-				Link:    fmt.Sprintf("%s%d", prefix, 4+i),
-				Targets: []reports.ActionTarget{{ID: targetID}},
-			}
+			reportID, err := InsertReport(ctx, report, Publisher{})
+			require.NoError(t, err)
+			deleteReport(t, reportID)
 		}
-		multiRepoID, err := InsertReport(ctx, multiRepo, Publisher{})
-		require.NoError(t, err)
-		deleteReport(t, multiRepoID)
 		t.Cleanup(func() {
 			_, err := DB.Exec(ctx, "DELETE FROM scms WHERE url = ANY($1)", scmURLs)
 			assert.NoError(t, err)
@@ -566,8 +567,22 @@ func TestDatabase(t *testing.T) {
 
 		for i, url := range scmURLs {
 			action := actions[fmt.Sprintf("%s%d", prefix, 4+i)]
-			assert.Equal(t, url, action.Repository, "the repository must be the one of the action targets")
+			assert.Equal(t, url, action.Repository, "the repository must be the one of the report targets")
 			assert.Equal(t, "main", action.Branch, "the branch must be the target one")
+
+			scms, _, err := GetSCM(ctx, GetSCMParams{URL: url, Branch: "main"})
+			require.NoError(t, err)
+			require.Len(t, scms, 1)
+
+			byScm, totalCount, err := SearchOpenActions(SearchOpenActionsParams{
+				Ctx:     ctx,
+				ScmID:   scms[0].ID.String(),
+				Options: ReportSearchOptions{Days: 1},
+			})
+			require.NoError(t, err)
+			require.Len(t, byScm, 1, "a pull request opened in another repository must not be listed")
+			assert.Equal(t, 1, totalCount)
+			assert.Equal(t, fmt.Sprintf("%s%d", prefix, 4+i), byScm[0].URL)
 		}
 
 		shared := actions[prefix+"1"]

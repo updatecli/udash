@@ -64,6 +64,11 @@ type SearchOpenActionsParams struct {
 // same branch, so Updatecli groups their changes into a single pull request. A pipeline
 // whose report ID changed between two runs also keeps its previous report as the latest
 // one of a pipeline of its own. Grouping by URL lists each pull request once either way.
+//
+// That previous report is not superseded by the reports of the new ID though, nothing links
+// the two. So once the pull request is merged, it is still listed from the previous report
+// until that report falls out of the searched time range. The reports search reads the
+// latest reports the same way and shares this limit.
 func SearchOpenActions(params SearchOpenActionsParams) ([]OpenActionData, int, error) {
 	filteredReports := psql.Select(
 		sm.From("pipelineReports"),
@@ -115,10 +120,10 @@ func SearchOpenActions(params SearchOpenActionsParams) ([]OpenActionData, int, e
 	// Actions is not an object, and rather than the "?" operator, which bob reads as a
 	// placeholder. A report listing the same link twice still counts once per action.
 	//
-	// The repository and branch are read from the first target of the action carrying an
-	// scm, rather than from any target of the report: a pipeline updating two repositories
-	// opens one pull request in each. The branch is the target one, which the scms are
-	// stored by. The targets of an action are serialized without json tags, hence "ID".
+	// The repository and branch are read from the first target of the report carrying an
+	// scm. A pipeline works from a single temporary branch, so it opens one pull request at
+	// most and its targets share the scm. The branch is the target one, which the scms are
+	// stored by.
 	openActions := psql.Select(
 		sm.Distinct("a.action ->> 'actionUrl'", "l.id"),
 		sm.Columns(
@@ -135,13 +140,9 @@ func SearchOpenActions(params SearchOpenActionsParams) ([]OpenActionData, int, e
 			INNER JOIN pipelineReports AS p ON p.id = l.id
 			CROSS JOIN LATERAL jsonb_path_query(p.data, '$.Actions.*') AS a(action)
 			LEFT JOIN LATERAL (
-				SELECT p.data -> 'Targets' -> (t.target ->> 'ID') -> 'Scm' AS scm
-				FROM jsonb_array_elements(
-					CASE WHEN jsonb_typeof(a.action -> 'targets') = 'array'
-						THEN a.action -> 'targets' ELSE '[]'::jsonb END
-				) WITH ORDINALITY AS t(target, n)
-				WHERE p.data -> 'Targets' -> (t.target ->> 'ID') -> 'Scm' ->> 'URL' <> ''
-				ORDER BY t.n
+				SELECT s.scm
+				FROM jsonb_path_query(p.data, '$.Targets.*.Scm') AS s(scm)
+				WHERE s.scm ->> 'URL' <> ''
 				LIMIT 1
 			) AS s ON true`)),
 		sm.Where(psql.Raw("a.action ->> 'actionUrl' IS NOT NULL")),
