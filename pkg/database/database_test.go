@@ -2,6 +2,9 @@ package database
 
 import (
 	"context"
+	"crypto/sha256"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -471,6 +474,155 @@ func TestDatabase(t *testing.T) {
 		withOpenAction := search(nil, &open)
 		assert.Contains(t, withOpenAction, waiting)
 		assert.NotContains(t, withOpenAction, mergedOpen, "a pull request merged since must not be listed as waiting")
+	})
+
+	t.Run("open actions are listed once per url", func(t *testing.T) {
+		const prefix = "https://example.com/open-actions/"
+
+		insert := func(pipeline, pipelineResult, actionURL string, age time.Duration) string {
+			t.Helper()
+			report := reports.Report{Name: pipeline, Result: pipelineResult, ID: pipeline, PipelineID: "shared"}
+			if actionURL != "" {
+				report.Actions = map[string]*reports.Action{"default": {ID: "default", Title: pipeline, Link: actionURL}}
+			}
+
+			id, err := InsertReport(ctx, report, Publisher{})
+			require.NoError(t, err)
+			deleteReport(t, id)
+
+			_, err = DB.Exec(ctx,
+				"UPDATE pipelineReports SET created_at = $1, updated_at = $1 WHERE id = $2",
+				time.Now().UTC().Add(-age), id)
+			require.NoError(t, err)
+
+			return id
+		}
+
+		// search only keeps the actions seeded here, other tests share the database.
+		search := func(results []string) map[string]OpenActionData {
+			t.Helper()
+			data, totalCount, err := SearchOpenActions(SearchOpenActionsParams{
+				Ctx:     ctx,
+				Results: results,
+				Options: ReportSearchOptions{Days: 1},
+			})
+			require.NoError(t, err)
+			assert.Len(t, data, totalCount, "the count must match the actions returned")
+
+			actions := map[string]OpenActionData{}
+			for _, action := range data {
+				if strings.HasPrefix(action.URL, prefix) {
+					actions[action.URL] = action
+				}
+			}
+			return actions
+		}
+
+		// Two manifests feeding the same pull request.
+		older := insert("open-actions-a", result.SUCCESS, prefix+"1", 2*time.Hour)
+		newer := insert("open-actions-b", result.ATTENTION, prefix+"1", time.Hour)
+		// Another pull request, fed by a failing pipeline and by a more recent succeeding one.
+		failing := insert("open-actions-c", result.FAILURE, prefix+"2", time.Hour)
+		succeeding := insert("open-actions-e", result.SUCCESS, prefix+"2", 30*time.Minute)
+		// A pull request merged since: the latest report carries none.
+		insert("open-actions-d", result.ATTENTION, prefix+"3", 2*time.Hour)
+		insert("open-actions-d", result.SUCCESS, "", time.Hour)
+
+		// Two pipelines, each opening a pull request in its own repository. Updatecli lists
+		// the targets of an action by the sha256 of their key, which the repository lookup
+		// matches: the first target of the report, in another repository, is not part of
+		// the pull request.
+		branch := struct {
+			Source  string
+			Working string
+			Target  string
+		}{Source: "main", Working: "updatecli_open_actions", Target: "main"}
+		const otherURL = "https://example.com/open-actions-other.git"
+		scmURLs := []string{"https://example.com/open-actions-a.git", "https://example.com/open-actions-b.git"}
+		for i, url := range scmURLs {
+			report := reports.Report{
+				Name: fmt.Sprintf("open-actions-repo-%d", i), Result: result.ATTENTION,
+				ID: fmt.Sprintf("open-actions-repo-%d", i), PipelineID: "shared",
+				Targets: map[string]*result.Target{
+					"target-0": {Scm: result.SCM{URL: otherURL, Branch: branch}},
+					"target-1": {Scm: result.SCM{URL: url, Branch: branch}},
+				},
+				Actions: map[string]*reports.Action{"default": {
+					ID:      "default",
+					Link:    fmt.Sprintf("%s%d", prefix, 4+i),
+					Targets: []reports.ActionTarget{{ID: fmt.Sprintf("%x", sha256.Sum256([]byte("target-1")))}},
+				}},
+			}
+			reportID, err := InsertReport(ctx, report, Publisher{})
+			require.NoError(t, err)
+			deleteReport(t, reportID)
+		}
+
+		// An action listing none of its targets falls back to the first target of the
+		// report carrying an scm.
+		fallbackID, err := InsertReport(ctx, reports.Report{
+			Name: "open-actions-fallback", Result: result.ATTENTION,
+			ID: "open-actions-fallback", PipelineID: "shared",
+			Targets: map[string]*result.Target{
+				"target-0": {},
+				"target-1": {Scm: result.SCM{URL: otherURL, Branch: branch}},
+			},
+			Actions: map[string]*reports.Action{"default": {ID: "default", Link: prefix + "6"}},
+		}, Publisher{})
+		require.NoError(t, err)
+		deleteReport(t, fallbackID)
+
+		t.Cleanup(func() {
+			_, err := DB.Exec(ctx, "DELETE FROM scms WHERE url = ANY($1)", append(scmURLs, otherURL))
+			assert.NoError(t, err)
+		})
+
+		actions := search(nil)
+		require.Len(t, actions, 5, "a merged pull request must not be listed")
+		assert.Equal(t, otherURL, actions[prefix+"6"].Repository, "the first target carrying an scm is the fallback")
+
+		for i, url := range scmURLs {
+			action := actions[fmt.Sprintf("%s%d", prefix, 4+i)]
+			assert.Equal(t, url, action.Repository, "the repository must be the one of the action targets")
+			assert.Equal(t, "main", action.Branch, "the branch must be the target one")
+
+			scms, _, err := GetSCM(ctx, GetSCMParams{URL: url, Branch: "main"})
+			require.NoError(t, err)
+			require.Len(t, scms, 1)
+
+			byScm, totalCount, err := SearchOpenActions(SearchOpenActionsParams{
+				Ctx:     ctx,
+				ScmID:   scms[0].ID.String(),
+				Options: ReportSearchOptions{Days: 1},
+			})
+			require.NoError(t, err)
+			require.Len(t, byScm, 1, "a pull request opened in another repository must not be listed")
+			assert.Equal(t, 1, totalCount)
+			assert.Equal(t, fmt.Sprintf("%s%d", prefix, 4+i), byScm[0].URL)
+		}
+
+		shared := actions[prefix+"1"]
+		assert.Equal(t, "open-actions-b", shared.Title, "the most recent pipeline gives the title")
+		require.Len(t, shared.Pipelines, 2)
+		assert.Equal(t, newer, shared.Pipelines[0].ID)
+		assert.Equal(t, older, shared.Pipelines[1].ID)
+		assert.Equal(t, result.ATTENTION, shared.Pipelines[0].Result)
+		assert.WithinDuration(t, time.Now().Add(-time.Hour), shared.UpdatedAt, time.Minute)
+		assert.WithinDuration(t, shared.UpdatedAt, shared.Pipelines[0].UpdatedAt, time.Second)
+
+		require.Len(t, actions[prefix+"2"].Pipelines, 2)
+		assert.Equal(t, succeeding, actions[prefix+"2"].Pipelines[0].ID)
+		assert.Equal(t, failing, actions[prefix+"2"].Pipelines[1].ID)
+
+		// The result filter picks the actions, it does not drop the other pipelines feeding
+		// them, nor take the title from the matching one.
+		failingOnly := search([]string{result.FAILURE})
+		require.Len(t, failingOnly, 1)
+		filtered := failingOnly[prefix+"2"]
+		assert.Equal(t, "open-actions-e", filtered.Title)
+		require.Len(t, filtered.Pipelines, 2)
+		assert.Equal(t, succeeding, filtered.Pipelines[0].ID)
+		assert.Equal(t, failing, filtered.Pipelines[1].ID)
 	})
 
 	t.Run("summarizes several scms sharing a pipeline", func(t *testing.T) {

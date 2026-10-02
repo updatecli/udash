@@ -1032,6 +1032,77 @@ func TestEndpoints(t *testing.T) {
 			})
 		})
 
+		t.Run("POST /api/pipeline/actions/search", func(t *testing.T) {
+			// A second manifest sharing the pipelineid feeds the same pull request.
+			sharedID, err := database.InsertReport(ctx, reports.Report{
+				Name:       "second manifest of the same pull request",
+				Result:     "✔",
+				ID:         "second manifest of the same pull request",
+				PipelineID: "venom",
+				Actions: map[string]*reports.Action{
+					"default": {ID: "default", Title: "Bump venom", Link: "https://example.com/testing/pull/42"},
+				},
+			}, database.Publisher{})
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				deleteReport(t, sharedID)
+			})
+
+			blob := struct {
+				Data []struct {
+					URL       string `json:"url"`
+					Title     string `json:"title"`
+					Pipelines []struct {
+						ID string `json:"id"`
+					} `json:"pipelines"`
+				} `json:"data"`
+				TotalCount int `json:"total_count"`
+			}{}
+			resp := doPostRequest(t, srv, "/api/pipeline/actions/search", map[string]any{"limit": 10, "page": 1})
+			require.NoError(t, json.NewDecoder(resp.Body).Decode(&blob))
+			defer resp.Body.Close()
+
+			require.Equal(t, 2, blob.TotalCount)
+			require.Len(t, blob.Data, 2)
+
+			// Newest first: the shared pull request was updated last.
+			assert.Equal(t, "https://example.com/testing/pull/42", blob.Data[0].URL)
+			assert.Equal(t, "Bump venom", blob.Data[0].Title)
+			require.Len(t, blob.Data[0].Pipelines, 2)
+			assert.Equal(t, sharedID, blob.Data[0].Pipelines[0].ID)
+			assert.Equal(t, successWithOpenPR, blob.Data[0].Pipelines[1].ID)
+
+			assert.Equal(t, "https://example.com/testing/pull/43", blob.Data[1].URL)
+			require.Len(t, blob.Data[1].Pipelines, 1)
+			assert.Equal(t, attentionWithOpenPR, blob.Data[1].Pipelines[0].ID)
+
+			// Narrowed to one scm, only the pipelines targeting it are left.
+			scmID, err := database.InsertSCM(ctx, "https://example.com/actions-scm.git", "main")
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				deleteSCM(t, scmID)
+			})
+			attachReportToSCM(t, successWithOpenPR, scmID)
+
+			scoped := struct {
+				Data []struct {
+					URL       string `json:"url"`
+					Pipelines []struct {
+						ID string `json:"id"`
+					} `json:"pipelines"`
+				} `json:"data"`
+				TotalCount int `json:"total_count"`
+			}{}
+			resp = doPostRequest(t, srv, "/api/pipeline/actions/search", map[string]any{"scmid": scmID})
+			require.NoError(t, json.NewDecoder(resp.Body).Decode(&scoped))
+			defer resp.Body.Close()
+
+			require.Equal(t, 1, scoped.TotalCount)
+			assert.Equal(t, "https://example.com/testing/pull/42", scoped.Data[0].URL)
+			require.Len(t, scoped.Data[0].Pipelines, 1)
+			assert.Equal(t, successWithOpenPR, scoped.Data[0].Pipelines[0].ID)
+		})
+
 		t.Run("POST /api/pipeline/scms/search", func(t *testing.T) {
 			scmID, err := database.InsertSCM(ctx, "https://example.com/openaction.git", "main")
 			require.NoError(t, err)

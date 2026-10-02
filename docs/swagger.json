@@ -38,6 +38,41 @@
                 }
             }
         },
+        "/api/pipeline/actions/search": {
+            "post": {
+                "description": "Search the actions left open by the latest report of every pipeline, one entry per action URL along with the pipelines feeding it",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Pipeline Actions"
+                ],
+                "summary": "Search open actions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.SearchOpenActionsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    }
+                }
+            }
+        },
         "/api/pipeline/config/conditions": {
             "get": {
                 "description": "List all configuration conditions from the database",
@@ -1263,6 +1298,59 @@
                 }
             }
         },
+        "database.OpenActionData": {
+            "type": "object",
+            "properties": {
+                "branch": {
+                    "description": "Branch is the target branch of that same scm, which the pull request is merged into.",
+                    "type": "string"
+                },
+                "pipelines": {
+                    "description": "Pipelines contains every pipeline feeding the action, most recent first.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/database.OpenActionPipeline"
+                    }
+                },
+                "repository": {
+                    "description": "Repository is the url of the git repository of the first target of the action carrying\nan scm, as reported by its most recent pipeline. It is empty when none does.",
+                    "type": "string"
+                },
+                "title": {
+                    "description": "Title is the title of the action, as reported by its most recent pipeline.",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "description": "UpdatedAt is the last update date of its most recent pipeline.",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "URL is the link of the action, which identifies it.",
+                    "type": "string"
+                }
+            }
+        },
+        "database.OpenActionPipeline": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "ID is the database record id of the latest report of the pipeline.",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is the name of the pipeline.",
+                    "type": "string"
+                },
+                "result": {
+                    "description": "Result is the result of the latest report of the pipeline.",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "description": "UpdatedAt is the last update date of the latest report of the pipeline.",
+                    "type": "string"
+                }
+            }
+        },
         "database.ReportResultSummaryEntry": {
             "type": "object",
             "properties": {
@@ -2208,6 +2296,20 @@
                 "value": {
                     "description": "Value is the value of the label.",
                     "type": "string"
+                }
+            }
+        },
+        "server.SearchOpenActionsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/database.OpenActionData"
+                    }
+                },
+                "total_count": {
+                    "type": "integer"
                 }
             }
         },
