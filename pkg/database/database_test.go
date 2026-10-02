@@ -529,45 +529,61 @@ func TestDatabase(t *testing.T) {
 		insert("open-actions-d", result.SUCCESS, "", time.Hour)
 
 		// Two pipelines, each opening a pull request in its own repository. Updatecli lists
-		// the targets of an action by the sha256 of their ID, which the repository lookup
-		// must not depend on.
+		// the targets of an action by the sha256 of their key, which the repository lookup
+		// matches: the first target of the report, in another repository, is not part of
+		// the pull request.
+		branch := struct {
+			Source  string
+			Working string
+			Target  string
+		}{Source: "main", Working: "updatecli_open_actions", Target: "main"}
+		const otherURL = "https://example.com/open-actions-other.git"
 		scmURLs := []string{"https://example.com/open-actions-a.git", "https://example.com/open-actions-b.git"}
 		for i, url := range scmURLs {
-			targetID := "target-0"
 			report := reports.Report{
 				Name: fmt.Sprintf("open-actions-repo-%d", i), Result: result.ATTENTION,
 				ID: fmt.Sprintf("open-actions-repo-%d", i), PipelineID: "shared",
 				Targets: map[string]*result.Target{
-					targetID: {Scm: result.SCM{
-						URL: url,
-						Branch: struct {
-							Source  string
-							Working string
-							Target  string
-						}{Source: "main", Working: "updatecli_open_actions", Target: "main"},
-					}},
+					"target-0": {Scm: result.SCM{URL: otherURL, Branch: branch}},
+					"target-1": {Scm: result.SCM{URL: url, Branch: branch}},
 				},
 				Actions: map[string]*reports.Action{"default": {
 					ID:      "default",
 					Link:    fmt.Sprintf("%s%d", prefix, 4+i),
-					Targets: []reports.ActionTarget{{ID: fmt.Sprintf("%x", sha256.Sum256([]byte(targetID)))}},
+					Targets: []reports.ActionTarget{{ID: fmt.Sprintf("%x", sha256.Sum256([]byte("target-1")))}},
 				}},
 			}
 			reportID, err := InsertReport(ctx, report, Publisher{})
 			require.NoError(t, err)
 			deleteReport(t, reportID)
 		}
+
+		// An action listing none of its targets falls back to the first target of the
+		// report carrying an scm.
+		fallbackID, err := InsertReport(ctx, reports.Report{
+			Name: "open-actions-fallback", Result: result.ATTENTION,
+			ID: "open-actions-fallback", PipelineID: "shared",
+			Targets: map[string]*result.Target{
+				"target-0": {},
+				"target-1": {Scm: result.SCM{URL: otherURL, Branch: branch}},
+			},
+			Actions: map[string]*reports.Action{"default": {ID: "default", Link: prefix + "6"}},
+		}, Publisher{})
+		require.NoError(t, err)
+		deleteReport(t, fallbackID)
+
 		t.Cleanup(func() {
-			_, err := DB.Exec(ctx, "DELETE FROM scms WHERE url = ANY($1)", scmURLs)
+			_, err := DB.Exec(ctx, "DELETE FROM scms WHERE url = ANY($1)", append(scmURLs, otherURL))
 			assert.NoError(t, err)
 		})
 
 		actions := search(nil)
-		require.Len(t, actions, 4, "a merged pull request must not be listed")
+		require.Len(t, actions, 5, "a merged pull request must not be listed")
+		assert.Equal(t, otherURL, actions[prefix+"6"].Repository, "the first target carrying an scm is the fallback")
 
 		for i, url := range scmURLs {
 			action := actions[fmt.Sprintf("%s%d", prefix, 4+i)]
-			assert.Equal(t, url, action.Repository, "the repository must be the one of the report targets")
+			assert.Equal(t, url, action.Repository, "the repository must be the one of the action targets")
 			assert.Equal(t, "main", action.Branch, "the branch must be the target one")
 
 			scms, _, err := GetSCM(ctx, GetSCMParams{URL: url, Branch: "main"})

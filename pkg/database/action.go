@@ -30,7 +30,8 @@ type OpenActionData struct {
 	// Title is the title of the action, as reported by its most recent pipeline.
 	Title string `json:"title"`
 	// Repository is the url of the git repository of the first target of the action carrying
-	// an scm, as reported by its most recent pipeline. It is empty when none does.
+	// an scm, as reported by its most recent pipeline. It falls back to the first target of
+	// that pipeline carrying one, and is empty when none does.
 	Repository string `json:"repository"`
 	// Branch is the target branch of that same scm, which the pull request is merged into.
 	Branch string `json:"branch"`
@@ -120,10 +121,14 @@ func SearchOpenActions(params SearchOpenActionsParams) ([]OpenActionData, int, e
 	// Actions is not an object, and rather than the "?" operator, which bob reads as a
 	// placeholder. A report listing the same link twice still counts once per action.
 	//
-	// The repository and branch are read from the first target of the report carrying an
-	// scm. A pipeline works from a single temporary branch, so it opens one pull request at
-	// most and its targets share the scm. The branch is the target one, which the scms are
-	// stored by.
+	// The repository and branch are read from a target of the action carrying an scm.
+	// Updatecli lists the targets of an action by the sha256 of their key in the report
+	// Targets, so those keys are hashed the same way to find them. The first target of the
+	// report carrying an scm is only used when none of the action targets carries one, such
+	// as with reports listing no target in their actions. The branch is the target one,
+	// which the scms are stored by.
+	//
+	// jsonb_each is only given an object, it fails on anything else.
 	openActions := psql.Select(
 		sm.Distinct("a.action ->> 'actionUrl'", "l.id"),
 		sm.Columns(
@@ -140,9 +145,21 @@ func SearchOpenActions(params SearchOpenActionsParams) ([]OpenActionData, int, e
 			INNER JOIN pipelineReports AS p ON p.id = l.id
 			CROSS JOIN LATERAL jsonb_path_query(p.data, '$.Actions.*') AS a(action)
 			LEFT JOIN LATERAL (
-				SELECT s.scm
-				FROM jsonb_path_query(p.data, '$.Targets.*.Scm') AS s(scm)
-				WHERE s.scm ->> 'URL' <> ''
+				SELECT t.target -> 'Scm' AS scm
+				FROM jsonb_each(
+					CASE WHEN jsonb_typeof(p.data -> 'Targets') = 'object'
+						THEN p.data -> 'Targets'
+						ELSE '{}'::jsonb
+					END
+				) WITH ORDINALITY AS t(key, target, position)
+				WHERE t.target -> 'Scm' ->> 'URL' <> ''
+				ORDER BY
+					EXISTS (
+						SELECT 1
+						FROM jsonb_path_query(a.action, '$.targets[*].ID') AS at(id)
+						WHERE at.id = to_jsonb(encode(sha256(convert_to(t.key, 'UTF8')), 'hex'))
+					) DESC,
+					t.position
 				LIMIT 1
 			) AS s ON true`)),
 		sm.Where(psql.Raw("a.action ->> 'actionUrl' IS NOT NULL")),
