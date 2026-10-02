@@ -266,7 +266,7 @@ func GetSourceConfigs(ctx context.Context, kind, id, config string, limit, page 
 	if err = DB.QueryRow(ctx, totalQueryString, totalArgs...).Scan(
 		&totalCount,
 	); err != nil {
-		logrus.Errorf("parsing total count result: %s", err)
+		return nil, 0, fmt.Errorf("counting results: %w", err)
 	}
 
 	applyPagination(&query, limit, page)
@@ -301,7 +301,7 @@ func GetSourceConfigs(ctx context.Context, kind, id, config string, limit, page 
 		err = json.Unmarshal([]byte(config), &r.Config)
 		if err != nil {
 			logrus.Errorf("parsing config source result: %s\n\t%s", r.ID, err)
-			continue
+			return nil, 0, fmt.Errorf("parsing config %s: %w", r.ID, err)
 		}
 
 		results = append(results, r)
@@ -358,7 +358,7 @@ func GetConditionConfigs(ctx context.Context, kind, id, config string, limit, pa
 	if err = DB.QueryRow(ctx, totalQueryString, totalArgs...).Scan(
 		&totalCount,
 	); err != nil {
-		logrus.Errorf("parsing total count result: %s", err)
+		return nil, 0, fmt.Errorf("counting results: %w", err)
 	}
 
 	applyPagination(&query, limit, page)
@@ -396,7 +396,7 @@ func GetConditionConfigs(ctx context.Context, kind, id, config string, limit, pa
 		err = json.Unmarshal([]byte(config), &r.Config)
 		if err != nil {
 			logrus.Errorf("parsing config condition result: %s\n\t%s", r.ID, err)
-			continue
+			return nil, 0, fmt.Errorf("parsing config %s: %w", r.ID, err)
 		}
 
 		results = append(results, r)
@@ -453,7 +453,7 @@ func GetTargetConfigs(ctx context.Context, kind, id, config string, limit, page 
 	if err = DB.QueryRow(ctx, totalQueryString, totalArgs...).Scan(
 		&totalCount,
 	); err != nil {
-		logrus.Errorf("parsing total count result: %s", err)
+		return nil, 0, fmt.Errorf("counting results: %w", err)
 	}
 
 	applyPagination(&query, limit, page)
@@ -488,8 +488,8 @@ func GetTargetConfigs(ctx context.Context, kind, id, config string, limit, page 
 
 		err = json.Unmarshal([]byte(config), &r.Config)
 		if err != nil {
-			logrus.Errorf("parsing config source result: %s\n\t%s", r.ID, err)
-			continue
+			logrus.Errorf("parsing config target result: %s\n\t%s", r.ID, err)
+			return nil, 0, fmt.Errorf("parsing config %s: %w", r.ID, err)
 		}
 
 		results = append(results, r)

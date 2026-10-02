@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stephenafamo/bob/dialect/psql"
 	"github.com/stephenafamo/bob/dialect/psql/dm"
@@ -244,7 +243,7 @@ func TestEndpoints(t *testing.T) {
 	t.Run("GET /api/pipeline/reports/:id", func(t *testing.T) {
 		t.Run("with an unknown report ID", func(t *testing.T) {
 			resp := doGetRequest(t, srv, "/api/pipeline/reports/daa9b61e-42b9-4e35-b9d7-071461a36838")
-			assertErrorResponse(t, resp, http.StatusNotFound, pgx.ErrNoRows.Error())
+			assertErrorResponse(t, resp, http.StatusNotFound, ErrReportNotFound)
 		})
 
 		t.Run("with a known report ID", func(t *testing.T) {

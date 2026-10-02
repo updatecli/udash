@@ -52,6 +52,12 @@ const (
 	ErrTooManyBuckets = "requested time range and granularity produce too many buckets"
 	ErrInvalidJWT     = "JWT is invalid"
 
+	// ErrInternal is returned instead of the details of an error which the caller cannot
+	// do anything about, and which may describe the database.
+	ErrInternal = "internal server error"
+	// ErrReportNotFound is returned when the requested pipeline report does not exist.
+	ErrReportNotFound = "report not found"
+
 	// ErrUnauthenticated is returned when a request carries no usable credential.
 	ErrUnauthenticated = "authentication required"
 	// ErrInsufficientPermission is returned when the caller is authenticated but not

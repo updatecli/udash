@@ -42,11 +42,7 @@ func CreatePipelineReport(c *gin.Context) {
 	newReportID, err := database.InsertReport(c, p, publisherFromContext(c))
 	if err != nil {
 		logrus.Errorf("insert reports: %s", err)
-		c.JSON(
-			http.StatusInternalServerError,
-			DefaultResponseModel{
-				Err: err.Error(),
-			})
+		respondWithError(c, err)
 		return
 	}
 
@@ -69,9 +65,7 @@ func DeletePipelineReport(c *gin.Context) {
 
 	if err := database.DeleteReport(c, id); err != nil {
 		logrus.Errorf("query failed: %s", err)
-		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-			Err: err.Error(),
-		})
+		respondWithError(c, err)
 		return
 	}
 
@@ -183,9 +177,7 @@ func SearchPipelineReports(c *gin.Context) {
 	)
 	if err != nil {
 		logrus.Errorf("searching for latest report: %s", err)
-		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-			Err: err.Error(),
-		})
+		respondWithError(c, err)
 		return
 	}
 
@@ -371,9 +363,7 @@ func SearchPipelineReportsSummary(c *gin.Context) {
 		}
 
 		logrus.Errorf("summarizing reports: %s", err)
-		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-			Err: err.Error(),
-		})
+		respondWithError(c, err)
 		return
 	}
 
@@ -456,9 +446,7 @@ func ListPipelineReports(c *gin.Context) {
 
 	if err != nil {
 		logrus.Errorf("searching for latest report: %s", err)
-		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-			Err: err.Error(),
-		})
+		respondWithError(c, err)
 		return
 	}
 
@@ -489,26 +477,18 @@ func GetPipelineReportByID(c *gin.Context) {
 	data, err := database.SearchReport(c, id)
 	if err != nil {
 		logrus.Errorf("parsing result: %s", err)
-		statusCode := http.StatusInternalServerError
 		if errors.Is(err, pgx.ErrNoRows) {
-			statusCode = http.StatusNotFound
+			c.JSON(http.StatusNotFound, DefaultResponseModel{Err: ErrReportNotFound})
+			return
 		}
-		c.JSON(
-			statusCode,
-			DefaultResponseModel{
-				Err: err.Error(),
-			})
+		respondWithError(c, err)
 		return
 	}
 
 	nbReportsByID, err := database.SearchNumberOfReportsByPipelineID(c, data.Pipeline.ID)
 	if err != nil {
 		logrus.Errorf("getting number of reports by name: %s", err)
-		c.JSON(
-			http.StatusInternalServerError,
-			DefaultResponseModel{
-				Err: err.Error(),
-			})
+		respondWithError(c, err)
 		return
 	}
 
@@ -516,21 +496,11 @@ func GetPipelineReportByID(c *gin.Context) {
 	if err != nil {
 		logrus.Errorf("getting latest report by name: %s", err)
 		if errors.Is(err, pgx.ErrNoRows) {
-			c.JSON(
-				http.StatusNotFound,
-				DefaultResponseModel{
-					Err: "not found",
-				},
-			)
+			c.JSON(http.StatusNotFound, DefaultResponseModel{Err: ErrReportNotFound})
 			return
 		}
 
-		c.JSON(
-			http.StatusInternalServerError,
-			DefaultResponseModel{
-				Err: err.Error(),
-			},
-		)
+		respondWithError(c, err)
 		return
 	}
 

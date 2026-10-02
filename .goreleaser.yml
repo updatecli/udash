@@ -23,6 +23,9 @@ builds:
   - id: udash
     main: ./main.go
     binary: udash
+    env:
+      # A static binary, which the distroless image requires.
+      - CGO_ENABLED=0
     ldflags:
       - -w -s
       - -X "github.com/updatecli/udash/pkg/version.BuildTime={{.Date}}"

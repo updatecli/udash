@@ -64,6 +64,7 @@ type AboutResponseModel struct {
 // @Description Get version information of the API
 // @Tags About
 // @Success 200 {object} AboutResponseModel
+// @Router /api/about [get]
 func About(c *gin.Context) {
 	resp := AboutResponseModel{}
 	resp.Version.API = version.Version

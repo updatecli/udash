@@ -23,3 +23,6 @@ go.work
 bin/
 
 dist/
+
+# Coverage profile written by make test
+coverage.txt

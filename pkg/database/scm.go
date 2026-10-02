@@ -68,9 +68,18 @@ func GetSCM(ctx context.Context, params GetSCMParams) ([]model.SCM, int, error) 
 	query := psql.Select(
 		sm.Columns("id", "branch", "url", "created_at", "updated_at"),
 		sm.From("scms"),
+		// An scm without a url or a branch cannot be summarized or linked to, so it is left
+		// out here rather than while reading the rows, which would leave it in the total count.
+		sm.Where(psql.Quote("url").NE(psql.Arg(""))),
+		sm.Where(psql.Quote("branch").NE(psql.Arg(""))),
 	)
 
 	if params.ID != "" {
+		// Checked here, since postgres would otherwise reject it as an internal error.
+		if _, err := uuid.Parse(params.ID); err != nil {
+			return nil, 0, fmt.Errorf("%w: parsing scm id %q: %w", ErrInvalidParameter, params.ID, err)
+		}
+
 		query.Apply(
 			sm.Where(psql.Quote("id").EQ(psql.Arg(params.ID))),
 		)
@@ -115,7 +124,7 @@ func GetSCM(ctx context.Context, params GetSCMParams) ([]model.SCM, int, error) 
 	if err = DB.QueryRow(ctx, totalQueryString, totalArgs...).Scan(
 		&totalCount,
 	); err != nil {
-		logrus.Errorf("parsing total count result: %s", err)
+		return nil, 0, fmt.Errorf("counting results: %w", err)
 	}
 
 	applyPagination(&query, params.Limit, params.Page)
@@ -141,12 +150,7 @@ func GetSCM(ctx context.Context, params GetSCMParams) ([]model.SCM, int, error) 
 
 		err = rows.Scan(&r.ID, &r.Branch, &r.URL, &r.Created_at, &r.Updated_at)
 		if err != nil {
-			logrus.Errorf("scanning scm row failed: %s", err)
-			continue
-		}
-
-		if r.URL == "" || r.Branch == "" {
-			continue
+			return nil, 0, fmt.Errorf("scanning scm row: %w", err)
 		}
 
 		results = append(results, r)

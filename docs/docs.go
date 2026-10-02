@@ -29,6 +29,23 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/about": {
+            "get": {
+                "description": "Get version information of the API",
+                "tags": [
+                    "About"
+                ],
+                "summary": "About the API",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.AboutResponseModel"
+                        }
+                    }
+                }
+            }
+        },
         "/api/ping": {
             "get": {
                 "description": "Ping the API to check if it's running",
@@ -1321,7 +1338,7 @@ const docTemplate = `{
                     }
                 },
                 "repository": {
-                    "description": "Repository is the url of the git repository of the first target of the action carrying\nan scm, as reported by its most recent pipeline. It is empty when none does.",
+                    "description": "Repository is the url of the git repository of the first target of the action carrying\nan scm, as reported by its most recent pipeline. It falls back to the first target of\nthat pipeline carrying one, and is empty when none does.",
                     "type": "string"
                 },
                 "title": {

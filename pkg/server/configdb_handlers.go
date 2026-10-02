@@ -69,9 +69,7 @@ func ListConfigSources(c *gin.Context) {
 	rows, totalCount, err := database.GetSourceConfigs(c, kind, id, config, limit, page)
 	if err != nil {
 		logrus.Errorf("searching for config source: %s", err)
-		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-			Err: err.Error(),
-		})
+		respondWithError(c, err)
 		return
 	}
 
@@ -113,9 +111,7 @@ func SearchConfigSources(c *gin.Context) {
 	rows, totalCount, err := database.GetSourceConfigs(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config), queryConfig.Limit, queryConfig.Page)
 	if err != nil {
 		logrus.Errorf("searching for config source: %s", err)
-		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-			Err: err.Error(),
-		})
+		respondWithError(c, err)
 		return
 	}
 
@@ -175,9 +171,7 @@ func DeleteConfigSource(c *gin.Context) {
 	err := database.DeleteConfigResource(c, "source", id)
 	if err != nil {
 		logrus.Errorf("deleting config source: %s", err)
-		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-			Err: err.Error(),
-		})
+		respondWithError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, DefaultResponseModel{
@@ -214,9 +208,7 @@ func ListConfigConditions(c *gin.Context) {
 	rows, totalCount, err := database.GetConditionConfigs(c, kind, id, config, limit, page)
 	if err != nil {
 		logrus.Errorf("searching for config condition: %s", err)
-		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-			Message: err.Error(),
-		})
+		respondWithError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, ConditionConfigResponse{
@@ -262,9 +254,7 @@ func SearchConfigConditions(c *gin.Context) {
 	configs, totalCount, err := database.GetConditionConfigs(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config), queryConfig.Limit, queryConfig.Page)
 	if err != nil {
 		logrus.Errorf("searching for config condition: %s", err)
-		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-			Message: err.Error(),
-		})
+		respondWithError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, ConditionConfigResponse{
@@ -287,9 +277,7 @@ func DeleteConfigCondition(c *gin.Context) {
 	err := database.DeleteConfigResource(c, "condition", id)
 	if err != nil {
 		logrus.Errorf("deleting config condition: %s", err)
-		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-			Message: err.Error(),
-		})
+		respondWithError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, DefaultResponseModel{
@@ -326,9 +314,7 @@ func ListConfigTargets(c *gin.Context) {
 	rows, totalCount, err := database.GetTargetConfigs(c, kind, id, config, limit, page)
 	if err != nil {
 		logrus.Errorf("searching for config target: %s", err)
-		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-			Err: err.Error(),
-		})
+		respondWithError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, TargetConfigResponse{
@@ -369,9 +355,7 @@ func SearchConfigTargets(c *gin.Context) {
 	configs, totalCount, err := database.GetTargetConfigs(c, queryConfig.Kind, queryConfig.ID, string(queryConfig.Config), queryConfig.Limit, queryConfig.Page)
 	if err != nil {
 		logrus.Errorf("searching for config target: %s", err)
-		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-			Err: err.Error(),
-		})
+		respondWithError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, TargetConfigResponse{
@@ -394,9 +378,7 @@ func DeleteConfigTarget(c *gin.Context) {
 	err := database.DeleteConfigResource(c, "target", id)
 	if err != nil {
 		logrus.Errorf("deleting config target: %s", err)
-		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-			Err: err.Error(),
-		})
+		respondWithError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, DefaultResponseModel{
