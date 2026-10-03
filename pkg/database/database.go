@@ -2,6 +2,7 @@ package database
 
 import (
 	"embed"
+	"errors"
 	"fmt"
 	"os"
 
@@ -27,6 +28,11 @@ var (
 	//go:embed migrations/*.sql
 	fs embed.FS
 )
+
+// ErrInvalidParameter is wrapped by the errors caused by the parameters of a request
+// rather than by the database, so that the API can tell the caller what to fix while
+// keeping every other error to itself.
+var ErrInvalidParameter = errors.New("invalid parameter")
 
 type Options struct {
 	// URI defines the DB URI
@@ -76,7 +82,7 @@ func RunMigrationUp() error {
 	}
 
 	err = m.Up()
-	if err != nil && err.Error() != migrate.ErrNoChange.Error() {
+	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return fmt.Errorf("running migration: %w", err)
 	}
 

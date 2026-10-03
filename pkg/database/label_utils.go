@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -33,7 +34,7 @@ func applyLabelFilter(params labelFilterParams) error {
 	errs := []error{}
 	for key, value := range params.Labels {
 		if key == "" {
-			errs = append(errs, fmt.Errorf("label key cannot be empty"))
+			errs = append(errs, fmt.Errorf("%w: label key cannot be empty", ErrInvalidParameter))
 			continue
 		}
 
@@ -48,15 +49,16 @@ func applyLabelFilter(params labelFilterParams) error {
 			1,
 		)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("failed getting label records: %s", err))
-			continue
+			// Not a problem with the request, so it is reported alone rather than
+			// alongside the others, which would hand it to the caller.
+			return fmt.Errorf("getting label records: %w", err)
 		}
 
 		if totalCounts == 0 {
 			if value == "" {
-				errs = append(errs, fmt.Errorf("label not found for key %s", key))
+				errs = append(errs, fmt.Errorf("%w: label not found for key %s", ErrInvalidParameter, key))
 			} else {
-				errs = append(errs, fmt.Errorf("label not found for %s=%s", key, value))
+				errs = append(errs, fmt.Errorf("%w: label not found for %s=%s", ErrInvalidParameter, key, value))
 			}
 			continue
 		}
@@ -68,9 +70,9 @@ func applyLabelFilter(params labelFilterParams) error {
 
 		if len(ids) == 0 {
 			if value == "" {
-				errs = append(errs, fmt.Errorf("no label ids found for key %s", key))
+				errs = append(errs, fmt.Errorf("%w: no label ids found for key %s", ErrInvalidParameter, key))
 			} else {
-				errs = append(errs, fmt.Errorf("no label ids found for %s=%s", key, value))
+				errs = append(errs, fmt.Errorf("%w: no label ids found for %s=%s", ErrInvalidParameter, key, value))
 			}
 			continue
 		}
@@ -83,7 +85,7 @@ func applyLabelFilter(params labelFilterParams) error {
 	}
 
 	if len(errs) > 0 {
-		return fmt.Errorf("errors occurred while applying label filter: %v", errs)
+		return fmt.Errorf("applying label filter: %w", errors.Join(errs...))
 	}
 
 	return nil

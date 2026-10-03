@@ -37,16 +37,16 @@ func resolveTimeRange(days int, startTime, endTime string) (time.Time, time.Time
 	}
 
 	if startTime == "" || endTime == "" {
-		return time.Time{}, time.Time{}, fmt.Errorf("both startTime %q and endTime %q must be provided for time range filtering", startTime, endTime)
+		return time.Time{}, time.Time{}, fmt.Errorf("%w: both startTime %q and endTime %q must be provided for time range filtering", ErrInvalidParameter, startTime, endTime)
 	}
 
 	startT, err := time.Parse(timeRangeLayout, startTime)
 	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("parsing startTime: %w", err)
+		return time.Time{}, time.Time{}, fmt.Errorf("%w: parsing startTime: %w", ErrInvalidParameter, err)
 	}
 	endT, err := time.Parse(timeRangeLayout, endTime)
 	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("parsing endTime: %w", err)
+		return time.Time{}, time.Time{}, fmt.Errorf("%w: parsing endTime: %w", ErrInvalidParameter, err)
 	}
 
 	startTimeUTC := startT.UTC()

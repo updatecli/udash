@@ -110,7 +110,7 @@ func CreateAPIToken(c *gin.Context) {
 	token, hash, err := generateAPIToken()
 	if err != nil {
 		logrus.Errorf("generating an API token: %s", err)
-		c.JSON(http.StatusInternalServerError, DefaultResponseModel{Err: err.Error()})
+		respondWithError(c, err)
 		return
 	}
 
@@ -125,7 +125,7 @@ func CreateAPIToken(c *gin.Context) {
 	)
 	if err != nil {
 		logrus.Errorf("storing an API token: %s", err)
-		c.JSON(http.StatusInternalServerError, DefaultResponseModel{Err: err.Error()})
+		respondWithError(c, err)
 		return
 	}
 
@@ -164,7 +164,7 @@ func ListAPITokens(c *gin.Context) {
 	tokens, err := database.ListAPITokens(c.Request.Context(), subject)
 	if err != nil {
 		logrus.Errorf("listing API tokens: %s", err)
-		c.JSON(http.StatusInternalServerError, DefaultResponseModel{Err: err.Error()})
+		respondWithError(c, err)
 		return
 	}
 
@@ -209,7 +209,7 @@ func DeleteAPIToken(c *gin.Context) {
 			return
 		}
 		logrus.Errorf("deleting API token %s: %s", id, err)
-		c.JSON(http.StatusInternalServerError, DefaultResponseModel{Err: err.Error()})
+		respondWithError(c, err)
 		return
 	}
 
@@ -238,7 +238,7 @@ func DeleteAPITokensBySubject(c *gin.Context) {
 	deleted, err := database.DeleteAPITokensBySubject(c.Request.Context(), subject)
 	if err != nil {
 		logrus.Errorf("deleting the API tokens of %q: %s", subject, err)
-		c.JSON(http.StatusInternalServerError, DefaultResponseModel{Err: err.Error()})
+		respondWithError(c, err)
 		return
 	}
 

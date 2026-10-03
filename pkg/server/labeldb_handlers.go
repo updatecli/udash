@@ -78,9 +78,7 @@ func ListLabels(c *gin.Context) {
 		results, totalCount, err := database.GetLabelKeyOnlyRecords(c, startTime, endTime, limit, page)
 		if err != nil {
 			logrus.Errorf("searching for labels: %s", err)
-			c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-				Err: err.Error(),
-			})
+			respondWithError(c, err)
 
 			return
 		}
@@ -96,9 +94,7 @@ func ListLabels(c *gin.Context) {
 		results, totalCount, err := database.GetLabelRecords(c, id, key, value, startTime, endTime, limit, page)
 		if err != nil {
 			logrus.Errorf("searching for labels: %s", err)
-			c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-				Err: err.Error(),
-			})
+			respondWithError(c, err)
 
 			return
 		}
@@ -172,9 +168,7 @@ func SearchLabels(c *gin.Context) {
 		)
 		if err != nil {
 			logrus.Errorf("searching for labels: %s", err)
-			c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-				Err: err.Error(),
-			})
+			respondWithError(c, err)
 
 			return
 		}
@@ -198,9 +192,7 @@ func SearchLabels(c *gin.Context) {
 			queryParams.Page)
 		if err != nil {
 			logrus.Errorf("searching for labels: %s", err)
-			c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-				Err: err.Error(),
-			})
+			respondWithError(c, err)
 
 			return
 		}

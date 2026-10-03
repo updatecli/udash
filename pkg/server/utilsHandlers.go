@@ -3,10 +3,26 @@ package server
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/updatecli/udash/pkg/database"
 )
+
+// respondWithError answers a request which failed for the given error.
+//
+// An error caused by the request parameters is returned to the caller, so that they know
+// what to fix. Anything else may carry SQL or driver details, which are only meant for the
+// logs, so the caller gets a generic message instead.
+func respondWithError(c *gin.Context, err error) {
+	if errors.Is(err, database.ErrInvalidParameter) {
+		c.JSON(http.StatusBadRequest, DefaultResponseModel{Err: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusInternalServerError, DefaultResponseModel{Err: ErrInternal})
+}
 
 // getPaginationParamFromURLQuery sanitizes and retrieves pagination parameters from the request context.
 // It returns the limit and page values, or an error if the parameters are invalid.

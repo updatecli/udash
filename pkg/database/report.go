@@ -450,7 +450,7 @@ func SearchReportsSummary(params ReportSummaryParams) ([]ReportResultSummaryEntr
 	}
 
 	if !granularity.IsValid() {
-		return nil, 0, fmt.Errorf("unsupported granularity %q", params.Granularity)
+		return nil, 0, fmt.Errorf("%w: unsupported granularity %q", ErrInvalidParameter, params.Granularity)
 	}
 
 	firstBucket, lastBucket, err := summaryRange(params, granularity)
@@ -997,7 +997,7 @@ func applyResourceConfigFilter(query *bob.BaseQuery[*dialect.SelectQuery], id, k
 
 	// Ensure resource id is a valid UUID
 	if _, err := uuid.Parse(id); err != nil {
-		return fmt.Errorf("parsing %sID: %w", kind, err)
+		return fmt.Errorf("%w: parsing %sID: %w", ErrInvalidParameter, kind, err)
 	}
 
 	query.Apply(

@@ -82,9 +82,7 @@ func SearchSCMs(c *gin.Context) {
 	rows, totalCount, err := getSCMRows(c, queryParams)
 	if err != nil {
 		logrus.Errorf("searching for scms: %s", err)
-		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-			Err: err.Error(),
-		})
+		respondWithError(c, err)
 
 		return
 	}
@@ -172,9 +170,7 @@ func ListSCMs(c *gin.Context) {
 	})
 	if err != nil {
 		logrus.Errorf("searching for scms: %s", err)
-		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-			Err: err.Error(),
-		})
+		respondWithError(c, err)
 
 		return
 	}
@@ -260,9 +256,7 @@ func findSCMSummary(c *gin.Context, params findSCMSummaryParams) {
 	})
 	if err != nil {
 		logrus.Errorf("getting scm summary failed: %s", err)
-		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-			Err: err.Error(),
-		})
+		respondWithError(c, err)
 		return
 	}
 

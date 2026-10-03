@@ -79,9 +79,7 @@ func SearchOpenActions(c *gin.Context) {
 	)
 	if err != nil {
 		logrus.Errorf("searching for open actions: %s", err)
-		c.JSON(http.StatusInternalServerError, DefaultResponseModel{
-			Err: err.Error(),
-		})
+		respondWithError(c, err)
 		return
 	}
 

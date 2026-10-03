@@ -75,7 +75,7 @@ func GetLabelKeyOnlyRecords(ctx context.Context, startTime, endTime string, limi
 	if err = DB.QueryRow(ctx, totalQueryString, totalArgs...).Scan(
 		&totalCount,
 	); err != nil {
-		logrus.Errorf("parsing total count result: %s", err)
+		return nil, 0, fmt.Errorf("counting results: %w", err)
 	}
 
 	applyPagination(&query, limit, page)
@@ -165,7 +165,7 @@ func GetLabelRecords(ctx context.Context, id, key, value, startTime, endTime str
 	if err = DB.QueryRow(ctx, totalQueryString, totalArgs...).Scan(
 		&totalCount,
 	); err != nil {
-		logrus.Errorf("parsing total count result: %s", err)
+		return nil, 0, fmt.Errorf("counting results: %w", err)
 	}
 
 	applyPagination(&query, limit, page)

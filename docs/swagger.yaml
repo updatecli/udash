@@ -85,7 +85,8 @@ definitions:
       repository:
         description: |-
           Repository is the url of the git repository of the first target of the action carrying
-          an scm, as reported by its most recent pipeline. It is empty when none does.
+          an scm, as reported by its most recent pipeline. It falls back to the first target of
+          that pipeline carrying one, and is empty when none does.
         type: string
       title:
         description: Title is the title of the action, as reported by its most recent
@@ -1265,6 +1266,17 @@ paths:
       summary: Landing page
       tags:
       - Landing
+  /api/about:
+    get:
+      description: Get version information of the API
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.AboutResponseModel'
+      summary: About the API
+      tags:
+      - About
   /api/ping:
     get:
       description: Ping the API to check if it's running
