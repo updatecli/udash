@@ -312,11 +312,9 @@ func summarizeSCMs(params GetSCMSummaryParams, scmIDs []uuid.UUID, summaries map
 
 	if len(params.Labels) > 0 {
 		if err := applyLabelFilter(labelFilterParams{
-			Ctx:       params.Ctx,
-			Query:     &filteredReports,
-			Labels:    params.Labels,
-			StartTime: params.StartTime,
-			EndTime:   params.EndTime,
+			Ctx:    params.Ctx,
+			Query:  &filteredReports,
+			Labels: params.Labels,
 		}); err != nil {
 			return fmt.Errorf("applying label filter: %w", err)
 		}

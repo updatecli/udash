@@ -12,13 +12,11 @@ import (
 	"github.com/stephenafamo/bob/dialect/psql/sm"
 )
 
-// labelFilterParams holds parameters for applying a date range filter to a query.
+// labelFilterParams holds parameters for applying a label filter to a query.
 type labelFilterParams struct {
-	Query     *bob.BaseQuery[*dialect.SelectQuery]
-	Labels    map[string]string
-	StartTime string
-	EndTime   string
-	Ctx       context.Context
+	Query  *bob.BaseQuery[*dialect.SelectQuery]
+	Labels map[string]string
+	Ctx    context.Context
 }
 
 func applyLabelFilter(params labelFilterParams) error {
@@ -38,16 +36,11 @@ func applyLabelFilter(params labelFilterParams) error {
 			continue
 		}
 
-		results, totalCounts, err := GetLabelRecords(
-			params.Ctx,
-			"",
-			key,
-			value,
-			params.StartTime,
-			params.EndTime,
-			0,
-			1,
-		)
+		// The lookup is not bounded in time: last_pipeline_report_at only holds the
+		// latest report carrying the label, so a window ending before it would hide a
+		// label whose older reports are in range. The query being filtered already
+		// applies its own time range.
+		results, totalCounts, err := GetLabelRecords(params.Ctx, "", key, value, "", "", 0, 1)
 		if err != nil {
 			// Not a problem with the request, so it is reported alone rather than
 			// alongside the others, which would hand it to the caller.

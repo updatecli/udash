@@ -127,11 +127,9 @@ func SearchLatestReports(params SearchLatestReportsParams) ([]SearchLatestReport
 
 	if len(params.Labels) > 0 {
 		err := applyLabelFilter(labelFilterParams{
-			Query:     &query,
-			Labels:    params.Labels,
-			StartTime: params.StartTime,
-			EndTime:   params.EndTime,
-			Ctx:       params.Ctx,
+			Query:  &query,
+			Labels: params.Labels,
+			Ctx:    params.Ctx,
 		})
 		if err != nil {
 			return nil, 0, err
@@ -490,22 +488,10 @@ func SearchReportsSummary(params ReportSummaryParams) ([]ReportResultSummaryEntr
 	applyOpenActionFilter(&query, params.OpenAction)
 
 	if len(params.Labels) > 0 {
-		// The report window is widened to whole buckets so the label lookup must cover
-		// the same range, otherwise labels timestamped within the widened part would be
-		// missed and their reports silently dropped. An empty range keeps the lookup
-		// unbounded, as SearchLatestReports does.
-		labelStartTime, labelEndTime := "", ""
-		if params.StartTime != "" || params.EndTime != "" {
-			labelStartTime = firstBucket.Format(timeRangeLayout)
-			labelEndTime = nextBucket(lastBucket, granularity).Format(timeRangeLayout)
-		}
-
 		if err := applyLabelFilter(labelFilterParams{
-			Ctx:       params.Ctx,
-			Query:     &query,
-			Labels:    params.Labels,
-			StartTime: labelStartTime,
-			EndTime:   labelEndTime,
+			Ctx:    params.Ctx,
+			Query:  &query,
+			Labels: params.Labels,
 		}); err != nil {
 			return nil, 0, fmt.Errorf("applying label filter: %w", err)
 		}
