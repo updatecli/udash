@@ -138,6 +138,11 @@ func GetLabelRecords(ctx context.Context, id, key, value, startTime, endTime str
 	}
 
 	if id != "" {
+		// Checked here, since postgres would otherwise reject it as an internal error.
+		if _, err := uuid.Parse(id); err != nil {
+			return nil, 0, fmt.Errorf("%w: parsing label id %q: %w", ErrInvalidParameter, id, err)
+		}
+
 		query.Apply(
 			sm.Where(psql.Quote("id").EQ(psql.Arg(id))),
 		)
