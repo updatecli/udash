@@ -76,3 +76,66 @@ func TestSearchLatestReportsLabelFilterWithPastTimeRange(t *testing.T) {
 	})
 	assert.ErrorIs(t, err, ErrInvalidParameter)
 }
+
+// Listing labels for a range returns the labels carried by the reports within it, even
+// when they were used again since.
+func TestListLabelsWithPastTimeRange(t *testing.T) {
+	ctx := context.Background()
+
+	postgresContainer, err := test.SetupDatabase(t, ctx)
+	require.NoError(t, err)
+
+	dbURL, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
+	require.NoError(t, err)
+
+	require.NoError(t, Connect(Options{URI: dbURL}))
+	require.NoError(t, RunMigrationUp())
+
+	insertReport := func(t *testing.T, labels map[string]string) string {
+		t.Helper()
+		id, err := InsertReport(ctx, reports.Report{
+			Name:       "label",
+			Result:     result.SUCCESS,
+			ID:         "label",
+			PipelineID: "label",
+			Labels:     labels,
+		}, Publisher{})
+		require.NoError(t, err)
+		return id
+	}
+
+	// The older report is backdated after being published, while env=prod keeps the
+	// timestamp of the newer one.
+	olderReportID := insertReport(t, map[string]string{"env": "prod"})
+	insertReport(t, map[string]string{"env": "prod", "team": "x"})
+
+	reportAt := time.Now().UTC().AddDate(0, 0, -10)
+	_, err = DB.Exec(ctx,
+		"UPDATE pipelineReports SET created_at = $1, updated_at = $1 WHERE id = $2",
+		reportAt, olderReportID)
+	require.NoError(t, err)
+
+	startTime := reportAt.Add(-time.Hour).Format(timeRangeLayout)
+	endTime := reportAt.Add(time.Hour).Format(timeRangeLayout)
+
+	labels, total, err := GetLabelRecords(ctx, "", "env", "", startTime, endTime, 0, 1)
+	require.NoError(t, err)
+	assert.Equal(t, 1, total)
+	require.Len(t, labels, 1)
+	assert.Equal(t, "prod", labels[0].Value)
+
+	keys, total, err := GetLabelKeyOnlyRecords(ctx, startTime, endTime, 0, 1)
+	require.NoError(t, err)
+	assert.Equal(t, 1, total)
+	assert.Equal(t, []string{"env"}, keys)
+
+	emptyStart := reportAt.AddDate(0, 0, -5).Format(timeRangeLayout)
+	emptyEnd := reportAt.AddDate(0, 0, -4).Format(timeRangeLayout)
+	labels, total, err = GetLabelRecords(ctx, "", "", "", emptyStart, emptyEnd, 0, 1)
+	require.NoError(t, err)
+	assert.Equal(t, 0, total)
+	assert.Empty(t, labels)
+
+	_, _, err = GetLabelRecords(ctx, "", "env", "", startTime, "", 0, 1)
+	assert.ErrorIs(t, err, ErrInvalidParameter)
+}
