@@ -8,7 +8,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/updatecli/udash/pkg/model"
 
+	"github.com/stephenafamo/bob"
 	"github.com/stephenafamo/bob/dialect/psql"
+	"github.com/stephenafamo/bob/dialect/psql/dialect"
 	"github.com/stephenafamo/bob/dialect/psql/im"
 	"github.com/stephenafamo/bob/dialect/psql/sm"
 )
@@ -43,6 +45,34 @@ func InsertLabel(ctx context.Context, key, value string) (string, error) {
 	return id.String(), nil
 }
 
+// applyLabelUsedInRangeFilter restricts the given labels query to the labels carried by
+// at least one report updated within the range described by startTime and endTime. Without
+// a range, no restriction applies.
+//
+// last_pipeline_report_at is not used for this, since it only holds the latest report
+// carrying the label: a label used within a past range, and again since, would be missed.
+func applyLabelUsedInRangeFilter(query *bob.BaseQuery[*dialect.SelectQuery], startTime, endTime string) error {
+	startTimeUTC, endTimeUTC, err := resolveTimeRange(0, startTime, endTime)
+	if err != nil {
+		return err
+	}
+
+	if startTimeUTC.IsZero() && endTimeUTC.IsZero() {
+		return nil
+	}
+
+	query.Apply(
+		sm.Where(
+			psql.Raw(
+				"id IN (SELECT DISTINCT unnest(label_ids) FROM pipelineReports WHERE updated_at >= ? AND updated_at < ?)",
+				startTimeUTC, endTimeUTC,
+			),
+		),
+	)
+
+	return nil
+}
+
 // GetLabelKeyOnlyRecords returns a list of labels from the labels database table.
 func GetLabelKeyOnlyRecords(ctx context.Context, startTime, endTime string, limit, page int) ([]string, int, error) {
 
@@ -53,15 +83,8 @@ func GetLabelKeyOnlyRecords(ctx context.Context, startTime, endTime string, limi
 		sm.Distinct("key"),
 	)
 
-	if err := applyRangeFilter(
-		"last_pipeline_report_at",
-		dateRangeFilterParams{
-			Query:         &query,
-			DateRangeDays: 0,
-			StartTime:     startTime,
-			EndTime:       endTime,
-		}); err != nil {
-		return nil, 0, fmt.Errorf("applying last_pipeline_report_at range filter: %w", err)
+	if err := applyLabelUsedInRangeFilter(&query, startTime, endTime); err != nil {
+		return nil, 0, fmt.Errorf("applying label usage range filter: %w", err)
 	}
 
 	totalCount := 0
@@ -148,15 +171,8 @@ func GetLabelRecords(ctx context.Context, id, key, value, startTime, endTime str
 		)
 	}
 
-	if err := applyRangeFilter(
-		"last_pipeline_report_at",
-		dateRangeFilterParams{
-			Query:         &query,
-			DateRangeDays: 0,
-			StartTime:     startTime,
-			EndTime:       endTime,
-		}); err != nil {
-		return nil, 0, fmt.Errorf("applying last_pipeline_report_at range filter: %w", err)
+	if err := applyLabelUsedInRangeFilter(&query, startTime, endTime); err != nil {
+		return nil, 0, fmt.Errorf("applying label usage range filter: %w", err)
 	}
 
 	totalCount := 0
