@@ -86,6 +86,15 @@ func configTableName(resourceType string) (string, error) {
 	}
 }
 
+// validateConfigFilter reports a config filter which is not a json document as an invalid
+// parameter, rather than letting the database reject it as a failed query.
+func validateConfigFilter(config string) error {
+	if !json.Valid([]byte(config)) {
+		return fmt.Errorf("%w: config filter %q is not valid json", ErrInvalidParameter, config)
+	}
+	return nil
+}
+
 // findConfigIDs returns the ids of the stored configs of a resource type matching kind and
 // config, a json document. It returns two ids at most.
 //
@@ -245,6 +254,9 @@ func GetSourceConfigs(ctx context.Context, kind, id, config string, limit, page 
 	}
 
 	if config != "" {
+		if err := validateConfigFilter(config); err != nil {
+			return nil, 0, err
+		}
 		query.Apply(
 			sm.Where(psql.Raw("config @> ?", config)),
 		)
@@ -338,6 +350,9 @@ func GetConditionConfigs(ctx context.Context, kind, id, config string, limit, pa
 	}
 
 	if config != "" {
+		if err := validateConfigFilter(config); err != nil {
+			return nil, 0, err
+		}
 		query.Apply(
 			sm.Where(psql.Raw("config @> ?", config)),
 		)
@@ -433,6 +448,9 @@ func GetTargetConfigs(ctx context.Context, kind, id, config string, limit, page 
 	}
 
 	if config != "" {
+		if err := validateConfigFilter(config); err != nil {
+			return nil, 0, err
+		}
 		query.Apply(
 			sm.Where(psql.Raw("config @> ?", config)),
 		)
