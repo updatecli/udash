@@ -89,11 +89,9 @@ func SearchOpenActions(params SearchOpenActionsParams) ([]OpenActionData, int, e
 
 	if len(params.Labels) > 0 {
 		if err := applyLabelFilter(labelFilterParams{
-			Ctx:       params.Ctx,
-			Query:     &filteredReports,
-			Labels:    params.Labels,
-			StartTime: params.StartTime,
-			EndTime:   params.EndTime,
+			Ctx:    params.Ctx,
+			Query:  &filteredReports,
+			Labels: params.Labels,
 		}); err != nil {
 			return nil, 0, fmt.Errorf("applying label filter: %w", err)
 		}
