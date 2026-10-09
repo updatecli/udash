@@ -501,7 +501,7 @@ func TestDatabase(t *testing.T) {
 		// search only keeps the actions seeded here, other tests share the database.
 		search := func(results []string) map[string]OpenActionData {
 			t.Helper()
-			data, totalCount, err := SearchOpenActions(SearchOpenActionsParams{
+			data, totalCount, _, err := SearchOpenActions(SearchOpenActionsParams{
 				Ctx:     ctx,
 				Results: results,
 				Options: ReportSearchOptions{Days: 1},
@@ -590,7 +590,7 @@ func TestDatabase(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, scms, 1)
 
-			byScm, totalCount, err := SearchOpenActions(SearchOpenActionsParams{
+			byScm, totalCount, _, err := SearchOpenActions(SearchOpenActionsParams{
 				Ctx:     ctx,
 				ScmID:   scms[0].ID.String(),
 				Options: ReportSearchOptions{Days: 1},
