@@ -256,4 +256,37 @@ func TestGarbageCollect(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, s.want, run)
 	})
+
+	t.Run("deletes the action acknowledgements expired before the retention", func(t *testing.T) {
+		t.Cleanup(func() {
+			_, err := DB.Exec(ctx, "DELETE FROM action_acks")
+			require.NoError(t, err)
+		})
+
+		acknowledged := map[string]time.Time{
+			"https://example.com/expired-long-ago": old,
+			"https://example.com/expired-recently": recent,
+			"https://example.com/still-running":    now.AddDate(0, 0, 7),
+		}
+		for url, until := range acknowledged {
+			require.NoError(t, AcknowledgeAction(ctx, url, until, result.SUCCESS, ""))
+		}
+
+		run, err := GarbageCollect(ctx, GCParams{MaxHistoryDays: maxHistoryDays, BatchSize: 5000})
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), run.ActionAcks)
+
+		urls := []string{}
+		rows, err := DB.Query(ctx, "SELECT url FROM action_acks ORDER BY url")
+		require.NoError(t, err)
+		defer rows.Close()
+		for rows.Next() {
+			url := ""
+			require.NoError(t, rows.Scan(&url))
+			urls = append(urls, url)
+		}
+		require.NoError(t, rows.Err())
+
+		assert.Equal(t, []string{"https://example.com/expired-recently", "https://example.com/still-running"}, urls)
+	})
 }
