@@ -113,6 +113,20 @@ func publicReadOnly(auth gin.HandlerFunc) gin.HandlerFunc {
 	}
 }
 
+// registerActionAckRoutes registers the acknowledgement routes on group. When
+// authenticated is true, group must already authenticate its requests, and the routes
+// require a signed-in viewer even on a public instance, since an acknowledgement changes
+// what every viewer sees.
+func registerActionAckRoutes(group gin.IRoutes, authenticated bool) {
+	guard := []gin.HandlerFunc{}
+	if authenticated {
+		guard = append(guard, requirePermission(PermissionViewer))
+	}
+
+	group.PUT("/actions/ack", append(guard, AcknowledgeAction)...)
+	group.DELETE("/actions/ack", append(guard, UnacknowledgeAction)...)
+}
+
 func newGinEngine(opts Options) (*gin.Engine, error) {
 	r := gin.Default()
 
@@ -236,6 +250,8 @@ func newGinEngine(opts Options) (*gin.Engine, error) {
 	if auth != nil {
 		write = append(write, requireScope(ScopeReportsWrite))
 	}
+
+	registerActionAckRoutes(apiPipeline, auth != nil)
 
 	apiPipeline.POST("/reports", append(write, CreatePipelineReport)...)
 	apiPipeline.PUT("/reports/:id", append(write, UpdatePipelineReport)...)

@@ -39,12 +39,13 @@ type GCResult struct {
 	ConfigSources    int64
 	ConfigConditions int64
 	ConfigTargets    int64
+	ActionAcks       int64
 }
 
 func (r GCResult) String() string {
 	return fmt.Sprintf(
-		"%d reports, %d scms, %d labels, %d config sources, %d config conditions, %d config targets",
-		r.Reports, r.SCMs, r.Labels, r.ConfigSources, r.ConfigConditions, r.ConfigTargets,
+		"%d reports, %d scms, %d labels, %d config sources, %d config conditions, %d config targets, %d action acknowledgements",
+		r.Reports, r.SCMs, r.Labels, r.ConfigSources, r.ConfigConditions, r.ConfigTargets, r.ActionAcks,
 	)
 }
 
@@ -121,10 +122,18 @@ var gcTables = []gcTable{
 		stale:  unreferenced("t.updated_at", "r.config_target_ids ? t.id::text"),
 		result: func(r *GCResult) *int64 { return &r.ConfigTargets },
 	},
+	{
+		// An expired acknowledgement no longer hides anything, but it is kept for the
+		// report retention period as a record of who handled the action.
+		name:   "action_acks",
+		stale:  "t.until < $1",
+		result: func(r *GCResult) *int64 { return &r.ActionAcks },
+	},
 }
 
 // GarbageCollect deletes the reports older than the retention, then the scms, labels
-// and resource configs no remaining report references.
+// and resource configs no remaining report references, and the action acknowledgements
+// that expired before the retention cutoff.
 //
 // Only one garbage collection deletes at a time across every udash instance sharing
 // the database, the others return ErrGCLocked. A dry run does not take the lock.

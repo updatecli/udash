@@ -1100,6 +1100,116 @@ func TestEndpoints(t *testing.T) {
 			assert.Equal(t, "https://example.com/testing/pull/42", scoped.Data[0].URL)
 			require.Len(t, scoped.Data[0].Pipelines, 1)
 			assert.Equal(t, successWithOpenPR, scoped.Data[0].Pipelines[0].ID)
+
+			t.Run("acknowledged", func(t *testing.T) {
+				t.Cleanup(func() {
+					_, err := database.DB.Exec(ctx, "DELETE FROM action_acks")
+					require.NoError(t, err)
+				})
+
+				type acknowledgedSearch struct {
+					Data []struct {
+						URL             string `json:"url"`
+						Acknowledgement *struct {
+							Until time.Time `json:"until"`
+							By    string    `json:"by"`
+						} `json:"acknowledgement"`
+					} `json:"data"`
+					TotalCount        int `json:"total_count"`
+					AcknowledgedCount int `json:"acknowledged_count"`
+				}
+
+				search := func(t *testing.T, acknowledged bool) acknowledgedSearch {
+					t.Helper()
+					blob := acknowledgedSearch{}
+					resp := doPostRequest(t, srv, "/api/pipeline/actions/search", map[string]any{"acknowledged": acknowledged})
+					defer resp.Body.Close()
+					require.Equal(t, http.StatusOK, resp.StatusCode)
+					require.NoError(t, json.NewDecoder(resp.Body).Decode(&blob))
+					return blob
+				}
+
+				urls := func(blob acknowledgedSearch) []string {
+					found := []string{}
+					for _, action := range blob.Data {
+						found = append(found, action.URL)
+					}
+					return found
+				}
+
+				acknowledge := func(t *testing.T, body map[string]any) int {
+					t.Helper()
+					status, _ := doJSON(t, http.MethodPut, srv.URL+"/api/pipeline/actions/ack", "", body)
+					return status
+				}
+
+				pr42 := "https://example.com/testing/pull/42"
+				pr43 := "https://example.com/testing/pull/43"
+
+				// Both pipelines feeding the pull request succeeded, so its worst result is ✔.
+				require.Equal(t, http.StatusNoContent, acknowledge(t, map[string]any{"url": pr42, "days": 7, "result": "✔"}))
+
+				open := search(t, false)
+				assert.Equal(t, []string{pr43}, urls(open))
+				assert.Equal(t, 1, open.TotalCount)
+				assert.Equal(t, 1, open.AcknowledgedCount)
+
+				acknowledged := search(t, true)
+				assert.Equal(t, []string{pr42}, urls(acknowledged))
+				assert.Equal(t, 1, acknowledged.TotalCount)
+				require.NotNil(t, acknowledged.Data[0].Acknowledgement)
+				assert.WithinDuration(t, time.Now().AddDate(0, 0, 7), acknowledged.Data[0].Acknowledgement.Until, time.Minute)
+				assert.Empty(t, acknowledged.Data[0].Acknowledgement.By, "nobody is signed in without authentication")
+
+				t.Run("comes back once its worst result changes", func(t *testing.T) {
+					// The pipeline of the second manifest now fails.
+					failingID, err := database.InsertReport(ctx, reports.Report{
+						Name:       "second manifest of the same pull request",
+						Result:     "✗",
+						ID:         "second manifest of the same pull request",
+						PipelineID: "venom",
+						Actions: map[string]*reports.Action{
+							"default": {ID: "default", Title: "Bump venom", Link: pr42},
+						},
+					}, database.Publisher{})
+					require.NoError(t, err)
+
+					open := search(t, false)
+					assert.Equal(t, []string{pr42, pr43}, urls(open))
+					assert.Equal(t, 0, open.AcknowledgedCount)
+
+					// The acknowledgement is kept and applies again once the result is back to ✔.
+					deleteReport(t, failingID)
+					assert.Equal(t, []string{pr43}, urls(search(t, false)))
+				})
+
+				t.Run("comes back once it expires", func(t *testing.T) {
+					_, err := database.DB.Exec(ctx, "UPDATE action_acks SET until = $1", time.Now().UTC().Add(-time.Minute))
+					require.NoError(t, err)
+
+					open := search(t, false)
+					assert.Equal(t, []string{pr42, pr43}, urls(open))
+					assert.Equal(t, 0, open.AcknowledgedCount)
+				})
+
+				t.Run("comes back once unacknowledged", func(t *testing.T) {
+					require.Equal(t, http.StatusNoContent, acknowledge(t, map[string]any{"url": pr42, "days": 1, "result": "✔"}))
+					assert.Equal(t, []string{pr43}, urls(search(t, false)))
+
+					status, _ := doJSON(t, http.MethodDelete, srv.URL+"/api/pipeline/actions/ack?url="+url.QueryEscape(pr42), "", nil)
+					require.Equal(t, http.StatusNoContent, status)
+					assert.Equal(t, []string{pr42, pr43}, urls(search(t, false)))
+				})
+
+				t.Run("rejects what it cannot acknowledge", func(t *testing.T) {
+					assert.Equal(t, http.StatusBadRequest, acknowledge(t, map[string]any{"url": pr42, "days": 3, "result": "✔"}))
+					assert.Equal(t, http.StatusBadRequest, acknowledge(t, map[string]any{"url": pr42, "days": 7, "result": "ok"}))
+					assert.Equal(t, http.StatusBadRequest, acknowledge(t, map[string]any{"days": 7, "result": "✔"}))
+
+					status, _ := doJSON(t, http.MethodDelete, srv.URL+"/api/pipeline/actions/ack", "", nil)
+					assert.Equal(t, http.StatusBadRequest, status)
+				})
+			})
 		})
 
 		t.Run("POST /api/pipeline/scms/search", func(t *testing.T) {

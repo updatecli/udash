@@ -55,6 +55,98 @@
                 }
             }
         },
+        "/api/pipeline/actions/ack": {
+            "put": {
+                "description": "Leave an open action out of the search for a number of days, or until the worst result of its pipelines is no longer the given one",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Pipeline Actions"
+                ],
+                "summary": "Acknowledge an open action",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Bring an acknowledged open action back in the search",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Pipeline Actions"
+                ],
+                "summary": "Unacknowledge an open action",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Link of the action",
+                        "name": "url",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    }
+                }
+            }
+        },
         "/api/pipeline/actions/search": {
             "post": {
                 "description": "Search the actions left open by the latest report of every pipeline, one entry per action URL along with the pipelines feeding it",
@@ -1315,9 +1407,30 @@
                 }
             }
         },
+        "database.OpenActionAcknowledgement": {
+            "type": "object",
+            "properties": {
+                "by": {
+                    "description": "By is who acknowledged the action. It is empty when authentication is off.",
+                    "type": "string"
+                },
+                "until": {
+                    "description": "Until is when the acknowledgement expires. It lifts earlier if the worst result changes.",
+                    "type": "string"
+                }
+            }
+        },
         "database.OpenActionData": {
             "type": "object",
             "properties": {
+                "acknowledgement": {
+                    "description": "Acknowledgement is only set on acknowledged actions, which the search returns\nwhen SearchOpenActionsParams.Acknowledged is true.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/database.OpenActionAcknowledgement"
+                        }
+                    ]
+                },
                 "branch": {
                     "description": "Branch is the target branch of that same scm, which the pull request is merged into.",
                     "type": "string"
@@ -2319,6 +2432,10 @@
         "server.SearchOpenActionsResponse": {
             "type": "object",
             "properties": {
+                "acknowledged_count": {
+                    "description": "AcknowledgedCount counts the acknowledged actions, whatever the request asked for.",
+                    "type": "integer"
+                },
                 "data": {
                     "type": "array",
                     "items": {
@@ -2326,6 +2443,7 @@
                     }
                 },
                 "total_count": {
+                    "description": "TotalCount counts the actions matching the request, across every page.",
                     "type": "integer"
                 }
             }

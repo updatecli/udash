@@ -70,8 +70,25 @@ definitions:
           $ref: '#/definitions/transformer.Transformer'
         type: array
     type: object
+  database.OpenActionAcknowledgement:
+    properties:
+      by:
+        description: By is who acknowledged the action. It is empty when authentication
+          is off.
+        type: string
+      until:
+        description: Until is when the acknowledgement expires. It lifts earlier if
+          the worst result changes.
+        type: string
+    type: object
   database.OpenActionData:
     properties:
+      acknowledgement:
+        allOf:
+        - $ref: '#/definitions/database.OpenActionAcknowledgement'
+        description: |-
+          Acknowledgement is only set on acknowledged actions, which the search returns
+          when SearchOpenActionsParams.Acknowledged is true.
       branch:
         description: Branch is the target branch of that same scm, which the pull
           request is merged into.
@@ -819,11 +836,17 @@ definitions:
     type: object
   server.SearchOpenActionsResponse:
     properties:
+      acknowledged_count:
+        description: AcknowledgedCount counts the acknowledged actions, whatever the
+          request asked for.
+        type: integer
       data:
         items:
           $ref: '#/definitions/database.OpenActionData'
         type: array
       total_count:
+        description: TotalCount counts the actions matching the request, across every
+          page.
         type: integer
     type: object
   server.SearchPipelineReportsSummaryRequest:
@@ -1288,6 +1311,68 @@ paths:
       summary: Ping the API
       tags:
       - Ping
+  /api/pipeline/actions/ack:
+    delete:
+      description: Bring an acknowledged open action back in the search
+      parameters:
+      - description: Link of the action
+        in: query
+        name: url
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: Unacknowledge an open action
+      tags:
+      - Pipeline Actions
+    put:
+      consumes:
+      - application/json
+      description: Leave an open action out of the search for a number of days, or
+        until the worst result of its pipelines is no longer the given one
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: Acknowledge an open action
+      tags:
+      - Pipeline Actions
   /api/pipeline/actions/search:
     post:
       consumes:
