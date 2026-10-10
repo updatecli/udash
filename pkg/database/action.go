@@ -328,7 +328,7 @@ func SearchOpenActions(params SearchOpenActionsParams) ([]OpenActionData, int, i
 }
 
 // worstResultExpr selects the worst latest result among the pipelines feeding an action,
-// ranked by ActionResults. An unrecognised result is ranked and returned as ResultUnknown.
+// ranked by ActionResults. An unrecognized result is ranked and returned as ResultUnknown.
 //
 // The results are passed as arguments because bob treats "?" in raw SQL as a placeholder.
 func worstResultExpr() psql.Expression {
@@ -354,7 +354,7 @@ func worstResultExpr() psql.Expression {
 	), args...)
 }
 
-// ResultUnknown replaces any result Udash does not recognise.
+// ResultUnknown replaces any result Udash does not recognize.
 const ResultUnknown = "?"
 
 // ActionResults lists the results an action can be acknowledged with, worst first:
