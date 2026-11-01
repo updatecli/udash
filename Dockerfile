@@ -6,7 +6,7 @@
 #  needs CA certificates, which distroless provides, and no shell or package manager.
 #  The base is not pinned to the build platform: nothing runs at build time anymore, and
 #  pinning it gave the arm64 image an amd64 base.
-FROM gcr.io/distroless/static-debian13:latest@sha256:15f8637509792e05b97d83451b0b6ccfa4abd548f997e406ac1e72c87fe1fa78
+FROM gcr.io/distroless/static-debian13:latest@sha256:448810357cc8e67b7208988abdba0f5ec3d3aebee0a5b13eb624979792cffc0f
 
 LABEL maintainer="Olivier Vernin <me@olblak.com>"
 
