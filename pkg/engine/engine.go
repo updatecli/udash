@@ -3,6 +3,9 @@ package engine
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/updatecli/udash/pkg/database"
 	"github.com/updatecli/udash/pkg/gc"
@@ -19,14 +22,19 @@ type Engine struct {
 	Options Options
 }
 
+// Start runs the server until it receives SIGINT or SIGTERM.
 func (e *Engine) Start() error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	if err := e.Options.GC.Init(); err != nil {
 		return fmt.Errorf("garbage collector options: %w", err)
 	}
 
-	if err := database.Connect(e.Options.Database); err != nil {
+	if err := database.Connect(ctx, e.Options.Database); err != nil {
 		return fmt.Errorf("connecting to database: %w", err)
 	}
+	defer database.DB.Close()
 
 	if !e.Options.Database.MigrationDisabled {
 		if err := database.RunMigrationUp(); err != nil {
@@ -34,13 +42,13 @@ func (e *Engine) Start() error {
 		}
 	}
 
-	go gc.Run(context.Background(), e.Options.GC)
+	go gc.Run(ctx, e.Options.GC)
 
 	s := server.Server{
 		Options: e.Options.Server,
 	}
 
-	return s.Run()
+	return s.Run(ctx)
 }
 
 // GarbageCollect runs a single garbage collection, outside of the server.
@@ -57,7 +65,7 @@ func (e *Engine) GarbageCollect(ctx context.Context, dryRun bool) (database.GCRe
 		return database.GCResult{}, gc.ErrDisabled
 	}
 
-	if err := database.Connect(e.Options.Database); err != nil {
+	if err := database.Connect(ctx, e.Options.Database); err != nil {
 		return database.GCResult{}, fmt.Errorf("connecting to database: %w", err)
 	}
 

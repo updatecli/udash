@@ -36,9 +36,6 @@ and simply records the endpoint in the Updatecli configuration file.
 Please be aware that the UI is designed to visualize pipelines per git repository, so without an
 `scmid` pipelines will be hard to discover.
 
-INFO: You may have to run `docker compose restart server` if the postgresql database
- wasn't ready in time to receive connections when the Udash server started.
-
 Don't worry if you don't have any Updatecli manifest yet, you can still try the demo by using the Updatecli policies used by this Git repository.
 For that you need Updatecli and GitHub access token to interact with the GitHub API.
 
@@ -155,6 +152,8 @@ database:
   uri: "postgres://udash:password@db:5432/udash?sslmode=disable"
   # migrationdisabled skips the schema migrations run at startup
   migrationdisabled: false
+  # connecttimeout is how long to wait for the database at startup
+  connecttimeout: 2m
 gc:
   # maxHistoryDays is how many days of reports are kept, see "Data retention".
   # 0, the default, keeps everything.

@@ -29,10 +29,18 @@ func TestDatabase(t *testing.T) {
 	dbURL, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
 
-	require.NoError(t, Connect(Options{URI: dbURL}))
+	require.NoError(t, Connect(ctx, Options{URI: dbURL}))
 	t.Log("Postgres Container connected")
 	require.NoError(t, RunMigrationUp())
 	t.Log("Postgres Container migrations run")
+
+	t.Run("Connect fails right away on wrong credentials", func(t *testing.T) {
+		start := time.Now()
+		err := Connect(ctx, Options{URI: strings.Replace(dbURL, ":password@", ":wrong@", 1), ConnectTimeout: time.Minute})
+		require.Error(t, err)
+		assert.Less(t, time.Since(start), 10*time.Second)
+		assert.Equal(t, dbURL, URI, "a failed Connect must not change the URI in use")
+	})
 
 	t.Run("truncateToBucket matches date_trunc", func(t *testing.T) {
 		// The summary zero fills its buckets from truncateToBucket while the counted

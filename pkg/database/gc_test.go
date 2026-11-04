@@ -30,7 +30,7 @@ func TestGarbageCollect(t *testing.T) {
 	dbURL, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
 
-	require.NoError(t, Connect(Options{URI: dbURL}))
+	require.NoError(t, Connect(ctx, Options{URI: dbURL}))
 	require.NoError(t, RunMigrationUp())
 
 	// Every garbage collection below keeps 30 days of reports. The seeded rows are far

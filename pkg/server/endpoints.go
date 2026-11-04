@@ -81,7 +81,7 @@ func About(c *gin.Context) {
 // @in header
 // @name Authorization
 // @description Either an Udash API token, created from the tokens page and prefixed with "udash_pat_", or an access token from the configured identity provider. Send it as "Bearer <token>".
-func (s *Server) Run() error {
+func (s *Server) Run(ctx context.Context) error {
 	// Init Server Option
 	if err := s.Options.Init(); err != nil {
 		return fmt.Errorf("invalid server options: %w", err)
@@ -92,8 +92,7 @@ func (s *Server) Run() error {
 		return err
 	}
 
-	// listen and server on 0.0.0.0:8080
-	return r.Run()
+	return serve(ctx, &http.Server{Addr: listenAddress(), Handler: r, ReadHeaderTimeout: readHeaderTimeout}, shutdownTimeout)
 }
 
 // APIPrefix is where the versioned API is served.

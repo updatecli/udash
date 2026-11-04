@@ -37,7 +37,7 @@ func TestActionAcknowledgementAuth(t *testing.T) {
 	dbURL, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
 
-	require.NoError(t, database.Connect(database.Options{URI: dbURL}))
+	require.NoError(t, database.Connect(ctx, database.Options{URI: dbURL}))
 	require.NoError(t, database.RunMigrationUp())
 
 	body := map[string]any{"url": "https://example.com/testing/pull/42", "days": 1, "result": "✔"}

@@ -95,7 +95,7 @@ func TestAPIRouteGuards(t *testing.T) {
 				}
 				path := APIPrefix + strings.ReplaceAll(rt.path, ":id", "00000000-0000-0000-0000-000000000000")
 
-				anonymous := serve(r, rt.method, path, "")
+				anonymous := doRequest(r, rt.method, path, "")
 				if tc.open[rt.class] {
 					assert.NotContains(t, denied, anonymous, "%s %s should be open to anonymous callers", rt.method, rt.path)
 				} else {
@@ -103,7 +103,7 @@ func TestAPIRouteGuards(t *testing.T) {
 				}
 
 				if tc.auth {
-					signedIn := serve(r, rt.method, path, "session")
+					signedIn := doRequest(r, rt.method, path, "session")
 					assert.NotContains(t, denied, signedIn, "%s %s should let an admin through", rt.method, rt.path)
 				}
 			}
@@ -127,10 +127,10 @@ func TestUnversionedAPIRoutesAreGone(t *testing.T) {
 			"%s %s is served outside %s", route.Method, route.Path, APIPrefix)
 	}
 
-	assert.Equal(t, http.StatusNotFound, serve(engine, http.MethodGet, "/api/pipeline/reports", ""))
+	assert.Equal(t, http.StatusNotFound, doRequest(engine, http.MethodGet, "/api/pipeline/reports", ""))
 }
 
-func serve(h http.Handler, method, path, bearer string) int {
+func doRequest(h http.Handler, method, path, bearer string) int {
 	req := httptest.NewRequest(method, path, strings.NewReader("{}"))
 	req.Header.Set("Content-Type", "application/json")
 	if bearer != "" {

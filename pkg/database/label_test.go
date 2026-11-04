@@ -32,7 +32,7 @@ func TestSearchLatestReportsLabelFilterWithPastTimeRange(t *testing.T) {
 	dbURL, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
 
-	require.NoError(t, Connect(Options{URI: dbURL}))
+	require.NoError(t, Connect(ctx, Options{URI: dbURL}))
 	require.NoError(t, RunMigrationUp())
 
 	labels := map[string]string{"env": "prod"}
@@ -88,7 +88,7 @@ func TestListLabelsWithPastTimeRange(t *testing.T) {
 	dbURL, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
 
-	require.NoError(t, Connect(Options{URI: dbURL}))
+	require.NoError(t, Connect(ctx, Options{URI: dbURL}))
 	require.NoError(t, RunMigrationUp())
 
 	insertReport := func(t *testing.T, labels map[string]string) string {

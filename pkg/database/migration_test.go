@@ -31,7 +31,7 @@ func TestMigrationsAreReversible(t *testing.T) {
 	dbURL, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
 
-	require.NoError(t, Connect(Options{URI: dbURL}))
+	require.NoError(t, Connect(ctx, Options{URI: dbURL}))
 
 	source, err := iofs.New(fs, "migrations")
 	require.NoError(t, err)

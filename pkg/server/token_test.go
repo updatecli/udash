@@ -88,7 +88,7 @@ func TestAPITokens(t *testing.T) {
 	dbURL, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
 
-	require.NoError(t, database.Connect(database.Options{URI: dbURL}))
+	require.NoError(t, database.Connect(ctx, database.Options{URI: dbURL}))
 	require.NoError(t, database.RunMigrationUp())
 
 	publisher := Principal{Subject: "user-publisher", Name: "Pat", Permission: PermissionPublisher}
@@ -257,7 +257,7 @@ func TestReportAttribution(t *testing.T) {
 	dbURL, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
 
-	require.NoError(t, database.Connect(database.Options{URI: dbURL}))
+	require.NoError(t, database.Connect(ctx, database.Options{URI: dbURL}))
 	require.NoError(t, database.RunMigrationUp())
 
 	publisher := Principal{Subject: "user-publisher", Permission: PermissionPublisher}
@@ -297,7 +297,7 @@ func TestReportAttributionWithoutAuth(t *testing.T) {
 	dbURL, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
 
-	require.NoError(t, database.Connect(database.Options{URI: dbURL}))
+	require.NoError(t, database.Connect(ctx, database.Options{URI: dbURL}))
 	require.NoError(t, database.RunMigrationUp())
 
 	// An instance running without authentication has nobody to attribute to, and
