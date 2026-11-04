@@ -49,6 +49,7 @@ the API to a new version without keeping the previous one. The API becomes `/api
 Udash 1.0.
 
 * `/api/ping` [GET]
+* `/api/ready` [GET]
 * `/api/about` [GET]
 * `/api/v1beta1/pipeline/scms` [GET]
 * `/api/v1beta1/pipeline/reports` [GET][POST]

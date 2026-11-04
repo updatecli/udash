@@ -1472,6 +1472,21 @@ paths:
       summary: Ping the API
       tags:
       - Ping
+  /api/ready:
+    get:
+      description: Check that the API and its database are ready to serve requests
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/server.DefaultResponseModel'
+      summary: Readiness of the API
+      tags:
+      - Ping
   /api/v1beta1/pipeline/actions/ack:
     delete:
       description: Bring an acknowledged open action back in the search

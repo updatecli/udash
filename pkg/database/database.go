@@ -131,6 +131,14 @@ func isPermanent(err error) bool {
 	return false
 }
 
+// Ping reports whether the database answers.
+func Ping(ctx context.Context) error {
+	if DB == nil {
+		return errors.New("database not connected")
+	}
+	return DB.Ping(ctx)
+}
+
 func RunMigrationUp() error {
 	logrus.Debugln("Running Database migration")
 	d, err := iofs.New(fs, "migrations")

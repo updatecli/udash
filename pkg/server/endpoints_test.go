@@ -60,6 +60,13 @@ func TestEndpoints(t *testing.T) {
 		}, assert.Equal)
 	})
 
+	t.Run("GET /api/ready", func(t *testing.T) {
+		resp := doGetRequest(t, srv, "/api/ready")
+		assertJSONResponse(t, resp, map[string]any{
+			"message": "ready",
+		}, assert.Equal)
+	})
+
 	t.Run("GET /api/about", func(t *testing.T) {
 		resp := doGetRequest(t, srv, "/api/about")
 		assertJSONResponse(t, resp, map[string]any{

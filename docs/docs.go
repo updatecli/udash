@@ -63,6 +63,29 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/ready": {
+            "get": {
+                "description": "Check that the API and its database are ready to serve requests",
+                "tags": [
+                    "Ping"
+                ],
+                "summary": "Readiness of the API",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1beta1/pipeline/actions/ack": {
             "put": {
                 "description": "Leave an open action out of the search for a number of days, or until the worst result of its pipelines is no longer the given one",

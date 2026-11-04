@@ -111,7 +111,8 @@ func TestAPIRouteGuards(t *testing.T) {
 	}
 }
 
-// TestUnversionedAPIRoutesAreGone checks that the API is only served under APIPrefix.
+// TestUnversionedAPIRoutesAreGone checks that the API is only served under APIPrefix,
+// apart from the landing page and the probes.
 func TestUnversionedAPIRoutesAreGone(t *testing.T) {
 	engine, err := newGinEngine(Options{})
 	if err != nil {
@@ -119,7 +120,7 @@ func TestUnversionedAPIRoutesAreGone(t *testing.T) {
 	}
 
 	for _, route := range engine.Routes() {
-		if route.Path == "/api" || route.Path == "/api/ping" || route.Path == "/api/about" ||
+		if route.Path == "/api" || route.Path == "/api/ping" || route.Path == "/api/ready" || route.Path == "/api/about" ||
 			strings.HasPrefix(route.Path, "/swagger/") {
 			continue
 		}

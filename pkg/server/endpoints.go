@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	_ "github.com/updatecli/udash/docs"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+	"github.com/updatecli/udash/pkg/database"
 	"github.com/updatecli/udash/pkg/version"
 
 	swaggerFiles "github.com/swaggo/files"
@@ -48,6 +50,33 @@ func Landing(c *gin.Context) {
 func Ping(c *gin.Context) {
 	c.JSON(http.StatusOK, DefaultResponseModel{
 		Message: "pong",
+	})
+}
+
+// readyTimeout bounds how long Ready waits for the database.
+const readyTimeout = 2 * time.Second
+
+// Ready checks that the API can serve requests, which requires the database.
+// @Summary Readiness of the API
+// @Description Check that the API and its database are ready to serve requests
+// @Tags Ping
+// @Success 200 {object} DefaultResponseModel
+// @Failure 503 {object} DefaultResponseModel
+// @Router /api/ready [get]
+func Ready(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), readyTimeout)
+	defer cancel()
+
+	if err := database.Ping(ctx); err != nil {
+		logrus.Warningf("readiness check failed: %s", err)
+		c.JSON(http.StatusServiceUnavailable, DefaultResponseModel{
+			Err: "database unavailable",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, DefaultResponseModel{
+		Message: "ready",
 	})
 }
 
@@ -158,6 +187,7 @@ func newGinEngine(opts Options) (*gin.Engine, error) {
 
 	r.GET("/api", Landing)
 	r.GET("/api/ping", Ping)
+	r.GET("/api/ready", Ready)
 	r.GET("/api/about", About)
 
 	// auth authenticates a request against the identity provider. It stays nil when
