@@ -42,12 +42,9 @@ type WhoamiResponse struct {
 	Scopes     []string `json:"scopes,omitempty"`
 }
 
-// registerTokenRoutes wires the API token endpoints.
-//
-// They live on their own group rather than on /api/pipeline: that group is left
-// open for reads when the API is public, which must never apply here.
-func registerTokenRoutes(r *gin.Engine, auth gin.HandlerFunc) {
-	tokens := r.Group("/api/tokens", auth)
+// registerTokenRoutes wires the API token endpoints, which always require authentication.
+func registerTokenRoutes(api gin.IRouter, auth gin.HandlerFunc) {
+	tokens := api.Group("/tokens", auth)
 
 	// Creating a token requires signing in with the identity provider. Letting a
 	// token mint another one would let a leaked token outlive its own revocation.
@@ -56,7 +53,7 @@ func registerTokenRoutes(r *gin.Engine, auth gin.HandlerFunc) {
 	tokens.DELETE("/:id", DeleteAPIToken)
 	tokens.DELETE("", requirePermission(PermissionAdmin), DeleteAPITokensBySubject)
 
-	r.GET("/api/whoami", auth, Whoami)
+	api.GET("/whoami", auth, Whoami)
 }
 
 // CreateAPIToken issues a new API token.
@@ -72,7 +69,7 @@ func registerTokenRoutes(r *gin.Engine, auth gin.HandlerFunc) {
 // @Failure 401 {object} DefaultResponseModel
 // @Failure 403 {object} DefaultResponseModel
 // @Security BearerAuth
-// @Router /api/tokens [post]
+// @Router /api/v1beta1/tokens [post]
 func CreateAPIToken(c *gin.Context) {
 	principal, ok := principalFromContext(c)
 	if !ok {
@@ -142,7 +139,7 @@ func CreateAPIToken(c *gin.Context) {
 // @Success 200 {array} model.APIToken
 // @Failure 401 {object} DefaultResponseModel
 // @Security BearerAuth
-// @Router /api/tokens [get]
+// @Router /api/v1beta1/tokens [get]
 func ListAPITokens(c *gin.Context) {
 	principal, ok := principalFromContext(c)
 	if !ok {
@@ -182,7 +179,7 @@ func ListAPITokens(c *gin.Context) {
 // @Failure 401 {object} DefaultResponseModel
 // @Failure 404 {object} DefaultResponseModel
 // @Security BearerAuth
-// @Router /api/tokens/{id} [delete]
+// @Router /api/v1beta1/tokens/{id} [delete]
 func DeleteAPIToken(c *gin.Context) {
 	principal, ok := principalFromContext(c)
 	if !ok {
@@ -227,7 +224,7 @@ func DeleteAPIToken(c *gin.Context) {
 // @Failure 400 {object} DefaultResponseModel
 // @Failure 403 {object} DefaultResponseModel
 // @Security BearerAuth
-// @Router /api/tokens [delete]
+// @Router /api/v1beta1/tokens [delete]
 func DeleteAPITokensBySubject(c *gin.Context) {
 	subject := c.Query("subject")
 	if subject == "" {
@@ -255,7 +252,7 @@ func DeleteAPITokensBySubject(c *gin.Context) {
 // @Success 200 {object} WhoamiResponse
 // @Failure 401 {object} DefaultResponseModel
 // @Security BearerAuth
-// @Router /api/whoami [get]
+// @Router /api/v1beta1/whoami [get]
 func Whoami(c *gin.Context) {
 	principal, ok := principalFromContext(c)
 	if !ok {

@@ -69,8 +69,8 @@ func TestEndpoints(t *testing.T) {
 
 	// TODO: Test query parameters:
 	// scmid, url, branch, summary
-	t.Run("GET /api/pipeline/scms", func(t *testing.T) {
-		resp := doGetRequest(t, srv, "/api/pipeline/scms")
+	t.Run("GET /api/v1beta1/pipeline/scms", func(t *testing.T) {
+		resp := doGetRequest(t, srv, "/api/v1beta1/pipeline/scms")
 		assertJSONResponse(t, resp, map[string]any{
 			"scms":        []any{},
 			"total_count": float64(0),
@@ -81,7 +81,7 @@ func TestEndpoints(t *testing.T) {
 			deleteSCM(t, id)
 		})
 		require.NoError(t, err)
-		resp = doGetRequest(t, srv, "/api/pipeline/scms")
+		resp = doGetRequest(t, srv, "/api/v1beta1/pipeline/scms")
 		assertJSONResponse(t, resp, []map[string]any{
 			{
 				"Branch": "main",
@@ -92,8 +92,8 @@ func TestEndpoints(t *testing.T) {
 	})
 
 	// Test pagination on scms
-	t.Run("GET /api/pipeline/scms?limit=1", func(t *testing.T) {
-		resp := doGetRequest(t, srv, "/api/pipeline/scms?limit=1")
+	t.Run("GET /api/v1beta1/pipeline/scms?limit=1", func(t *testing.T) {
+		resp := doGetRequest(t, srv, "/api/v1beta1/pipeline/scms?limit=1")
 		assertJSONResponse(t, resp, map[string]any{
 			"scms":        []any{},
 			"total_count": float64(0),
@@ -110,7 +110,7 @@ func TestEndpoints(t *testing.T) {
 		})
 
 		require.NoError(t, err)
-		resp = doGetRequest(t, srv, "/api/pipeline/scms?limit=1")
+		resp = doGetRequest(t, srv, "/api/v1beta1/pipeline/scms?limit=1")
 		assertJSONResponse(t, resp, []map[string]any{
 			{
 				"Branch": "v1",
@@ -122,9 +122,9 @@ func TestEndpoints(t *testing.T) {
 
 	// TODO: Test query parameters:
 	// scmid
-	t.Run("GET /api/pipeline/reports", func(t *testing.T) {
+	t.Run("GET /api/v1beta1/pipeline/reports", func(t *testing.T) {
 		t.Run("with no reports", func(t *testing.T) {
-			resp := doGetRequest(t, srv, "/api/pipeline/reports")
+			resp := doGetRequest(t, srv, "/api/v1beta1/pipeline/reports")
 			assertJSONResponse(t, resp, map[string]any{
 				"data":        []any{},
 				"total_count": float64(0),
@@ -145,7 +145,7 @@ func TestEndpoints(t *testing.T) {
 			}, database.Publisher{})
 			require.NoError(t, err)
 
-			resp := doGetRequest(t, srv, "/api/pipeline/reports")
+			resp := doGetRequest(t, srv, "/api/v1beta1/pipeline/reports")
 			assertJSONResponse(t, resp, []map[string]any{
 				{
 					"ID":     reportID,
@@ -179,7 +179,7 @@ func TestEndpoints(t *testing.T) {
 		})
 	})
 
-	t.Run("GET /api/pipeline/reports?limit=1", func(t *testing.T) {
+	t.Run("GET /api/v1beta1/pipeline/reports?limit=1", func(t *testing.T) {
 		t.Run("with two reports", func(t *testing.T) {
 			report2ID := ""
 			_, err = database.InsertReport(context.TODO(), reports.Report{
@@ -208,7 +208,7 @@ func TestEndpoints(t *testing.T) {
 			}, database.Publisher{})
 			require.NoError(t, err)
 
-			resp := doGetRequest(t, srv, "/api/pipeline/reports?limit=1")
+			resp := doGetRequest(t, srv, "/api/v1beta1/pipeline/reports?limit=1")
 			assertJSONResponse(t, resp, []map[string]any{
 				{
 					"ID":     report2ID,
@@ -242,9 +242,9 @@ func TestEndpoints(t *testing.T) {
 		})
 	})
 
-	t.Run("GET /api/pipeline/reports/:id", func(t *testing.T) {
+	t.Run("GET /api/v1beta1/pipeline/reports/:id", func(t *testing.T) {
 		t.Run("with an unknown report ID", func(t *testing.T) {
-			resp := doGetRequest(t, srv, "/api/pipeline/reports/daa9b61e-42b9-4e35-b9d7-071461a36838")
+			resp := doGetRequest(t, srv, "/api/v1beta1/pipeline/reports/daa9b61e-42b9-4e35-b9d7-071461a36838")
 			assertErrorResponse(t, resp, http.StatusNotFound, ErrReportNotFound)
 		})
 
@@ -262,7 +262,7 @@ func TestEndpoints(t *testing.T) {
 			}, database.Publisher{})
 			require.NoError(t, err)
 
-			resp := doGetRequest(t, srv, "/api/pipeline/reports/"+reportID)
+			resp := doGetRequest(t, srv, "/api/v1beta1/pipeline/reports/"+reportID)
 			assertJSONResponse(t, resp, map[string]any{
 				"ID": reportID,
 				"Pipeline": map[string]any{
@@ -285,21 +285,21 @@ func TestEndpoints(t *testing.T) {
 		})
 	})
 
-	t.Run("GET /api/pipeline/config/kinds", func(t *testing.T) {
+	t.Run("GET /api/v1beta1/pipeline/config/kinds", func(t *testing.T) {
 		t.Run("with no type", func(t *testing.T) {
-			resp := doGetRequest(t, srv, "/api/pipeline/config/kinds")
+			resp := doGetRequest(t, srv, "/api/v1beta1/pipeline/config/kinds")
 
 			assertErrorResponse(t, resp, http.StatusBadRequest, "no type provided")
 		})
 
 		t.Run("with unknown type", func(t *testing.T) {
-			resp := doGetRequest(t, srv, "/api/pipeline/config/kinds?type=test")
+			resp := doGetRequest(t, srv, "/api/v1beta1/pipeline/config/kinds?type=test")
 
 			assertErrorResponse(t, resp, http.StatusBadRequest, `unknown resource type "test"`)
 		})
 
 		t.Run("with no entries for a type", func(t *testing.T) {
-			resp := doGetRequest(t, srv, "/api/pipeline/config/kinds?type=source")
+			resp := doGetRequest(t, srv, "/api/v1beta1/pipeline/config/kinds?type=source")
 
 			assertJSONResponse(t, resp, map[string]any{
 				"data": []any{},
@@ -319,7 +319,7 @@ func TestEndpoints(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			resp := doGetRequest(t, srv, "/api/pipeline/config/kinds?type=source")
+			resp := doGetRequest(t, srv, "/api/v1beta1/pipeline/config/kinds?type=source")
 
 			assertJSONResponse(t, resp, map[string]any{
 				"data": []any{
@@ -330,9 +330,9 @@ func TestEndpoints(t *testing.T) {
 		})
 	})
 
-	t.Run("GET /api/pipeline/config/sources", func(t *testing.T) {
+	t.Run("GET /api/v1beta1/pipeline/config/sources", func(t *testing.T) {
 		t.Run("with no data", func(t *testing.T) {
-			resp := doGetRequest(t, srv, "/api/pipeline/config/sources")
+			resp := doGetRequest(t, srv, "/api/v1beta1/pipeline/config/sources")
 
 			assertJSONResponse(t, resp, map[string]any{
 				"configs":     []any{},
@@ -354,7 +354,7 @@ func TestEndpoints(t *testing.T) {
 			})
 
 			t.Run("with no parameters", func(t *testing.T) {
-				resp := doGetRequest(t, srv, "/api/pipeline/config/sources")
+				resp := doGetRequest(t, srv, "/api/v1beta1/pipeline/config/sources")
 
 				assertJSONResponse(t, resp, []map[string]any{
 					{
@@ -389,7 +389,7 @@ func TestEndpoints(t *testing.T) {
 			})
 
 			t.Run("with no sources matching kind", func(t *testing.T) {
-				resp := doGetRequest(t, srv, "/api/pipeline/config/sources?kind=test")
+				resp := doGetRequest(t, srv, "/api/v1beta1/pipeline/config/sources?kind=test")
 
 				assertJSONResponse(t, resp, map[string]any{
 					"configs":     []any{},
@@ -397,7 +397,7 @@ func TestEndpoints(t *testing.T) {
 				}, assert.Equal)
 			})
 			t.Run("with sources matching kind", func(t *testing.T) {
-				resp := doGetRequest(t, srv, "/api/pipeline/config/sources?kind=testing-1")
+				resp := doGetRequest(t, srv, "/api/v1beta1/pipeline/config/sources?kind=testing-1")
 
 				assertJSONResponse(t, resp, []map[string]any{
 					{
@@ -419,9 +419,9 @@ func TestEndpoints(t *testing.T) {
 		})
 	})
 
-	t.Run("GET /api/pipeline/labels", func(t *testing.T) {
+	t.Run("GET /api/v1beta1/pipeline/labels", func(t *testing.T) {
 		t.Run("with no labels", func(t *testing.T) {
-			resp := doGetRequest(t, srv, "/api/pipeline/labels")
+			resp := doGetRequest(t, srv, "/api/v1beta1/pipeline/labels")
 			assertJSONResponse(t, resp, map[string]any{
 				"labels":      []any{},
 				"total_count": float64(0),
@@ -441,7 +441,7 @@ func TestEndpoints(t *testing.T) {
 				deleteLabel(t, labelID)
 			})
 
-			resp := doGetRequest(t, srv, "/api/pipeline/labels")
+			resp := doGetRequest(t, srv, "/api/v1beta1/pipeline/labels")
 			assertJSONResponse(t, resp, []map[string]any{
 				{
 					"id":    labelID.String(),
@@ -450,7 +450,7 @@ func TestEndpoints(t *testing.T) {
 				},
 			}, removeFieldsAsserter("labels", "created_at", "updated_at", "last_pipeline_report_at"))
 
-			resp = doGetRequest(t, srv, "/api/pipeline/labels?keyonly=true")
+			resp = doGetRequest(t, srv, "/api/v1beta1/pipeline/labels?keyonly=true")
 			assertJSONResponse(t, resp, map[string]any{
 				"labels": []any{
 					"env",
@@ -460,7 +460,7 @@ func TestEndpoints(t *testing.T) {
 		})
 	})
 
-	t.Run("POST /api/pipeline/labels/search", func(t *testing.T) {
+	t.Run("POST /api/v1beta1/pipeline/labels/search", func(t *testing.T) {
 		labelIDs, err := database.InitLabels(ctx, map[string]string{
 			"env":  "production",
 			"tier": "backend",
@@ -480,7 +480,7 @@ func TestEndpoints(t *testing.T) {
 			})
 		}
 
-		resp := doPostRequest(t, srv, "/api/pipeline/labels/search", map[string]any{
+		resp := doPostRequest(t, srv, "/api/v1beta1/pipeline/labels/search", map[string]any{
 			"key":   "env",
 			"value": "production",
 		})
@@ -495,8 +495,8 @@ func TestEndpoints(t *testing.T) {
 	})
 
 	// This subtest must run last as it removes every pipeline report.
-	t.Run("POST /api/pipeline/reports/summary", func(t *testing.T) {
-		const summaryPath = "/api/pipeline/reports/summary"
+	t.Run("POST /api/v1beta1/pipeline/reports/summary", func(t *testing.T) {
+		const summaryPath = "/api/v1beta1/pipeline/reports/summary"
 		// Every bucket identifies itself by its start, formatted as RFC3339, whatever
 		// the granularity is.
 		const bucketLayout = time.RFC3339
@@ -938,9 +938,9 @@ func TestEndpoints(t *testing.T) {
 			return names
 		}
 
-		t.Run("POST /api/pipeline/reports/search", func(t *testing.T) {
+		t.Run("POST /api/v1beta1/pipeline/reports/search", func(t *testing.T) {
 			t.Run("without the filter", func(t *testing.T) {
-				resp := doPostRequest(t, srv, "/api/pipeline/reports/search", map[string]any{})
+				resp := doPostRequest(t, srv, "/api/v1beta1/pipeline/reports/search", map[string]any{})
 
 				assert.Equal(t, []string{
 					"changed something and opened a pull request",
@@ -950,7 +950,7 @@ func TestEndpoints(t *testing.T) {
 			})
 
 			t.Run("with an open action", func(t *testing.T) {
-				resp := doPostRequest(t, srv, "/api/pipeline/reports/search", map[string]any{
+				resp := doPostRequest(t, srv, "/api/v1beta1/pipeline/reports/search", map[string]any{
 					"open_action": true,
 				})
 
@@ -961,7 +961,7 @@ func TestEndpoints(t *testing.T) {
 			})
 
 			t.Run("without any open action", func(t *testing.T) {
-				resp := doPostRequest(t, srv, "/api/pipeline/reports/search", map[string]any{
+				resp := doPostRequest(t, srv, "/api/v1beta1/pipeline/reports/search", map[string]any{
 					"open_action": false,
 				})
 
@@ -972,7 +972,7 @@ func TestEndpoints(t *testing.T) {
 				// This is the combination the whole dimension exists for: the pipelines
 				// which succeeded only because their change is already waiting in a pull
 				// request nobody merged.
-				resp := doPostRequest(t, srv, "/api/pipeline/reports/search", map[string]any{
+				resp := doPostRequest(t, srv, "/api/v1beta1/pipeline/reports/search", map[string]any{
 					"results":     []string{"✔"},
 					"open_action": true,
 				})
@@ -981,12 +981,12 @@ func TestEndpoints(t *testing.T) {
 			})
 		})
 
-		t.Run("POST /api/pipeline/reports/summary", func(t *testing.T) {
+		t.Run("POST /api/v1beta1/pipeline/reports/summary", func(t *testing.T) {
 			summaryOf := func(body map[string]any) (results, openActions map[string]any, totalCount float64) {
 				t.Helper()
 
 				blob := map[string]any{}
-				resp := doPostRequest(t, srv, "/api/pipeline/reports/summary", body)
+				resp := doPostRequest(t, srv, "/api/v1beta1/pipeline/reports/summary", body)
 				require.NoError(t, json.NewDecoder(resp.Body).Decode(&blob))
 				defer resp.Body.Close()
 
@@ -1034,7 +1034,7 @@ func TestEndpoints(t *testing.T) {
 			})
 		})
 
-		t.Run("POST /api/pipeline/actions/search", func(t *testing.T) {
+		t.Run("POST /api/v1beta1/pipeline/actions/search", func(t *testing.T) {
 			// A second manifest sharing the pipelineid feeds the same pull request.
 			sharedID, err := database.InsertReport(ctx, reports.Report{
 				Name:       "second manifest of the same pull request",
@@ -1060,7 +1060,7 @@ func TestEndpoints(t *testing.T) {
 				} `json:"data"`
 				TotalCount int `json:"total_count"`
 			}{}
-			resp := doPostRequest(t, srv, "/api/pipeline/actions/search", map[string]any{"limit": 10, "page": 1})
+			resp := doPostRequest(t, srv, "/api/v1beta1/pipeline/actions/search", map[string]any{"limit": 10, "page": 1})
 			require.NoError(t, json.NewDecoder(resp.Body).Decode(&blob))
 			defer resp.Body.Close()
 
@@ -1095,7 +1095,7 @@ func TestEndpoints(t *testing.T) {
 				} `json:"data"`
 				TotalCount int `json:"total_count"`
 			}{}
-			resp = doPostRequest(t, srv, "/api/pipeline/actions/search", map[string]any{"scmid": scmID})
+			resp = doPostRequest(t, srv, "/api/v1beta1/pipeline/actions/search", map[string]any{"scmid": scmID})
 			require.NoError(t, json.NewDecoder(resp.Body).Decode(&scoped))
 			defer resp.Body.Close()
 
@@ -1125,7 +1125,7 @@ func TestEndpoints(t *testing.T) {
 				search := func(t *testing.T, acknowledged bool) acknowledgedSearch {
 					t.Helper()
 					blob := acknowledgedSearch{}
-					resp := doPostRequest(t, srv, "/api/pipeline/actions/search", map[string]any{"acknowledged": acknowledged})
+					resp := doPostRequest(t, srv, "/api/v1beta1/pipeline/actions/search", map[string]any{"acknowledged": acknowledged})
 					defer resp.Body.Close()
 					require.Equal(t, http.StatusOK, resp.StatusCode)
 					require.NoError(t, json.NewDecoder(resp.Body).Decode(&blob))
@@ -1142,7 +1142,7 @@ func TestEndpoints(t *testing.T) {
 
 				acknowledge := func(t *testing.T, body map[string]any) int {
 					t.Helper()
-					status, _ := doJSON(t, http.MethodPut, srv.URL+"/api/pipeline/actions/ack", "", body)
+					status, _ := doJSON(t, http.MethodPut, srv.URL+"/api/v1beta1/pipeline/actions/ack", "", body)
 					return status
 				}
 
@@ -1199,7 +1199,7 @@ func TestEndpoints(t *testing.T) {
 					require.Equal(t, http.StatusNoContent, acknowledge(t, map[string]any{"url": pr42, "days": 1, "result": "✔"}))
 					assert.Equal(t, []string{pr43}, urls(search(t, false)))
 
-					status, _ := doJSON(t, http.MethodDelete, srv.URL+"/api/pipeline/actions/ack?url="+url.QueryEscape(pr42), "", nil)
+					status, _ := doJSON(t, http.MethodDelete, srv.URL+"/api/v1beta1/pipeline/actions/ack?url="+url.QueryEscape(pr42), "", nil)
 					require.Equal(t, http.StatusNoContent, status)
 					assert.Equal(t, []string{pr42, pr43}, urls(search(t, false)))
 				})
@@ -1209,13 +1209,13 @@ func TestEndpoints(t *testing.T) {
 					assert.Equal(t, http.StatusBadRequest, acknowledge(t, map[string]any{"url": pr42, "days": 7, "result": "ok"}))
 					assert.Equal(t, http.StatusBadRequest, acknowledge(t, map[string]any{"days": 7, "result": "✔"}))
 
-					status, _ := doJSON(t, http.MethodDelete, srv.URL+"/api/pipeline/actions/ack", "", nil)
+					status, _ := doJSON(t, http.MethodDelete, srv.URL+"/api/v1beta1/pipeline/actions/ack", "", nil)
 					assert.Equal(t, http.StatusBadRequest, status)
 				})
 			})
 		})
 
-		t.Run("POST /api/pipeline/scms/search", func(t *testing.T) {
+		t.Run("POST /api/v1beta1/pipeline/scms/search", func(t *testing.T) {
 			scmID, err := database.InsertSCM(ctx, "https://example.com/openaction.git", "main")
 			require.NoError(t, err)
 			t.Cleanup(func() {
@@ -1229,7 +1229,7 @@ func TestEndpoints(t *testing.T) {
 				t.Helper()
 
 				blob := map[string]any{}
-				resp := doPostRequest(t, srv, "/api/pipeline/scms/search", body)
+				resp := doPostRequest(t, srv, "/api/v1beta1/pipeline/scms/search", body)
 				require.NoError(t, json.NewDecoder(resp.Body).Decode(&blob))
 				defer resp.Body.Close()
 
@@ -1293,7 +1293,7 @@ func TestEndpoints(t *testing.T) {
 		reportsOf := func(t *testing.T, body map[string]any) []any {
 			t.Helper()
 
-			resp := doPostRequest(t, srv, "/api/pipeline/reports/search", body)
+			resp := doPostRequest(t, srv, "/api/v1beta1/pipeline/reports/search", body)
 			defer resp.Body.Close()
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -1326,7 +1326,7 @@ func TestEndpoints(t *testing.T) {
 			// The helper reporting the mistake used to answer the request itself and
 			// still hand the caller a nil error, appending a second body to the 400.
 			for _, query := range []string{"limit=abc", "limit=2000", "page=xyz"} {
-				resp := doGetRequest(t, srv, "/api/pipeline/reports?"+query)
+				resp := doGetRequest(t, srv, "/api/v1beta1/pipeline/reports?"+query)
 				defer resp.Body.Close()
 
 				require.Equal(t, http.StatusBadRequest, resp.StatusCode, query)
@@ -1343,7 +1343,7 @@ func TestEndpoints(t *testing.T) {
 		})
 	})
 
-	t.Run("POST /api/pipeline/reports/search combining resource filters", func(t *testing.T) {
+	t.Run("POST /api/v1beta1/pipeline/reports/search combining resource filters", func(t *testing.T) {
 		truncateReports(t)
 
 		reportID, err := database.InsertReport(ctx, reports.Report{
@@ -1378,7 +1378,7 @@ func TestEndpoints(t *testing.T) {
 
 		// Each filter adds a column to the select, so combining two of them used to
 		// build a query returning more columns than the scan expected.
-		resp := doPostRequest(t, srv, "/api/pipeline/reports/search", map[string]any{
+		resp := doPostRequest(t, srv, "/api/v1beta1/pipeline/reports/search", map[string]any{
 			"sourceid": sourceID,
 			"targetid": targetID,
 		})
@@ -1395,14 +1395,14 @@ func TestEndpoints(t *testing.T) {
 		assert.Equal(t, "tgt", data[0].(map[string]any)["FilteredResourceID"])
 	})
 
-	t.Run("GET /api/pipeline/reports with an invalid latest", func(t *testing.T) {
+	t.Run("GET /api/v1beta1/pipeline/reports with an invalid latest", func(t *testing.T) {
 		// An unparsable value used to be warned about and then read as false, which is
 		// the opposite of the documented default.
-		resp := doGetRequest(t, srv, "/api/pipeline/reports?latest=notabool")
+		resp := doGetRequest(t, srv, "/api/v1beta1/pipeline/reports?latest=notabool")
 		assertErrorResponse(t, resp, http.StatusBadRequest, ErrInvalidLatestParam)
 	})
 
-	t.Run("GET /api/pipeline/scms with a time range", func(t *testing.T) {
+	t.Run("GET /api/v1beta1/pipeline/scms with a time range", func(t *testing.T) {
 		truncateReports(t)
 
 		scmID, err := database.InsertSCM(ctx, "https://example.com/timerange.git", "main")
@@ -1429,7 +1429,7 @@ func TestEndpoints(t *testing.T) {
 		scmsIn := func(t *testing.T, start, end time.Time) []any {
 			t.Helper()
 
-			resp := doGetRequest(t, srv, fmt.Sprintf("/api/pipeline/scms?start_time=%s&end_time=%s",
+			resp := doGetRequest(t, srv, fmt.Sprintf("/api/v1beta1/pipeline/scms?start_time=%s&end_time=%s",
 				url.QueryEscape(start.Format(timeRangeLayout)),
 				url.QueryEscape(end.Format(timeRangeLayout))))
 			defer resp.Body.Close()
@@ -1455,7 +1455,7 @@ func TestEndpoints(t *testing.T) {
 		})
 
 		t.Run("rejects a half open range", func(t *testing.T) {
-			resp := doGetRequest(t, srv, "/api/pipeline/scms?start_time=2026-03-01+00:00:00Z")
+			resp := doGetRequest(t, srv, "/api/v1beta1/pipeline/scms?start_time=2026-03-01+00:00:00Z")
 			assertErrorResponse(t, resp, http.StatusBadRequest, ErrInvalidTimeRangeParams)
 		})
 	})

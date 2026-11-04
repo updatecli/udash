@@ -131,8 +131,8 @@ func TestNewGinEngineWithoutAuth(t *testing.T) {
 	require.NotNil(t, engine)
 
 	for _, route := range engine.Routes() {
-		assert.NotEqual(t, "/api/tokens", route.Path,
+		assert.NotEqual(t, "/api/v1beta1/tokens", route.Path,
 			"the token endpoints must not exist when nobody can be authenticated")
-		assert.NotEqual(t, "/api/whoami", route.Path)
+		assert.NotEqual(t, "/api/v1beta1/whoami", route.Path)
 	}
 }
