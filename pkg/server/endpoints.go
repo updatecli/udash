@@ -101,16 +101,20 @@ const APIPrefix = "/api/v1beta1"
 
 // registerAPIRoutes registers the versioned API endpoints on api. A nil auth leaves
 // every endpoint open; otherwise reads are open only when visibility is public.
+// Every route must pick a guard, and be listed in TestAPIRouteGuards.
 func registerAPIRoutes(api *gin.RouterGroup, auth gin.HandlerFunc, visibility string) {
 	read := []gin.HandlerFunc{}
 	ack := []gin.HandlerFunc{}
 	write := []gin.HandlerFunc{}
 
 	if auth != nil {
+		// Fail closed: only an explicitly public API leaves the reads open.
 		if visibility != VisibilityPublic {
 			read = append(read, auth)
 		}
+		// An acknowledgement changes what every viewer sees, so it needs a signed-in viewer.
 		ack = append(ack, auth, requirePermission(PermissionViewer))
+		// Publishing needs the permission to, and a token granted the scope to.
 		write = append(write, auth, requireScope(ScopeReportsWrite))
 
 		registerTokenRoutes(api, auth)
