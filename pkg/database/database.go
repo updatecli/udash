@@ -52,7 +52,7 @@ func Connect(ctx context.Context, o Options) error {
 	uri := URI
 	if o.URI != "" {
 		if URI != "" {
-			logrus.Debugf("URI %q defined from setting file override the value from environment variable  %q", o.URI, URIEnvVariableName)
+			logrus.Debugf("database URI from the setting file overrides the environment variable %q", URIEnvVariableName)
 		}
 		uri = o.URI
 	}

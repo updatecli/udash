@@ -26,6 +26,8 @@ type Engine struct {
 func (e *Engine) Start() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	// Restore the default handlers once a signal arrives, so a second one kills the process.
+	context.AfterFunc(ctx, stop)
 
 	if err := e.Options.GC.Init(); err != nil {
 		return fmt.Errorf("garbage collector options: %w", err)

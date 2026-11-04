@@ -33,8 +33,6 @@ server:
   auth:
     ## Disable authentication
     mode: "none"
-    ## If dryrun is set to true, then only GET request are allowed
-    dryrun: false
 
 database:
   uri: "postgres://udash:password@localhost:5432/udash?sslmode=disable"

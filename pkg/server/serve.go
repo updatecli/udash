@@ -15,8 +15,12 @@ import (
 // It stays below the 30s Kubernetes gives a pod before killing it.
 const shutdownTimeout = 25 * time.Second
 
-// readHeaderTimeout bounds how long a client may take to send its request headers.
-const readHeaderTimeout = 10 * time.Second
+const (
+	// readHeaderTimeout bounds how long a client may take to send its request headers.
+	readHeaderTimeout = 10 * time.Second
+	// idleTimeout closes keep-alive connections left unused.
+	idleTimeout = 2 * time.Minute
+)
 
 // listenAddress returns the address to listen on, honoring PORT as gin's Run did.
 func listenAddress() string {

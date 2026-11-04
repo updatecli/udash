@@ -92,7 +92,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
-	return serve(ctx, &http.Server{Addr: listenAddress(), Handler: r, ReadHeaderTimeout: readHeaderTimeout}, shutdownTimeout)
+	return serve(ctx, &http.Server{Addr: listenAddress(), Handler: r, ReadHeaderTimeout: readHeaderTimeout, IdleTimeout: idleTimeout}, shutdownTimeout)
 }
 
 // APIPrefix is where the versioned API is served.
