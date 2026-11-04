@@ -31,7 +31,7 @@ targets:
     scmid: default
     spec:
       command: |
-        swag init --parseDependencyLevel 1
+        make docs
       changedif:
         kind: file/checksum
         spec:

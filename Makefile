@@ -65,3 +65,7 @@ test: ## Execute the Golang's tests for updatecli
 .PHONY: docs
 docs: ## Generate api documentation
 	swag init --generalInfo pkg/server/endpoints.go --parseDependencyLevel 1
+
+.PHONY: docs.check
+docs.check: docs ## Fail when the committed api documentation is out of date
+	git diff --exit-code -- docs/

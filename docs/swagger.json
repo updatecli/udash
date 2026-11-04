@@ -4,10 +4,10 @@
         "description": "API for managing Updatecli pipeline reports.",
         "title": "Udash API",
         "contact": {},
-        "version": "1.0"
+        "version": "v1beta1"
     },
     "paths": {
-        "/api/": {
+        "/api": {
             "get": {
                 "description": "Landing page of the API",
                 "tags": [
@@ -235,36 +235,6 @@
                         }
                     }
                 }
-            },
-            "delete": {
-                "description": "Delete a configuration condition from the database",
-                "tags": [
-                    "Configuration Conditions"
-                ],
-                "summary": "Delete a configuration condition",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "ID of the configuration condition to delete",
-                        "name": "id",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/server.DefaultResponseModel"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/server.DefaultResponseModel"
-                        }
-                    }
-                }
             }
         },
         "/api/v1beta1/pipeline/config/conditions/search": {
@@ -303,7 +273,7 @@
             }
         },
         "/api/v1beta1/pipeline/config/kinds": {
-            "post": {
+            "get": {
                 "description": "Search for configuration by kind in the database",
                 "consumes": [
                     "application/json"
@@ -381,36 +351,6 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/server.SourceConfigResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/server.DefaultResponseModel"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Delete a configuration source from the database",
-                "tags": [
-                    "Configuration Sources"
-                ],
-                "summary": "Delete a configuration source",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "ID of the configuration source to delete",
-                        "name": "id",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/server.DefaultResponseModel"
                         }
                     },
                     "500": {
@@ -501,36 +441,6 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/server.TargetConfigResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/server.DefaultResponseModel"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Delete a configuration target from the database",
-                "tags": [
-                    "Configuration Targets"
-                ],
-                "summary": "Delete a configuration target",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "ID of the configuration target to delete",
-                        "name": "id",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/server.DefaultResponseModel"
                         }
                     },
                     "500": {

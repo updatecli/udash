@@ -1439,9 +1439,9 @@ info:
   contact: {}
   description: API for managing Updatecli pipeline reports.
   title: Udash API
-  version: "1.0"
+  version: v1beta1
 paths:
-  /api/:
+  /api:
     get:
       description: Landing page of the API
       responses:
@@ -1559,26 +1559,6 @@ paths:
       tags:
       - Pipeline Actions
   /api/v1beta1/pipeline/config/conditions:
-    delete:
-      description: Delete a configuration condition from the database
-      parameters:
-      - description: ID of the configuration condition to delete
-        in: query
-        name: id
-        required: true
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/server.DefaultResponseModel'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/server.DefaultResponseModel'
-      summary: Delete a configuration condition
-      tags:
-      - Configuration Conditions
     get:
       description: List all configuration conditions from the database
       parameters:
@@ -1638,7 +1618,7 @@ paths:
       tags:
       - Configuration Conditions
   /api/v1beta1/pipeline/config/kinds:
-    post:
+    get:
       consumes:
       - application/json
       description: Search for configuration by kind in the database
@@ -1661,26 +1641,6 @@ paths:
       tags:
       - Configuration
   /api/v1beta1/pipeline/config/sources:
-    delete:
-      description: Delete a configuration source from the database
-      parameters:
-      - description: ID of the configuration source to delete
-        in: query
-        name: id
-        required: true
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/server.DefaultResponseModel'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/server.DefaultResponseModel'
-      summary: Delete a configuration source
-      tags:
-      - Configuration Sources
     get:
       description: List all configuration sources from the database
       parameters:
@@ -1740,26 +1700,6 @@ paths:
       tags:
       - Configuration Sources
   /api/v1beta1/pipeline/config/targets:
-    delete:
-      description: Delete a configuration target from the database
-      parameters:
-      - description: ID of the configuration target to delete
-        in: query
-        name: id
-        required: true
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/server.DefaultResponseModel'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/server.DefaultResponseModel'
-      summary: Delete a configuration target
-      tags:
-      - Configuration Targets
     get:
       description: List all configuration targets from the database
       parameters:

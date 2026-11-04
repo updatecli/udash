@@ -32,7 +32,7 @@ type DefaultResponseModel struct {
 // @Description Landing page of the API
 // @Tags Landing
 // @Success 200
-// @Router /api/ [get]
+// @Router /api [get]
 func Landing(c *gin.Context) {
 	c.JSON(http.StatusOK, DefaultResponseModel{
 		Message: "Welcome to the Udash API",
@@ -75,7 +75,7 @@ func About(c *gin.Context) {
 }
 
 // @title Udash API
-// @version 1.0
+// @version v1beta1
 // @description API for managing Updatecli pipeline reports.
 // @securityDefinitions.apikey BearerAuth
 // @in header

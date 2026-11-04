@@ -15,7 +15,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/api/": {
+        "/api": {
             "get": {
                 "description": "Landing page of the API",
                 "tags": [
@@ -243,36 +243,6 @@ const docTemplate = `{
                         }
                     }
                 }
-            },
-            "delete": {
-                "description": "Delete a configuration condition from the database",
-                "tags": [
-                    "Configuration Conditions"
-                ],
-                "summary": "Delete a configuration condition",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "ID of the configuration condition to delete",
-                        "name": "id",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/server.DefaultResponseModel"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/server.DefaultResponseModel"
-                        }
-                    }
-                }
             }
         },
         "/api/v1beta1/pipeline/config/conditions/search": {
@@ -311,7 +281,7 @@ const docTemplate = `{
             }
         },
         "/api/v1beta1/pipeline/config/kinds": {
-            "post": {
+            "get": {
                 "description": "Search for configuration by kind in the database",
                 "consumes": [
                     "application/json"
@@ -389,36 +359,6 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/server.SourceConfigResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/server.DefaultResponseModel"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Delete a configuration source from the database",
-                "tags": [
-                    "Configuration Sources"
-                ],
-                "summary": "Delete a configuration source",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "ID of the configuration source to delete",
-                        "name": "id",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/server.DefaultResponseModel"
                         }
                     },
                     "500": {
@@ -509,36 +449,6 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/server.TargetConfigResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/server.DefaultResponseModel"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Delete a configuration target from the database",
-                "tags": [
-                    "Configuration Targets"
-                ],
-                "summary": "Delete a configuration target",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "ID of the configuration target to delete",
-                        "name": "id",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/server.DefaultResponseModel"
                         }
                     },
                     "500": {
@@ -2917,7 +2827,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "1.0",
+	Version:          "v1beta1",
 	Host:             "",
 	BasePath:         "",
 	Schemes:          []string{},
