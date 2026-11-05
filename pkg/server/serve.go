@@ -51,6 +51,8 @@ func serve(ctx context.Context, srv *http.Server, timeout time.Duration) error {
 	defer cancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
+		// Out of time: drop the remaining connections, which cancels their requests.
+		_ = srv.Close()
 		return fmt.Errorf("shutting down: %w", err)
 	}
 

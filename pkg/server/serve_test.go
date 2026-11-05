@@ -65,3 +65,54 @@ func TestServeReturnsListenErrors(t *testing.T) {
 	err = serve(context.Background(), &http.Server{Addr: ln.Addr().String(), ReadHeaderTimeout: time.Second}, time.Second)
 	assert.ErrorContains(t, err, "address already in use")
 }
+
+func TestServeCancelsRequestsPastTheShutdownTimeout(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	addr := ln.Addr().String()
+	require.NoError(t, ln.Close())
+
+	started := make(chan struct{})
+	cancelled := make(chan struct{})
+	srv := &http.Server{Addr: addr, ReadHeaderTimeout: time.Second, Handler: http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		close(started)
+		<-r.Context().Done()
+		close(cancelled)
+	})}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- serve(ctx, srv, 200*time.Millisecond) }()
+
+	go func() {
+		for {
+			res, err := http.Get("http://" + addr)
+			if err == nil {
+				res.Body.Close()
+			}
+			select {
+			case <-started:
+				return
+			default:
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
+
+	select {
+	case <-started:
+	case err := <-done:
+		t.Fatalf("serve returned before the handler started: %v", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("the handler did not start")
+	}
+	cancel()
+
+	assert.ErrorIs(t, <-done, context.DeadlineExceeded)
+
+	select {
+	case <-cancelled:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the request still running past the shutdown timeout was not cancelled")
+	}
+}
