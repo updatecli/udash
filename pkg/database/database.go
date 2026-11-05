@@ -116,14 +116,37 @@ func waitForDatabase(ctx context.Context, pool *pgxpool.Pool, timeout time.Durat
 }
 
 // isPermanent reports whether err comes from PostgreSQL rejecting the connection for a
-// reason which retrying cannot fix.
+// reason which retrying cannot fix. When the URI lists several hosts, pgx joins one
+// error per host: the error is permanent only when every host failed permanently, as a
+// host which is merely down may come back.
 func isPermanent(err error) bool {
-	var pgErr *pgconn.PgError
-	if !errors.As(err, &pgErr) || len(pgErr.Code) < 2 {
+	switch e := err.(type) {
+	case nil:
+		return false
+	case *pgconn.PgError:
+		return isPermanentCode(e.Code)
+	case interface{ Unwrap() []error }:
+		errs := e.Unwrap()
+		if len(errs) == 0 {
+			return false
+		}
+		for _, err := range errs {
+			if !isPermanent(err) {
+				return false
+			}
+		}
+		return true
+	}
+	return isPermanent(errors.Unwrap(err))
+}
+
+// isPermanentCode reports whether a PostgreSQL error code means retrying cannot help.
+func isPermanentCode(code string) bool {
+	if len(code) < 2 {
 		return false
 	}
 
-	switch pgErr.Code[:2] {
+	switch code[:2] {
 	// 28: invalid authorization, 3D: invalid catalog name (the database does not exist).
 	case "28", "3D":
 		return true
