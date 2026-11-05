@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -114,7 +115,7 @@ func TestAPIRouteGuards(t *testing.T) {
 // TestUnversionedAPIRoutesAreGone checks that the API is only served under APIPrefix,
 // apart from the landing page and the probes.
 func TestUnversionedAPIRoutesAreGone(t *testing.T) {
-	engine, err := newGinEngine(Options{})
+	engine, err := newGinEngine(context.Background(), Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

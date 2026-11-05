@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"regexp"
 	"sort"
@@ -32,7 +33,7 @@ func TestSwaggerMatchesRoutes(t *testing.T) {
 	}
 
 	// Token routes are only registered when authentication is configured.
-	engine, err := newGinEngine(Options{})
+	engine, err := newGinEngine(context.Background(), Options{})
 	require.NoError(t, err)
 	withAuth := gin.New()
 	registerAPIRoutes(withAuth.Group(APIPrefix), fakeIdentityAuth(Principal{}), VisibilityPublic)

@@ -87,7 +87,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return fmt.Errorf("invalid server options: %w", err)
 	}
 
-	r, err := newGinEngine(s.Options)
+	r, err := newGinEngine(ctx, s.Options)
 	if err != nil {
 		return err
 	}
@@ -151,7 +151,9 @@ func registerAPIRoutes(api *gin.RouterGroup, auth gin.HandlerFunc, visibility st
 	pipeline.DELETE("/reports/:id", with(write, DeletePipelineReport)...)
 }
 
-func newGinEngine(opts Options) (*gin.Engine, error) {
+// newGinEngine builds the router. ctx bounds the identity provider discovery done at
+// startup: the clients built from it do not keep it.
+func newGinEngine(ctx context.Context, opts Options) (*gin.Engine, error) {
 	r := gin.Default()
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
@@ -166,8 +168,6 @@ func newGinEngine(opts Options) (*gin.Engine, error) {
 	var auth gin.HandlerFunc
 	// resolver reports the current permission behind an Udash API token.
 	var resolver RoleResolver = snapshotResolver{}
-
-	ctx := context.Background()
 
 	switch opts.Auth.Mode {
 	case ModeOIDC:

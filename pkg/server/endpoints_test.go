@@ -27,7 +27,7 @@ import (
 )
 
 func TestEndpoints(t *testing.T) {
-	eng, err := newGinEngine(Options{})
+	eng, err := newGinEngine(context.Background(), Options{})
 	require.NoError(t, err)
 	srv := httptest.NewServer(eng)
 	defer srv.Close()
