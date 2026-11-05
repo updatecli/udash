@@ -162,7 +162,25 @@ func Ping(ctx context.Context) error {
 	return DB.Ping(ctx)
 }
 
-func RunMigrationUp() error {
+// RunMigrationUp applies the pending migrations. It returns as soon as ctx is done, even
+// when a migration statement is blocked on a lock, so a signal can stop the startup.
+//
+// The migration is then abandoned rather than cancelled: the driver ignores contexts, so
+// the statement keeps running on the server until it completes, and the migration table
+// is left dirty, as it would be if the process were killed.
+func RunMigrationUp(ctx context.Context) error {
+	done := make(chan error, 1)
+	go func() { done <- runMigrationUp() }()
+
+	select {
+	case err := <-done:
+		return err
+	case <-ctx.Done():
+		return fmt.Errorf("migration interrupted: %w", ctx.Err())
+	}
+}
+
+func runMigrationUp() error {
 	logrus.Debugln("Running Database migration")
 	d, err := iofs.New(fs, "migrations")
 	if err != nil {

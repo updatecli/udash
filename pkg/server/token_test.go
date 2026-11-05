@@ -89,7 +89,7 @@ func TestAPITokens(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, database.Connect(ctx, database.Options{URI: dbURL}))
-	require.NoError(t, database.RunMigrationUp())
+	require.NoError(t, database.RunMigrationUp(ctx))
 
 	publisher := Principal{Subject: "user-publisher", Name: "Pat", Permission: PermissionPublisher}
 
@@ -258,7 +258,7 @@ func TestReportAttribution(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, database.Connect(ctx, database.Options{URI: dbURL}))
-	require.NoError(t, database.RunMigrationUp())
+	require.NoError(t, database.RunMigrationUp(ctx))
 
 	publisher := Principal{Subject: "user-publisher", Permission: PermissionPublisher}
 	srv := tokenTestServer(t, publisher)
@@ -298,7 +298,7 @@ func TestReportAttributionWithoutAuth(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, database.Connect(ctx, database.Options{URI: dbURL}))
-	require.NoError(t, database.RunMigrationUp())
+	require.NoError(t, database.RunMigrationUp(ctx))
 
 	// An instance running without authentication has nobody to attribute to, and
 	// must keep publishing regardless.

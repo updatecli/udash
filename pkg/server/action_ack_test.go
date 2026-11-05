@@ -38,7 +38,7 @@ func TestActionAcknowledgementAuth(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, database.Connect(ctx, database.Options{URI: dbURL}))
-	require.NoError(t, database.RunMigrationUp())
+	require.NoError(t, database.RunMigrationUp(ctx))
 
 	body := map[string]any{"url": "https://example.com/testing/pull/42", "days": 1, "result": "✔"}
 

@@ -33,7 +33,7 @@ func TestSearchLatestReportsLabelFilterWithPastTimeRange(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, Connect(ctx, Options{URI: dbURL}))
-	require.NoError(t, RunMigrationUp())
+	require.NoError(t, RunMigrationUp(ctx))
 
 	labels := map[string]string{"env": "prod"}
 
@@ -89,7 +89,7 @@ func TestListLabelsWithPastTimeRange(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, Connect(ctx, Options{URI: dbURL}))
-	require.NoError(t, RunMigrationUp())
+	require.NoError(t, RunMigrationUp(ctx))
 
 	insertReport := func(t *testing.T, labels map[string]string) string {
 		t.Helper()

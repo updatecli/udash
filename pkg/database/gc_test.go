@@ -31,7 +31,7 @@ func TestGarbageCollect(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, Connect(ctx, Options{URI: dbURL}))
-	require.NoError(t, RunMigrationUp())
+	require.NoError(t, RunMigrationUp(ctx))
 
 	// Every garbage collection below keeps 30 days of reports. The seeded rows are far
 	// enough from that cutoff for the time elapsed during the test not to matter.

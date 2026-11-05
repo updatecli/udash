@@ -31,7 +31,7 @@ func TestDatabase(t *testing.T) {
 
 	require.NoError(t, Connect(ctx, Options{URI: dbURL}))
 	t.Log("Postgres Container connected")
-	require.NoError(t, RunMigrationUp())
+	require.NoError(t, RunMigrationUp(ctx))
 	t.Log("Postgres Container migrations run")
 
 	t.Run("Connect fails right away on wrong credentials", func(t *testing.T) {

@@ -39,7 +39,7 @@ func (e *Engine) Start() error {
 	defer database.DB.Close()
 
 	if !e.Options.Database.MigrationDisabled {
-		if err := database.RunMigrationUp(); err != nil {
+		if err := database.RunMigrationUp(ctx); err != nil {
 			return fmt.Errorf("running migrations: %w", err)
 		}
 	}

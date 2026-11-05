@@ -3,9 +3,11 @@ package database
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/updatecli/udash/test"
 )
@@ -100,4 +102,35 @@ func TestMigrationsAreReversible(t *testing.T) {
 	} {
 		require.False(t, indexExists(index), "index %q must be dropped after migrating back up", index)
 	}
+}
+
+// TestRunMigrationUpStopsWhenCancelled checks that a migration blocked on a lock does not
+// keep the startup waiting once the context is done.
+func TestRunMigrationUpStopsWhenCancelled(t *testing.T) {
+	ctx := context.Background()
+
+	postgresContainer, err := test.SetupDatabase(t, ctx)
+	require.NoError(t, err)
+
+	dbURL, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
+	require.NoError(t, err)
+
+	require.NoError(t, Connect(ctx, Options{URI: dbURL}))
+	require.NoError(t, RunMigrationUp(ctx))
+
+	// Holding this lock blocks the migration as soon as it reads the current version.
+	tx, err := DB.Begin(ctx)
+	require.NoError(t, err)
+	defer func() { _ = tx.Rollback(ctx) }()
+	_, err = tx.Exec(ctx, "LOCK TABLE schema_migrations IN ACCESS EXCLUSIVE MODE")
+	require.NoError(t, err)
+
+	cancelCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+
+	start := time.Now()
+	err = RunMigrationUp(cancelCtx)
+
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.Less(t, time.Since(start), 5*time.Second)
 }

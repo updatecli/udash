@@ -43,7 +43,7 @@ func TestEndpoints(t *testing.T) {
 	// Connect to the database and run migrations
 	require.NoError(t, database.Connect(ctx, database.Options{URI: dbURL}))
 	t.Log("Postgres Container connected")
-	require.NoError(t, database.RunMigrationUp())
+	require.NoError(t, database.RunMigrationUp(ctx))
 	t.Log("Postgres Container migrations run")
 
 	t.Run("GET /api", func(t *testing.T) {
