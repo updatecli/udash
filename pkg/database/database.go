@@ -86,8 +86,8 @@ func Connect(ctx context.Context, o Options) error {
 
 // waitForDatabase pings the database until it answers. Errors which retrying cannot fix,
 // such as wrong credentials or a missing database, are returned right away.
-func waitForDatabase(ctx context.Context, pool *pgxpool.Pool, timeout time.Duration) error {
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+func waitForDatabase(parent context.Context, pool *pgxpool.Pool, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
 
 	backoff := 500 * time.Millisecond
@@ -107,6 +107,10 @@ func waitForDatabase(ctx context.Context, pool *pgxpool.Pool, timeout time.Durat
 
 		select {
 		case <-ctx.Done():
+			// Stopped by the caller, such as a shutdown, rather than by the timeout.
+			if parentErr := parent.Err(); parentErr != nil {
+				return fmt.Errorf("waiting for database: %w (last error: %v)", parentErr, err)
+			}
 			return fmt.Errorf("database not ready after %s: %w", timeout, err)
 		case <-time.After(backoff):
 		}

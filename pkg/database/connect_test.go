@@ -28,8 +28,18 @@ func TestConnectStopsWhenCancelled(t *testing.T) {
 	defer cancel()
 
 	start := time.Now()
-	require.Error(t, Connect(ctx, Options{URI: unreachableURI, ConnectTimeout: time.Minute}))
+	err := Connect(ctx, Options{URI: unreachableURI, ConnectTimeout: time.Minute})
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.NotContains(t, err.Error(), "database not ready after")
 	assert.Less(t, time.Since(start), 5*time.Second)
+}
+
+func TestConnectReportsCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(500*time.Millisecond, cancel)
+
+	err := Connect(ctx, Options{URI: unreachableURI, ConnectTimeout: time.Minute})
+	require.ErrorIs(t, err, context.Canceled)
 }
 
 func TestIsPermanent(t *testing.T) {
