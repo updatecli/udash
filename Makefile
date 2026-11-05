@@ -68,4 +68,5 @@ docs: ## Generate api documentation
 
 .PHONY: docs.check
 docs.check: docs ## Fail when the committed api documentation is out of date
+	git add --intent-to-add -- docs/
 	git diff --exit-code -- docs/
