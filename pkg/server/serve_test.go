@@ -41,7 +41,13 @@ func TestServeFinishesInFlightRequestsOnShutdown(t *testing.T) {
 		}
 	}()
 
-	<-started
+	select {
+	case <-started:
+	case err := <-done:
+		t.Fatalf("serve returned before the handler started: %v", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("the handler did not start")
+	}
 	cancel()
 
 	assert.Equal(t, http.StatusNoContent, <-status, "the in-flight request must complete")
