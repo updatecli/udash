@@ -43,8 +43,9 @@ database:
 ### Endpoints
 
 The routes are registered in `pkg/server/endpoints.go`. The API is versioned: every
-endpoint of the API contract is served under `/api/v1beta1`, and only the landing page
-and the probes stay unversioned. Udash is still experimental, so a breaking change moves
+endpoint of the API contract is served under `/api/v1beta1`. Only the landing page
+(`/api`), the probes (`/api/ping`, `/api/ready`), `/api/about` and the swagger
+documentation (`/swagger/*`) stay unversioned. Udash is still experimental, so a breaking change moves
 the API to a new version without keeping the previous one. The API becomes `/api/v1` with
 Udash 1.0.
 
