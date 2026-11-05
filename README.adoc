@@ -298,8 +298,7 @@ image serves an open deployment and an authenticated one without a rebuild.
 `config.json` is also what Updatecli reads to discover the oauth settings when running
 `updatecli udash login`. It fetches `<url>/config.json` and takes `OAUTH_DOMAIN`, `OAUTH_CLIENTID`,
 and `OAUTH_AUDIENCE` from it, so an authenticated deployment has to publish `OAUTH_AUDIENCE` there
-even though the frontend never reads it. The value doubles as the API URL Updatecli stores, so it
-should be the API base URL the CLI is expected to publish to.
+even though the frontend never reads it.
 
 === Updatecli
 
@@ -319,9 +318,9 @@ the PKCE flow rather than just recording the endpoint:
 
 The remaining oauth settings are then discovered from `<url>/config.json`.
 
-`--api-url` sets the API endpoint, defaulting to `<url>/api`. Note that the PKCE flow stores the
-oauth audience as the API URL instead, so on an authenticated deployment the audience and the API
-base URL have to be the same value.
+`--api-url` sets the API endpoint the CLI publishes to, defaulting to `<url>/api/v1beta1`, the
+base every pipeline route is served under. Set it when the API is not served next to the frontend,
+or set `UPDATECLI_UDASH_API_URL`.
 
 === Links
 
