@@ -41,7 +41,7 @@ type ListLabelKeyOnlyResponse struct {
 // @Success 200 {object} ListLabelsResponse
 // @Failure 400 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/labels [get]
+// @Router /api/v1beta1/pipeline/labels [get]
 func ListLabels(c *gin.Context) {
 
 	key := c.Request.URL.Query().Get("key")
@@ -144,7 +144,7 @@ type SearchLabelsRequest struct {
 // @Success 200 {object} ListLabelsResponse
 // @Failure 400 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/labels/search [post]
+// @Router /api/v1beta1/pipeline/labels/search [post]
 func SearchLabels(c *gin.Context) {
 
 	queryParams := SearchLabelsRequest{}

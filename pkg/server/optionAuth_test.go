@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -120,19 +121,19 @@ func TestAuthOptionsInit(t *testing.T) {
 func TestNewGinEngineFailsClosed(t *testing.T) {
 	// An unusable configuration must stop the server rather than quietly serve an
 	// unauthenticated API.
-	_, err := newGinEngine(Options{Auth: AuthOptions{Mode: "zitadelx"}})
+	_, err := newGinEngine(context.Background(), Options{Auth: AuthOptions{Mode: "zitadelx"}})
 	require.ErrorContains(t, err, "unknown authentication mode")
 }
 
 func TestNewGinEngineWithoutAuth(t *testing.T) {
 	// The default deployment has no authentication at all and must keep working.
-	engine, err := newGinEngine(Options{})
+	engine, err := newGinEngine(context.Background(), Options{})
 	require.NoError(t, err)
 	require.NotNil(t, engine)
 
 	for _, route := range engine.Routes() {
-		assert.NotEqual(t, "/api/tokens", route.Path,
+		assert.NotEqual(t, "/api/v1beta1/tokens", route.Path,
 			"the token endpoints must not exist when nobody can be authenticated")
-		assert.NotEqual(t, "/api/whoami", route.Path)
+		assert.NotEqual(t, "/api/v1beta1/whoami", route.Path)
 	}
 }

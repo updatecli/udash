@@ -15,7 +15,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/api/": {
+        "/api": {
             "get": {
                 "description": "Landing page of the API",
                 "tags": [
@@ -63,7 +63,30 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/pipeline/actions/ack": {
+        "/api/ready": {
+            "get": {
+                "description": "Check that the API and its database are ready to serve requests",
+                "tags": [
+                    "Ping"
+                ],
+                "summary": "Readiness of the API",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/server.DefaultResponseModel"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1beta1/pipeline/actions/ack": {
             "put": {
                 "description": "Leave an open action out of the search for a number of days, or until the worst result of its pipelines is no longer the given one",
                 "consumes": [
@@ -155,7 +178,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/pipeline/actions/search": {
+        "/api/v1beta1/pipeline/actions/search": {
             "post": {
                 "description": "Search the actions left open by the latest report of every pipeline, one entry per action URL along with the pipelines feeding it",
                 "consumes": [
@@ -190,7 +213,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/pipeline/config/conditions": {
+        "/api/v1beta1/pipeline/config/conditions": {
             "get": {
                 "description": "List all configuration conditions from the database",
                 "tags": [
@@ -243,39 +266,9 @@ const docTemplate = `{
                         }
                     }
                 }
-            },
-            "delete": {
-                "description": "Delete a configuration condition from the database",
-                "tags": [
-                    "Configuration Conditions"
-                ],
-                "summary": "Delete a configuration condition",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "ID of the configuration condition to delete",
-                        "name": "id",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/server.DefaultResponseModel"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/server.DefaultResponseModel"
-                        }
-                    }
-                }
             }
         },
-        "/api/pipeline/config/conditions/search": {
+        "/api/v1beta1/pipeline/config/conditions/search": {
             "post": {
                 "description": "Search for configuration conditions in the database",
                 "consumes": [
@@ -310,8 +303,8 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/pipeline/config/kinds": {
-            "post": {
+        "/api/v1beta1/pipeline/config/kinds": {
+            "get": {
                 "description": "Search for configuration by kind in the database",
                 "consumes": [
                     "application/json"
@@ -345,7 +338,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/pipeline/config/sources": {
+        "/api/v1beta1/pipeline/config/sources": {
             "get": {
                 "description": "List all configuration sources from the database",
                 "tags": [
@@ -398,39 +391,9 @@ const docTemplate = `{
                         }
                     }
                 }
-            },
-            "delete": {
-                "description": "Delete a configuration source from the database",
-                "tags": [
-                    "Configuration Sources"
-                ],
-                "summary": "Delete a configuration source",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "ID of the configuration source to delete",
-                        "name": "id",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/server.DefaultResponseModel"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/server.DefaultResponseModel"
-                        }
-                    }
-                }
             }
         },
-        "/api/pipeline/config/sources/search": {
+        "/api/v1beta1/pipeline/config/sources/search": {
             "post": {
                 "description": "Search for configuration sources in the database",
                 "consumes": [
@@ -465,7 +428,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/pipeline/config/targets": {
+        "/api/v1beta1/pipeline/config/targets": {
             "get": {
                 "description": "List all configuration targets from the database",
                 "tags": [
@@ -518,39 +481,9 @@ const docTemplate = `{
                         }
                     }
                 }
-            },
-            "delete": {
-                "description": "Delete a configuration target from the database",
-                "tags": [
-                    "Configuration Targets"
-                ],
-                "summary": "Delete a configuration target",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "ID of the configuration target to delete",
-                        "name": "id",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/server.DefaultResponseModel"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/server.DefaultResponseModel"
-                        }
-                    }
-                }
             }
         },
-        "/api/pipeline/config/targets/search": {
+        "/api/v1beta1/pipeline/config/targets/search": {
             "post": {
                 "description": "Search for configuration targets in the database",
                 "consumes": [
@@ -585,7 +518,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/pipeline/labels": {
+        "/api/v1beta1/pipeline/labels": {
             "get": {
                 "description": "List labels data from the database with optional filtering",
                 "tags": [
@@ -664,7 +597,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/pipeline/labels/search": {
+        "/api/v1beta1/pipeline/labels/search": {
             "post": {
                 "description": "Search labels in the database using advanced filtering",
                 "consumes": [
@@ -710,7 +643,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/pipeline/reports": {
+        "/api/v1beta1/pipeline/reports": {
             "get": {
                 "description": "List all pipeline reports from the database",
                 "consumes": [
@@ -816,7 +749,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/pipeline/reports/search": {
+        "/api/v1beta1/pipeline/reports/search": {
             "post": {
                 "description": "Search pipeline reports in the database using advanced filtering",
                 "consumes": [
@@ -865,7 +798,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/pipeline/reports/summary": {
+        "/api/v1beta1/pipeline/reports/summary": {
             "post": {
                 "description": "Return the number of pipeline reports per result for each time bucket of the requested time range.\nBuckets are UTC hours, UTC calendar days, ISO weeks or calendar months depending on the\ngranularity, and the date of an entry is the start of its bucket, formatted as RFC3339.\nEvery report is counted, including several reports of the same pipeline, and buckets without\nany report are returned with a zeroed entry.",
                 "consumes": [
@@ -911,7 +844,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/pipeline/reports/{id}": {
+        "/api/v1beta1/pipeline/reports/{id}": {
             "get": {
                 "description": "Get the latest pipeline report for a specific ID",
                 "tags": [
@@ -1009,7 +942,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/pipeline/scms": {
+        "/api/v1beta1/pipeline/scms": {
             "get": {
                 "description": "List SCMs data from the database",
                 "tags": [
@@ -1088,7 +1021,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/pipeline/scms/search": {
+        "/api/v1beta1/pipeline/scms/search": {
             "post": {
                 "description": "Search SCM data using JSON filters. When summary is true, the response contains SCM summary data for all matching SCMs.",
                 "consumes": [
@@ -1134,7 +1067,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/tokens": {
+        "/api/v1beta1/tokens": {
             "get": {
                 "security": [
                     {
@@ -1275,7 +1208,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/tokens/{id}": {
+        "/api/v1beta1/tokens/{id}": {
             "delete": {
                 "security": [
                     {
@@ -1321,7 +1254,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/whoami": {
+        "/api/v1beta1/whoami": {
             "get": {
                 "security": [
                     {
@@ -1943,6 +1876,10 @@ const docTemplate = `{
                         "$ref": "#/definitions/result.Condition"
                     }
                 },
+                "consoleOutput": {
+                    "description": "ConsoleOutput holds the end of the console output of the whole pipeline,\nincluding the output logged outside of any source, condition or target",
+                    "type": "string"
+                },
                 "err": {
                     "type": "string"
                 },
@@ -1983,6 +1920,10 @@ const docTemplate = `{
                     "additionalProperties": {
                         "$ref": "#/definitions/result.Target"
                     }
+                },
+                "updatecliVersion": {
+                    "description": "UpdatecliVersion is the version of Updatecli which produced the report",
+                    "type": "string"
                 }
             }
         },
@@ -2014,7 +1955,7 @@ const docTemplate = `{
                     "description": "Config stores the source configuration"
                 },
                 "consoleOutput": {
-                    "description": "ConsoleOutput stores the console output of the condition execution",
+                    "description": "ConsoleOutput stores the console output of the condition execution.\nIt may include lines from resources running at the same time.",
                     "type": "string"
                 },
                 "description": {
@@ -2100,7 +2041,7 @@ const docTemplate = `{
                     "description": "Config stores the source configuration"
                 },
                 "consoleOutput": {
-                    "description": "ConsoleOutput stores the console output of the source execution",
+                    "description": "ConsoleOutput stores the console output of the source execution.\nIt may include lines from resources running at the same time.",
                     "type": "string"
                 },
                 "description": {
@@ -2151,7 +2092,7 @@ const docTemplate = `{
                     "description": "Config stores the source configuration"
                 },
                 "consoleOutput": {
-                    "description": "ConsoleOutput stores the console output of the target execution",
+                    "description": "ConsoleOutput stores the console output of the target execution.\nIt may include lines from resources running at the same time.",
                     "type": "string"
                 },
                 "description": {
@@ -2762,18 +2703,18 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "captureIndex": {
-                    "description": "CaptureIndex defines which substring occurrence to retrieve. Note also that a value of ` + "`" + `0` + "`" + ` for ` + "`" + `captureIndex` + "`" + ` returns all submatches, and individual submatch indexes start at ` + "`" + `1` + "`" + `.",
+                    "description": "\"captureindex\" defines the capture group to return.\n\ndefault:\n  0\n\nremark:\n  * 0 returns the whole match, and capture groups start at 1.\n  * an index without a matching capture group returns an empty value.\n  * ignored when \"capturepattern\" is set.\n\nexample:\n  * captureindex: 1",
                     "type": "integer"
                 },
                 "capturePattern": {
-                    "description": "Uses the match group(s) to generate the output using \\0, \\1, \\2, etc",
+                    "description": "\"capturepattern\" defines a template building the value from the capture groups.\n\nremark:\n  * \\0 is replaced by the whole match, \\1 by the first capture group, \\2 by the second, and so on.\n  * it takes precedence over \"captureindex\".\n\nexample:\n  * capturepattern: \\1.\\2",
                     "type": "string"
                 },
                 "deprecatedCaptureIndex": {
                     "type": "integer"
                 },
                 "pattern": {
-                    "description": "Pattern defines regular expression to use for retrieving a submatch",
+                    "description": "\"pattern\" defines the regular expression applied to the value.\n\nremark:\n  * when nothing matches, the value becomes empty.\n\nexample:\n  * pattern: 'v(\\d+)\\.(\\d+)'",
                     "type": "string"
                 }
             }
@@ -2782,18 +2723,19 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "joinMultipleMatches": {
-                    "description": "If we find multiple matches, join them by this",
+                    "description": "\"joinmultiplematches\" defines the separator used to join the results when the query matches several values.\n\nremark:\n  * it takes precedence over \"multiplematchselector\".\n  * when both are empty, several matches make the transformer fail.\n\nexample:\n  * joinmultiplematches: \",\"",
                     "type": "string"
                 },
                 "key": {
+                    "description": "\"key\" defines the dasel query selecting the value in the json input.\n\nremark:\n  * the query uses the dasel v2 selector syntax.\n\nexample:\n  * key: .version\n  * key: .tags.all()",
                     "type": "string"
                 },
                 "multipleMatchSelector": {
-                    "description": "If we find multiple matches, select the \"first\" or the \"last\"",
+                    "description": "\"multiplematchselector\" defines which result to return when the query matches several values.\n\nremark:\n  * accepted values are \"first\", \"last\", or an index such as \"[1]\".\n  * a negative index counts from the end, so \"[-1]\" is the last result.\n  * when both \"joinmultiplematches\" and \"multiplematchselector\" are empty, several matches make the transformer fail.\n\nexample:\n  * multiplematchselector: first\n  * multiplematchselector: \"[0]\"",
                     "type": "string"
                 },
                 "noMatchResult": {
-                    "description": "If we don't find a match then return the following string or the input value",
+                    "description": "\"nomatchresult\" defines the value returned when the query matches nothing.\n\ndefault:\n  empty, which makes the transformer fail when nothing matches.\n\nremark:\n  * \"\u003cinput\u003e\" returns the transformer input.\n  * \"\u003cblank\u003e\" returns an empty value.\n  * any other value is returned as is.",
                     "type": "string"
                 }
             }
@@ -2802,11 +2744,11 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "from": {
-                    "description": "From defines the source value which need to be replaced",
+                    "description": "\"from\" defines the text to replace.\n\nexample:\n  * from: \"_\"",
                     "type": "string"
                 },
                 "to": {
-                    "description": "To defines the \"to what\" a \"from\" value needs to be replaced",
+                    "description": "\"to\" defines the text replacing \"from\".\n\nexample:\n  * to: \".\"",
                     "type": "string"
                 }
             }
@@ -2815,11 +2757,11 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "addPrefix": {
-                    "description": "AddPrefix adds a prefix to the transformer input value",
+                    "description": "\"addprefix\" defines a prefix added to the value.\n\nexample:\n  * addprefix: v",
                     "type": "string"
                 },
                 "addSuffix": {
-                    "description": "AddSuffix adds a suffix to the transformer input value",
+                    "description": "\"addsuffix\" defines a suffix added to the value.\n\nexample:\n  * addsuffix: -alpine",
                     "type": "string"
                 },
                 "deprecatedAddPrefix": {
@@ -2839,11 +2781,11 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "find": {
-                    "description": "Find searches for a specific value if it exists and return false if it doesn't",
+                    "description": "\"find\" defines a regular expression, and replaces the value with its first match.\n\nremark:\n  * when nothing matches, the value becomes empty.\n\nexample:\n  * find: \\d+\\.\\d+\\.\\d+",
                     "type": "string"
                 },
                 "findSubMatch": {
-                    "description": "Find searches for a specific value if it exists then return the value using regular expression",
+                    "description": "\"findsubmatch\" defines a regular expression, and replaces the value with one of its capture groups.\n\nexample:\n  ` + "`" + `` + "`" + `` + "`" + `\n  findsubmatch:\n    pattern: 'v(\\d+)\\.(\\d+)'\n    captureindex: 1\n  ` + "`" + `` + "`" + `` + "`" + `",
                     "allOf": [
                         {
                             "$ref": "#/definitions/transformer.FindSubMatch"
@@ -2851,14 +2793,19 @@ const docTemplate = `{
                     ]
                 },
                 "jsonMatch": {
-                    "$ref": "#/definitions/transformer.JsonMatch"
+                    "description": "\"jsonmatch\" defines a query extracting a value from a json input.\n\nexample:\n  ` + "`" + `` + "`" + `` + "`" + `\n  jsonmatch:\n    key: .version\n  ` + "`" + `` + "`" + `` + "`" + `",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/transformer.JsonMatch"
+                        }
+                    ]
                 },
                 "quote": {
-                    "description": "Quote add quote around the value",
+                    "description": "\"quote\" wraps the value in double quotes.\n\ndefault:\n  false\n\nremark:\n  * special characters in the value are escaped, following Go string syntax.",
                     "type": "boolean"
                 },
                 "replacer": {
-                    "description": "Replacer specifies what value needs to be changed and how",
+                    "description": "\"replacer\" defines a single replacement applied to the value.\n\nexample:\n  ` + "`" + `` + "`" + `` + "`" + `\n  replacer:\n    from: \"_\"\n    to: \".\"\n  ` + "`" + `` + "`" + `` + "`" + `",
                     "allOf": [
                         {
                             "$ref": "#/definitions/transformer.Replacer"
@@ -2866,26 +2813,26 @@ const docTemplate = `{
                     ]
                 },
                 "replacers": {
-                    "description": "Replacers specifies a list of replacer instruction",
+                    "description": "\"replacers\" defines a list of replacements applied to the value.\n\nremark:\n  * all replacements run in a single pass, so a replaced text is never replaced again.\n\nexample:\n  ` + "`" + `` + "`" + `` + "`" + `\n  replacers:\n    - from: \"_\"\n      to: \".\"\n    - from: \"v\"\n      to: \"\"\n  ` + "`" + `` + "`" + `` + "`" + `",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/transformer.Replacer"
                     }
                 },
                 "semVerInc": {
-                    "description": "SemvVerInc specifies a comma separated list semantic versioning component that needs to be upgraded.",
+                    "description": "\"semverinc\" defines a comma separated list of semantic version components to increment.\n\nremark:\n  * accepted components are \"major\", \"minor\" and \"patch\", applied in the order given.\n  * the value must be a valid semantic version.\n  * spaces around the commas are not accepted.\n\nexample:\n  * semverinc: patch\n  * semverinc: minor,patch",
                     "type": "string"
                 },
                 "trimPrefix": {
-                    "description": "TrimPrefix removes a prefix to the transformer input value",
+                    "description": "\"trimprefix\" defines a prefix removed from the value.\n\nexample:\n  * trimprefix: v",
                     "type": "string"
                 },
                 "trimSuffix": {
-                    "description": "TrimSuffix removes the suffix from the transformer input value",
+                    "description": "\"trimsuffix\" defines a suffix removed from the value.\n\nexample:\n  * trimsuffix: -alpine",
                     "type": "string"
                 },
                 "unquote": {
-                    "description": "Unquote remove quotes around the value",
+                    "description": "\"unquote\" removes the double quotes around the value.\n\ndefault:\n  false",
                     "type": "boolean"
                 }
             }
@@ -2903,7 +2850,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "1.0",
+	Version:          "v1beta1",
 	Host:             "",
 	BasePath:         "",
 	Schemes:          []string{},

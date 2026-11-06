@@ -31,7 +31,7 @@ var acknowledgeDays = []int{1, 7, 30}
 // @Success 200 {object} SearchOpenActionsResponse
 // @Failure 400 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/actions/search [post]
+// @Router /api/v1beta1/pipeline/actions/search [post]
 func SearchOpenActions(c *gin.Context) {
 
 	type queryData struct {
@@ -113,7 +113,7 @@ func SearchOpenActions(c *gin.Context) {
 // @Failure 401 {object} DefaultResponseModel
 // @Failure 403 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/actions/ack [put]
+// @Router /api/v1beta1/pipeline/actions/ack [put]
 func AcknowledgeAction(c *gin.Context) {
 	type queryData struct {
 		// URL is the link of the action
@@ -162,7 +162,7 @@ func AcknowledgeAction(c *gin.Context) {
 // @Failure 401 {object} DefaultResponseModel
 // @Failure 403 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/actions/ack [delete]
+// @Router /api/v1beta1/pipeline/actions/ack [delete]
 func UnacknowledgeAction(c *gin.Context) {
 	url := c.Query("url")
 	if url == "" {

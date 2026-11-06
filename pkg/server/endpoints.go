@@ -32,7 +32,7 @@ type DefaultResponseModel struct {
 // @Description Landing page of the API
 // @Tags Landing
 // @Success 200
-// @Router /api/ [get]
+// @Router /api [get]
 func Landing(c *gin.Context) {
 	c.JSON(http.StatusOK, DefaultResponseModel{
 		Message: "Welcome to the Udash API",
@@ -75,76 +75,99 @@ func About(c *gin.Context) {
 }
 
 // @title Udash API
-// @version 1.0
+// @version v1beta1
 // @description API for managing Updatecli pipeline reports.
 // @securityDefinitions.apikey BearerAuth
 // @in header
 // @name Authorization
 // @description Either an Udash API token, created from the tokens page and prefixed with "udash_pat_", or an access token from the configured identity provider. Send it as "Bearer <token>".
-func (s *Server) Run() error {
+func (s *Server) Run(ctx context.Context) error {
 	// Init Server Option
 	if err := s.Options.Init(); err != nil {
 		return fmt.Errorf("invalid server options: %w", err)
 	}
 
-	r, err := newGinEngine(s.Options)
+	r, err := newGinEngine(ctx, s.Options)
 	if err != nil {
 		return err
 	}
 
-	// listen and server on 0.0.0.0:8080
-	return r.Run()
+	return serve(ctx, &http.Server{Addr: listenAddress(), Handler: r, ReadHeaderTimeout: readHeaderTimeout, IdleTimeout: idleTimeout}, shutdownTimeout)
 }
 
-// publicReadOnly returns a middleware leaving the read endpoints open while requiring the
-// provided authentication for anything which may change the stored data.
-//
-// The read methods are the ones listed, and every other one requires authentication. It is
-// deliberately written that way around: enumerating the write methods instead left PUT
-// unauthenticated, and would leave out any method added later.
-func publicReadOnly(auth gin.HandlerFunc) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		switch c.Request.Method {
-		case http.MethodGet, http.MethodHead, http.MethodOptions:
-			c.Next()
-		default:
-			auth(c)
+// APIPrefix is where the versioned API is served.
+const APIPrefix = "/api/v1beta1"
+
+// registerAPIRoutes registers the versioned API endpoints on api. A nil auth leaves
+// every endpoint open; otherwise reads are open only when visibility is public.
+// Every route must pick a guard, and be listed in TestAPIRouteGuards.
+func registerAPIRoutes(api *gin.RouterGroup, auth gin.HandlerFunc, visibility string) {
+	read := []gin.HandlerFunc{}
+	ack := []gin.HandlerFunc{}
+	write := []gin.HandlerFunc{}
+
+	if auth != nil {
+		// Fail closed: only an explicitly public API leaves the reads open.
+		if visibility != VisibilityPublic {
+			read = append(read, auth)
 		}
-	}
-}
+		// An acknowledgement changes what every viewer sees, so it needs a signed-in viewer.
+		ack = append(ack, auth, requirePermission(PermissionViewer))
+		// Publishing needs the permission to, and a token granted the scope to.
+		write = append(write, auth, requireScope(ScopeReportsWrite))
 
-// registerActionAckRoutes registers the acknowledgement routes on group. When
-// authenticated is true, group must already authenticate its requests, and the routes
-// require a signed-in viewer even on a public instance, since an acknowledgement changes
-// what every viewer sees.
-func registerActionAckRoutes(group gin.IRoutes, authenticated bool) {
-	guard := []gin.HandlerFunc{}
-	if authenticated {
-		guard = append(guard, requirePermission(PermissionViewer))
+		registerTokenRoutes(api, auth)
 	}
 
-	group.PUT("/actions/ack", append(guard, AcknowledgeAction)...)
-	group.DELETE("/actions/ack", append(guard, UnacknowledgeAction)...)
+	with := func(guard []gin.HandlerFunc, handler gin.HandlerFunc) []gin.HandlerFunc {
+		return append(append([]gin.HandlerFunc{}, guard...), handler)
+	}
+
+	pipeline := api.Group("/pipeline")
+
+	pipeline.GET("/labels", with(read, ListLabels)...)
+	pipeline.GET("/scms", with(read, ListSCMs)...)
+	pipeline.GET("/reports", with(read, ListPipelineReports)...)
+	pipeline.GET("/reports/:id", with(read, GetPipelineReportByID)...)
+	pipeline.GET("/config/kinds", with(read, SearchConfigKinds)...)
+	pipeline.GET("/config/sources", with(read, ListConfigSources)...)
+	pipeline.GET("/config/conditions", with(read, ListConfigConditions)...)
+	pipeline.GET("/config/targets", with(read, ListConfigTargets)...)
+
+	pipeline.POST("/config/sources/search", with(read, SearchConfigSources)...)
+	pipeline.POST("/config/conditions/search", with(read, SearchConfigConditions)...)
+	pipeline.POST("/config/targets/search", with(read, SearchConfigTargets)...)
+	pipeline.POST("/labels/search", with(read, SearchLabels)...)
+	pipeline.POST("/reports/search", with(read, SearchPipelineReports)...)
+	pipeline.POST("/reports/summary", with(read, SearchPipelineReportsSummary)...)
+	pipeline.POST("/actions/search", with(read, SearchOpenActions)...)
+	pipeline.POST("/scms/search", with(read, SearchSCMs)...)
+
+	pipeline.PUT("/actions/ack", with(ack, AcknowledgeAction)...)
+	pipeline.DELETE("/actions/ack", with(ack, UnacknowledgeAction)...)
+
+	pipeline.POST("/reports", with(write, CreatePipelineReport)...)
+	pipeline.PUT("/reports/:id", with(write, UpdatePipelineReport)...)
+	pipeline.DELETE("/reports/:id", with(write, DeletePipelineReport)...)
 }
 
-func newGinEngine(opts Options) (*gin.Engine, error) {
+// newGinEngine builds the router. ctx bounds the identity provider discovery done at
+// startup: the clients built from it do not keep it.
+func newGinEngine(ctx context.Context, opts Options) (*gin.Engine, error) {
 	r := gin.Default()
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	r.GET("/api", Landing)
 	r.GET("/api/ping", Ping)
+	r.GET("/api/ready", Ready)
 	r.GET("/api/about", About)
-
-	apiPipeline := r.Group("/api/pipeline")
 
 	// auth authenticates a request against the identity provider. It stays nil when
 	// no authentication is configured.
 	var auth gin.HandlerFunc
 	// resolver reports the current permission behind an Udash API token.
 	var resolver RoleResolver = snapshotResolver{}
-
-	ctx := context.Background()
 
 	switch opts.Auth.Mode {
 	case ModeOIDC:
@@ -201,61 +224,10 @@ func newGinEngine(opts Options) (*gin.Engine, error) {
 		// issues and validates those itself, so they work the same whichever
 		// identity provider is configured.
 		auth = udashTokenAuth(resolver, auth)
-
-		switch opts.Auth.Visibility {
-		case VisibilityPublic:
-			logrus.Debugf("API visibility set to public, no authentication required for read endpoints")
-			apiPipeline.Use(publicReadOnly(auth))
-		case VisibilityPrivate:
-			logrus.Debugf("API visibility set to private, authentication required for all endpoints")
-			apiPipeline.Use(auth)
-		}
-
-		registerTokenRoutes(r, auth)
+		logrus.Debugf("API visibility set to %q", opts.Auth.Visibility)
 	}
 
-	apiPipeline.GET("/labels", ListLabels)
-	apiPipeline.GET("/scms", ListSCMs)
-	apiPipeline.GET("/reports", ListPipelineReports)
-	apiPipeline.GET("/reports/:id", GetPipelineReportByID)
-	apiPipeline.GET("/config/kinds", SearchConfigKinds)
-	apiPipeline.GET("/config/sources", ListConfigSources)
-	apiPipeline.GET("/config/conditions", ListConfigConditions)
-	apiPipeline.GET("/config/targets", ListConfigTargets)
-
-	// Public endpoints when API visibility is set to public
-	if opts.Auth.Mode != "" && opts.Auth.Visibility == VisibilityPublic {
-		r.POST("/api/pipeline/config/sources/search", SearchConfigSources)
-		r.POST("/api/pipeline/config/conditions/search", SearchConfigConditions)
-		r.POST("/api/pipeline/config/targets/search", SearchConfigTargets)
-		r.POST("/api/pipeline/labels/search", SearchLabels)
-		r.POST("/api/pipeline/reports/search", SearchPipelineReports)
-		r.POST("/api/pipeline/reports/summary", SearchPipelineReportsSummary)
-		r.POST("/api/pipeline/actions/search", SearchOpenActions)
-		r.POST("/api/pipeline/scms/search", SearchSCMs)
-	} else {
-		apiPipeline.POST("/config/sources/search", SearchConfigSources)
-		apiPipeline.POST("/config/conditions/search", SearchConfigConditions)
-		apiPipeline.POST("/config/targets/search", SearchConfigTargets)
-		apiPipeline.POST("/labels/search", SearchLabels)
-		apiPipeline.POST("/reports/search", SearchPipelineReports)
-		apiPipeline.POST("/reports/summary", SearchPipelineReportsSummary)
-		apiPipeline.POST("/actions/search", SearchOpenActions)
-		apiPipeline.POST("/scms/search", SearchSCMs)
-	}
-
-	// Writing a report needs more than a valid token: the caller must be allowed to
-	// publish, and a token must have been granted the scope to do it.
-	write := []gin.HandlerFunc{}
-	if auth != nil {
-		write = append(write, requireScope(ScopeReportsWrite))
-	}
-
-	registerActionAckRoutes(apiPipeline, auth != nil)
-
-	apiPipeline.POST("/reports", append(write, CreatePipelineReport)...)
-	apiPipeline.PUT("/reports/:id", append(write, UpdatePipelineReport)...)
-	apiPipeline.DELETE("/reports/:id", append(write, DeletePipelineReport)...)
+	registerAPIRoutes(r.Group(APIPrefix), auth, opts.Auth.Visibility)
 
 	return r, nil
 }

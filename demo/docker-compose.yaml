@@ -5,9 +5,6 @@
 # 3. Configure your browser to access the Updatecli dashboard at `http://localhost:8080`.
 # 4. Run `updatecli udash login "http://localhost" --experimental`
 # 5. Run any updatecli command to publish reports to Udash
-#
-# INFO: You may have to run `docker compose restart server` if the postgresql database
-#  wasn't ready to receive connection
 # 
 # For example from the root of this repository, you can run:
 # 1. `export GITHUB_TOKEN=<your-github-token>`

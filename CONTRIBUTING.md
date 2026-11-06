@@ -33,8 +33,6 @@ server:
   auth:
     ## Disable authentication
     mode: "none"
-    ## If dryrun is set to true, then only GET request are allowed
-    dryrun: false
 
 database:
   uri: "postgres://udash:password@localhost:5432/udash?sslmode=disable"
@@ -44,14 +42,22 @@ database:
 
 ### Endpoints
 
-The file `pkg/server/main.go` contains the following endpoint:
+The routes are registered in `pkg/server/endpoints.go`. The API is versioned: every
+endpoint of the API contract is served under `/api/v1beta1`. Only the landing page
+(`/api`), the probes (`/api/ping`, `/api/ready`), `/api/about` and the swagger
+documentation (`/swagger/*`) stay unversioned. Udash is still experimental, so a breaking change moves
+the API to a new version without keeping the previous one. The API becomes `/api/v1` with
+Udash 1.0.
 
 * `/api/ping` [GET]
-* `/api/about`[GET]
-* `/api/pipeline/scms`[GET]
-* `/api/pipeline/reports`[GET][POST]
-* `/api/pipeline/reports/:id`[GET][PUT][DELETE]
-* `/api/pipeline/reports/summary`[POST]
+* `/api/ready` [GET]
+* `/api/about` [GET]
+* `/api/v1beta1/pipeline/scms` [GET]
+* `/api/v1beta1/pipeline/reports` [GET][POST]
+* `/api/v1beta1/pipeline/reports/:id` [GET][PUT][DELETE]
+* `/api/v1beta1/pipeline/reports/summary` [POST]
+
+The full list is in the swagger documentation, served at `/swagger/index.html`.
 
 ## 3. Frontend
 
