@@ -169,7 +169,7 @@ func Ping(ctx context.Context) error {
 // RunMigrationUp applies the pending migrations. It returns as soon as ctx is done, even
 // when a migration statement is blocked on a lock, so a signal can stop the startup.
 //
-// The migration is then abandoned rather than cancelled: the driver ignores contexts, so
+// The migration is then abandoned rather than canceled: the driver ignores contexts, so
 // the statement keeps running on the server until it completes, and the migration table
 // is left dirty, as it would be if the process were killed.
 func RunMigrationUp(ctx context.Context) error {

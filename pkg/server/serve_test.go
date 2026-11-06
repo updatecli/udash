@@ -73,11 +73,11 @@ func TestServeCancelsRequestsPastTheShutdownTimeout(t *testing.T) {
 	require.NoError(t, ln.Close())
 
 	started := make(chan struct{})
-	cancelled := make(chan struct{})
+	canceled := make(chan struct{})
 	srv := &http.Server{Addr: addr, ReadHeaderTimeout: time.Second, Handler: http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		close(started)
 		<-r.Context().Done()
-		close(cancelled)
+		close(canceled)
 	})}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -111,8 +111,8 @@ func TestServeCancelsRequestsPastTheShutdownTimeout(t *testing.T) {
 	assert.ErrorIs(t, <-done, context.DeadlineExceeded)
 
 	select {
-	case <-cancelled:
+	case <-canceled:
 	case <-time.After(5 * time.Second):
-		t.Fatal("the request still running past the shutdown timeout was not cancelled")
+		t.Fatal("the request still running past the shutdown timeout was not canceled")
 	}
 }
