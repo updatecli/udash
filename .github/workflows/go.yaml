@@ -52,6 +52,12 @@ jobs:
           install-only: true
       - name: Show GoReleaser version
         run: goreleaser --version
+      - name: Install Swag
+        run: "go install github.com/swaggo/swag/cmd/swag@$SWAGGER_VERSION"
+        env:
+          SWAGGER_VERSION: v1.16.6
+      - name: Check API documentation is up to date
+        run: make docs.check
       - name: Test
         run: make test
       - name: Build

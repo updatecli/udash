@@ -28,6 +28,25 @@ policies:
       - updatecli/values.d/scm.yaml
       - updatecli/values.d/golang_patch.yaml
 
+  - name: Golang Vulnerability
+    id: golang_cve_default
+    policy: ghcr.io/updatecli/policies/autodiscovery/golang:0.14.0@sha256:dcca03ce07083bd34140d85ad2e1317ef6f40ea258f2b3c67edf3823a25d303f
+    valuesinline:
+      pipelineid: "golang/gomod/cves"
+      groupby: individual
+      spec:
+        vulnerability:
+          minseverity: "high"
+        onlygomodule: true
+        only:
+          - path: "go.mod"
+      pipeline:
+        labels:
+          ecosystem: golang
+          policy: autodiscovery
+          vulnerability: minhigh
+          monitor: active
+
   - name: Update Dockerfilell update
     policy: ghcr.io/updatecli/policies/autodiscovery/dockerfile:0.10.0@sha256:f43897fa3352cffb268c2a60790368b521e318ea32305d2c450aa941b598ea3a
     values:
@@ -63,7 +82,7 @@ policies:
 
   - name: Configure Updatecli workflows
     id: updatecli
-    policy: ghcr.io/updatecli/policies/updatecli/githubaction/scaffold:0.2.0@sha256:abfecc050f1598f0ee835d673ddc06c89f71319c64672486e608d6f47f0d8987
+    policy: ghcr.io/updatecli/policies/updatecli/githubaction/scaffold:0.3.0
     valuesinline:
       gha:
         golang:

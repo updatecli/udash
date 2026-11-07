@@ -50,7 +50,7 @@ type ConfigKindResponse struct {
 // @Param page query string false "Page number for pagination, default is 1"
 // @Success 200 {object} SourceConfigResponse
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/config/sources [get]
+// @Router /api/v1beta1/pipeline/config/sources [get]
 func ListConfigSources(c *gin.Context) {
 	id := c.Request.URL.Query().Get("id")
 	kind := c.Request.URL.Query().Get("kind")
@@ -88,7 +88,7 @@ func ListConfigSources(c *gin.Context) {
 // @Success 200 {object} SourceConfigResponse
 // @Failure 400 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/config/sources/search [post]
+// @Router /api/v1beta1/pipeline/config/sources/search [post]
 func SearchConfigSources(c *gin.Context) {
 	type configResource struct {
 		ID     string          `json:"id"`
@@ -130,7 +130,7 @@ func SearchConfigSources(c *gin.Context) {
 // @Success 200 {object} ConfigKindResponse
 // @Failure 400 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/config/kinds [post]
+// @Router /api/v1beta1/pipeline/config/kinds [get]
 func SearchConfigKinds(c *gin.Context) {
 	resourceType := c.Request.URL.Query().Get("type")
 	if resourceType == "" {
@@ -158,13 +158,6 @@ func SearchConfigKinds(c *gin.Context) {
 }
 
 // DeleteConfigSource deletes a resource configuration from the database.
-// @Summary Delete a configuration source
-// @Description Delete a configuration source from the database
-// @Tags Configuration Sources
-// @Param id query string true "ID of the configuration source to delete"
-// @Success 200 {object} DefaultResponseModel
-// @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/config/sources [delete]
 func DeleteConfigSource(c *gin.Context) {
 	id := c.Request.URL.Query().Get("id")
 
@@ -190,7 +183,7 @@ func DeleteConfigSource(c *gin.Context) {
 // @Param page query string false "Page number for pagination, default is 1"
 // @Success 200 {object} ConditionConfigResponse
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/config/conditions [get]
+// @Router /api/v1beta1/pipeline/config/conditions [get]
 func ListConfigConditions(c *gin.Context) {
 	id := c.Request.URL.Query().Get("id")
 	kind := c.Request.URL.Query().Get("kind")
@@ -226,7 +219,7 @@ func ListConfigConditions(c *gin.Context) {
 // @Success 200 {object} ConditionConfigResponse
 // @Failure 400 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/config/conditions/search [post]
+// @Router /api/v1beta1/pipeline/config/conditions/search [post]
 func SearchConfigConditions(c *gin.Context) {
 	type configResource struct {
 		// ID is the unique identifier of the configuration condition.
@@ -264,13 +257,6 @@ func SearchConfigConditions(c *gin.Context) {
 }
 
 // DeleteConfigCondition deletes a resource configuration from the database.
-// @Summary Delete a configuration condition
-// @Description Delete a configuration condition from the database
-// @Tags Configuration Conditions
-// @Param id query string true "ID of the configuration condition to delete"
-// @Success 200 {object} DefaultResponseModel
-// @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/config/conditions [delete]
 func DeleteConfigCondition(c *gin.Context) {
 	id := c.Request.URL.Query().Get("id")
 
@@ -296,7 +282,7 @@ func DeleteConfigCondition(c *gin.Context) {
 // @Param page query string false "Page number for pagination, default is 1"
 // @Success 200 {object} TargetConfigResponse
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/config/targets [get]
+// @Router /api/v1beta1/pipeline/config/targets [get]
 func ListConfigTargets(c *gin.Context) {
 	id := c.Request.URL.Query().Get("id")
 	kind := c.Request.URL.Query().Get("kind")
@@ -332,7 +318,7 @@ func ListConfigTargets(c *gin.Context) {
 // @Success 200 {object} TargetConfigResponse
 // @Failure 400 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/config/targets/search [post]
+// @Router /api/v1beta1/pipeline/config/targets/search [post]
 func SearchConfigTargets(c *gin.Context) {
 	type configResource struct {
 		ID     string          `json:"id"`
@@ -365,13 +351,6 @@ func SearchConfigTargets(c *gin.Context) {
 }
 
 // DeleteConfigTarget deletes a resource configuration from the database.
-// @Summary Delete a configuration target
-// @Description Delete a configuration target from the database
-// @Tags Configuration Targets
-// @Param id query string true "ID of the configuration target to delete"
-// @Success 200 {object} DefaultResponseModel
-// @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/config/targets [delete]
 func DeleteConfigTarget(c *gin.Context) {
 	id := c.Request.URL.Query().Get("id")
 

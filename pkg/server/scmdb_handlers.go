@@ -60,7 +60,7 @@ type SearchSCMsRequest struct {
 // @Success 200 {object} ListSCMsResponse
 // @Failure 400 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/scms/search [post]
+// @Router /api/v1beta1/pipeline/scms/search [post]
 func SearchSCMs(c *gin.Context) {
 	queryParams := SearchSCMsRequest{}
 
@@ -121,7 +121,7 @@ func SearchSCMs(c *gin.Context) {
 // @Success 200 {object} ListSCMsResponse
 // @Failure 400 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/scms [get]
+// @Router /api/v1beta1/pipeline/scms [get]
 func ListSCMs(c *gin.Context) {
 	queryValues := c.Request.URL.Query()
 	summaryValue := queryValues.Get("summary")

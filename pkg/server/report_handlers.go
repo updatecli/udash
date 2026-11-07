@@ -27,7 +27,7 @@ type CreatePipelineReportResponse struct {
 // @Success 201 {object} CreatePipelineReportResponse
 // @Failure 400 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/reports [post]
+// @Router /api/v1beta1/pipeline/reports [post]
 func CreatePipelineReport(c *gin.Context) {
 	var p reports.Report
 
@@ -59,7 +59,7 @@ func CreatePipelineReport(c *gin.Context) {
 // @Param id path string true "Report ID"
 // @Success 200 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/reports/{id} [delete]
+// @Router /api/v1beta1/pipeline/reports/{id} [delete]
 func DeletePipelineReport(c *gin.Context) {
 	id := c.Param("id")
 
@@ -90,7 +90,7 @@ type GetPipelineReportsResponse struct {
 // @Success 200 {object} GetPipelineReportsResponse
 // @Failure 400 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/reports/search [post]
+// @Router /api/v1beta1/pipeline/reports/search [post]
 func SearchPipelineReports(c *gin.Context) {
 
 	type queryData struct {
@@ -254,7 +254,7 @@ type SearchPipelineReportsSummaryResponse struct {
 // @Success 200 {object} SearchPipelineReportsSummaryResponse
 // @Failure 400 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/reports/summary [post]
+// @Router /api/v1beta1/pipeline/reports/summary [post]
 func SearchPipelineReportsSummary(c *gin.Context) {
 	queryParams := SearchPipelineReportsSummaryRequest{}
 
@@ -390,7 +390,7 @@ func SearchPipelineReportsSummary(c *gin.Context) {
 // @Success 200 {object} GetPipelineReportsResponse
 // @Failure 400 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/reports [get]
+// @Router /api/v1beta1/pipeline/reports [get]
 func ListPipelineReports(c *gin.Context) {
 	queryParams := c.Request.URL.Query()
 	scmID := queryParams.Get("scmid")
@@ -471,7 +471,7 @@ type GetPipelineReportByIDResponse struct {
 // @Success 200 {object} GetPipelineReportByIDResponse
 // @Failure 404 {object} DefaultResponseModel
 // @Failure 500 {object} DefaultResponseModel
-// @Router /api/pipeline/reports/{id} [get]
+// @Router /api/v1beta1/pipeline/reports/{id} [get]
 func GetPipelineReportByID(c *gin.Context) {
 	id := c.Param("id")
 	data, err := database.SearchReport(c, id)
@@ -523,7 +523,7 @@ func GetPipelineReportByID(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Success 200 {object} DefaultResponseModel
-// @Router /api/pipeline/reports/{id} [put]
+// @Router /api/v1beta1/pipeline/reports/{id} [put]
 func UpdatePipelineReport(c *gin.Context) {
 	c.JSON(
 		http.StatusOK,

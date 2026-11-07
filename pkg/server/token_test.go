@@ -32,8 +32,7 @@ func fakeIdentityAuth(principal Principal) gin.HandlerFunc {
 	}
 }
 
-// tokenTestServer wires the token endpoints behind a stubbed identity, plus the
-// report write route so scope enforcement can be checked end to end.
+// tokenTestServer serves the API of a private instance behind a stubbed identity.
 func tokenTestServer(t *testing.T, identity Principal) *httptest.Server {
 	t.Helper()
 
@@ -41,9 +40,7 @@ func tokenTestServer(t *testing.T, identity Principal) *httptest.Server {
 	r := gin.New()
 
 	auth := udashTokenAuth(snapshotResolver{}, fakeIdentityAuth(identity))
-	registerTokenRoutes(r, auth)
-
-	r.POST("/api/pipeline/reports", auth, requireScope(ScopeReportsWrite), CreatePipelineReport)
+	registerAPIRoutes(r.Group(APIPrefix), auth, VisibilityPrivate)
 
 	server := httptest.NewServer(r)
 	t.Cleanup(server.Close)
@@ -91,15 +88,15 @@ func TestAPITokens(t *testing.T) {
 	dbURL, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
 
-	require.NoError(t, database.Connect(database.Options{URI: dbURL}))
-	require.NoError(t, database.RunMigrationUp())
+	require.NoError(t, database.Connect(ctx, database.Options{URI: dbURL}))
+	require.NoError(t, database.RunMigrationUp(ctx))
 
 	publisher := Principal{Subject: "user-publisher", Name: "Pat", Permission: PermissionPublisher}
 
 	t.Run("lifecycle", func(t *testing.T) {
 		srv := tokenTestServer(t, publisher)
 
-		status, created := doJSON(t, http.MethodPost, srv.URL+"/api/tokens", "session", map[string]any{
+		status, created := doJSON(t, http.MethodPost, srv.URL+"/api/v1beta1/tokens", "session", map[string]any{
 			"name": "ci",
 		})
 		require.Equal(t, http.StatusCreated, status)
@@ -111,13 +108,13 @@ func TestAPITokens(t *testing.T) {
 		assert.Nil(t, created["expires_at"], "a token created without an expiry never expires")
 
 		// The token authenticates on its own, with no identity provider involved.
-		status, who := doJSON(t, http.MethodGet, srv.URL+"/api/whoami", token, nil)
+		status, who := doJSON(t, http.MethodGet, srv.URL+"/api/v1beta1/whoami", token, nil)
 		require.Equal(t, http.StatusOK, status)
 		assert.Equal(t, "user-publisher", who["subject"])
 		assert.Equal(t, "ci", who["tokenName"])
 
 		// And it may publish.
-		status, _ = doJSON(t, http.MethodPost, srv.URL+"/api/pipeline/reports", token, map[string]any{
+		status, _ = doJSON(t, http.MethodPost, srv.URL+"/api/v1beta1/pipeline/reports", token, map[string]any{
 			"Name": "ci: bump something", "ID": "abc", "PipelineID": "p",
 		})
 		assert.Equal(t, http.StatusCreated, status)
@@ -125,23 +122,23 @@ func TestAPITokens(t *testing.T) {
 		id, _ := created["id"].(string)
 		require.NotEmpty(t, id)
 
-		status, _ = doJSON(t, http.MethodDelete, srv.URL+"/api/tokens/"+id, "session", nil)
+		status, _ = doJSON(t, http.MethodDelete, srv.URL+"/api/v1beta1/tokens/"+id, "session", nil)
 		require.Equal(t, http.StatusOK, status)
 
 		// Once revoked it stops working.
-		status, _ = doJSON(t, http.MethodGet, srv.URL+"/api/whoami", token, nil)
+		status, _ = doJSON(t, http.MethodGet, srv.URL+"/api/v1beta1/whoami", token, nil)
 		assert.Equal(t, http.StatusUnauthorized, status)
 	})
 
 	t.Run("a token cannot mint another token", func(t *testing.T) {
 		srv := tokenTestServer(t, publisher)
 
-		status, created := doJSON(t, http.MethodPost, srv.URL+"/api/tokens", "session", map[string]any{"name": "ci"})
+		status, created := doJSON(t, http.MethodPost, srv.URL+"/api/v1beta1/tokens", "session", map[string]any{"name": "ci"})
 		require.Equal(t, http.StatusCreated, status)
 		token := created["token"].(string)
 
 		// Otherwise a leaked token could issue fresh ones and outlive its revocation.
-		status, _ = doJSON(t, http.MethodPost, srv.URL+"/api/tokens", token, map[string]any{"name": "sneaky"})
+		status, _ = doJSON(t, http.MethodPost, srv.URL+"/api/v1beta1/tokens", token, map[string]any{"name": "sneaky"})
 		assert.Equal(t, http.StatusForbidden, status)
 	})
 
@@ -149,14 +146,14 @@ func TestAPITokens(t *testing.T) {
 		srv := tokenTestServer(t, Principal{Subject: "user-viewer", Permission: PermissionViewer})
 
 		// This is what stops everybody who can sign in from minting a publishing token.
-		status, _ := doJSON(t, http.MethodPost, srv.URL+"/api/tokens", "session", map[string]any{"name": "nope"})
+		status, _ := doJSON(t, http.MethodPost, srv.URL+"/api/v1beta1/tokens", "session", map[string]any{"name": "nope"})
 		assert.Equal(t, http.StatusForbidden, status)
 	})
 
 	t.Run("a token cannot be granted more than its creator", func(t *testing.T) {
 		srv := tokenTestServer(t, Principal{Subject: "user-viewer-2", Permission: PermissionViewer})
 
-		status, _ := doJSON(t, http.MethodPost, srv.URL+"/api/tokens", "session", map[string]any{
+		status, _ := doJSON(t, http.MethodPost, srv.URL+"/api/v1beta1/tokens", "session", map[string]any{
 			"name":   "escalate",
 			"scopes": []string{ScopeReportsWrite},
 		})
@@ -166,14 +163,14 @@ func TestAPITokens(t *testing.T) {
 	t.Run("a read only token cannot publish", func(t *testing.T) {
 		srv := tokenTestServer(t, publisher)
 
-		status, created := doJSON(t, http.MethodPost, srv.URL+"/api/tokens", "session", map[string]any{
+		status, created := doJSON(t, http.MethodPost, srv.URL+"/api/v1beta1/tokens", "session", map[string]any{
 			"name":   "read-only",
 			"scopes": []string{ScopeReportsRead},
 		})
 		require.Equal(t, http.StatusCreated, status)
 		token := created["token"].(string)
 
-		status, _ = doJSON(t, http.MethodPost, srv.URL+"/api/pipeline/reports", token, map[string]any{
+		status, _ = doJSON(t, http.MethodPost, srv.URL+"/api/v1beta1/pipeline/reports", token, map[string]any{
 			"Name": "nope", "ID": "def", "PipelineID": "p",
 		})
 		assert.Equal(t, http.StatusForbidden, status)
@@ -189,41 +186,41 @@ func TestAPITokens(t *testing.T) {
 		require.NoError(t, err)
 
 		srv := tokenTestServer(t, publisher)
-		status, _ := doJSON(t, http.MethodGet, srv.URL+"/api/whoami", token, nil)
+		status, _ := doJSON(t, http.MethodGet, srv.URL+"/api/v1beta1/whoami", token, nil)
 		assert.Equal(t, http.StatusUnauthorized, status)
 	})
 
 	t.Run("an unknown token is rejected", func(t *testing.T) {
 		srv := tokenTestServer(t, publisher)
 
-		status, _ := doJSON(t, http.MethodGet, srv.URL+"/api/whoami", APITokenPrefix+"nonexistent", nil)
+		status, _ := doJSON(t, http.MethodGet, srv.URL+"/api/v1beta1/whoami", APITokenPrefix+"nonexistent", nil)
 		assert.Equal(t, http.StatusUnauthorized, status)
 	})
 
 	t.Run("one identity cannot revoke another's token", func(t *testing.T) {
 		owner := tokenTestServer(t, publisher)
 
-		status, created := doJSON(t, http.MethodPost, owner.URL+"/api/tokens", "session", map[string]any{"name": "mine"})
+		status, created := doJSON(t, http.MethodPost, owner.URL+"/api/v1beta1/tokens", "session", map[string]any{"name": "mine"})
 		require.Equal(t, http.StatusCreated, status)
 		id := created["id"].(string)
 
 		other := tokenTestServer(t, Principal{Subject: "somebody-else", Permission: PermissionPublisher})
-		status, _ = doJSON(t, http.MethodDelete, other.URL+"/api/tokens/"+id, "session", nil)
+		status, _ = doJSON(t, http.MethodDelete, other.URL+"/api/v1beta1/tokens/"+id, "session", nil)
 		assert.Equal(t, http.StatusNotFound, status)
 
 		// An administrator may.
 		admin := tokenTestServer(t, Principal{Subject: "an-admin", Permission: PermissionAdmin})
-		status, _ = doJSON(t, http.MethodDelete, admin.URL+"/api/tokens/"+id, "session", nil)
+		status, _ = doJSON(t, http.MethodDelete, admin.URL+"/api/v1beta1/tokens/"+id, "session", nil)
 		assert.Equal(t, http.StatusOK, status)
 	})
 
 	t.Run("listing is scoped to the caller unless they are an administrator", func(t *testing.T) {
 		srv := tokenTestServer(t, Principal{Subject: "user-lister", Permission: PermissionPublisher})
 
-		status, _ := doJSON(t, http.MethodPost, srv.URL+"/api/tokens", "session", map[string]any{"name": "mine"})
+		status, _ := doJSON(t, http.MethodPost, srv.URL+"/api/v1beta1/tokens", "session", map[string]any{"name": "mine"})
 		require.Equal(t, http.StatusCreated, status)
 
-		req, err := http.NewRequest(http.MethodGet, srv.URL+"/api/tokens", nil)
+		req, err := http.NewRequest(http.MethodGet, srv.URL+"/api/v1beta1/tokens", nil)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", "Bearer session")
 		resp, err := http.DefaultClient.Do(req)
@@ -239,14 +236,14 @@ func TestAPITokens(t *testing.T) {
 		}
 
 		// Asking for everybody's is refused to a non administrator.
-		status, _ = doJSON(t, http.MethodGet, srv.URL+"/api/tokens?all=true", "session", nil)
+		status, _ = doJSON(t, http.MethodGet, srv.URL+"/api/v1beta1/tokens?all=true", "session", nil)
 		assert.Equal(t, http.StatusForbidden, status)
 	})
 
 	t.Run("unauthenticated requests are refused", func(t *testing.T) {
 		srv := tokenTestServer(t, publisher)
 
-		status, _ := doJSON(t, http.MethodGet, srv.URL+"/api/tokens", "", nil)
+		status, _ := doJSON(t, http.MethodGet, srv.URL+"/api/v1beta1/tokens", "", nil)
 		assert.Equal(t, http.StatusUnauthorized, status)
 	})
 }
@@ -260,18 +257,18 @@ func TestReportAttribution(t *testing.T) {
 	dbURL, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
 
-	require.NoError(t, database.Connect(database.Options{URI: dbURL}))
-	require.NoError(t, database.RunMigrationUp())
+	require.NoError(t, database.Connect(ctx, database.Options{URI: dbURL}))
+	require.NoError(t, database.RunMigrationUp(ctx))
 
 	publisher := Principal{Subject: "user-publisher", Permission: PermissionPublisher}
 	srv := tokenTestServer(t, publisher)
 
-	status, created := doJSON(t, http.MethodPost, srv.URL+"/api/tokens", "session", map[string]any{"name": "ci"})
+	status, created := doJSON(t, http.MethodPost, srv.URL+"/api/v1beta1/tokens", "session", map[string]any{"name": "ci"})
 	require.Equal(t, http.StatusCreated, status)
 	token := created["token"].(string)
 	tokenID := created["id"].(string)
 
-	status, published := doJSON(t, http.MethodPost, srv.URL+"/api/pipeline/reports", token, map[string]any{
+	status, published := doJSON(t, http.MethodPost, srv.URL+"/api/v1beta1/pipeline/reports", token, map[string]any{
 		"Name": "ci: attributed", "ID": "attributed", "PipelineID": "p",
 	})
 	require.Equal(t, http.StatusCreated, status)
@@ -300,8 +297,8 @@ func TestReportAttributionWithoutAuth(t *testing.T) {
 	dbURL, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
 
-	require.NoError(t, database.Connect(database.Options{URI: dbURL}))
-	require.NoError(t, database.RunMigrationUp())
+	require.NoError(t, database.Connect(ctx, database.Options{URI: dbURL}))
+	require.NoError(t, database.RunMigrationUp(ctx))
 
 	// An instance running without authentication has nobody to attribute to, and
 	// must keep publishing regardless.
