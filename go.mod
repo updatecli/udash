@@ -20,7 +20,7 @@ require (
 	github.com/swaggo/gin-swagger v1.6.1
 	github.com/swaggo/swag v1.16.6
 	github.com/testcontainers/testcontainers-go v0.44.0
-	github.com/testcontainers/testcontainers-go/modules/postgres v0.44.0
+	github.com/testcontainers/testcontainers-go/modules/postgres v0.45.0
 	github.com/updatecli/updatecli v0.123.0
 	github.com/zitadel/oidc/v3 v3.51.17
 	github.com/zitadel/zitadel-go/v3 v3.30.0
